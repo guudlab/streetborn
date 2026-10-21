@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
@@ -12,6 +13,7 @@ import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Crest, Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T } from '../../ui/kit.tsx';
+import { toast } from '../../ui/overlay.tsx';
 
 const hero = require('../../../assets/hero-alt.webp');
 
@@ -21,14 +23,25 @@ export default function Hub() {
   const empty = g.energy === 0;
   const showOffers = g.scouted && !g.signed;
 
-  const play = () => {
-    if (!useGame.getState().startMatch()) return openEnergySheet();
+  const [starting, setStarting] = useState(false);
+  const play = async () => {
+    if (starting) return;
+    setStarting(true);
+    const r = await useGame.getState().startMatch();
+    setStarting(false);
+    if (r === 'no_energy') return openEnergySheet();
+    if (r === 'error') return toast('Maç başlatılamadı, bağlantını kontrol et');
     router.push('/mac');
   };
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: TAB_BAR_SPACE + insets.bottom }}>
       <Hud />
+      {g.offlineReason && (
+        <T w={500} size={12} color={colors.g200} style={{ textAlign: 'center', marginTop: 6 }}>
+          {g.offlineReason} · ilerleme kaydedilmiyor
+        </T>
+      )}
 
       <View style={{ flex: 1, minHeight: 260 }}>
         {/* Lime floor glow under the player */}
@@ -56,14 +69,14 @@ export default function Hub() {
           ))}
         </View>
 
-        <View style={{ position: 'absolute', right: 20, top: 26, gap: 6, alignItems: 'flex-end' }}>
+        {g.form.length > 0 && <View style={{ position: 'absolute', right: 20, top: 26, gap: 6, alignItems: 'flex-end' }}>
           <Caps>Form</Caps>
           {g.form.map((r, i) => (
             <View key={i} style={{ minWidth: 40, height: 26, paddingHorizontal: 8, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: r >= 7 ? colors.l900 : colors.s2 }}>
               <T w={600} size={13} color={r >= 7 ? colors.l500 : colors.g100}>{tr(r, 1)}</T>
             </View>
           ))}
-        </View>
+        </View>}
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>
@@ -90,7 +103,7 @@ export default function Hub() {
             <Crest text="KAR" bg={colors.awayCrest} fg={colors.awayCrestText} />
           </View>
           <Cta off={empty} onPress={play} accessibilityLabel={empty ? 'Enerji bekleniyor' : 'Maça çık, 1 enerji'}>
-            <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>{empty ? 'Enerji bekleniyor' : 'Maça çık'}</T>
+            <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>{empty ? 'Enerji bekleniyor' : starting ? 'Maç hazırlanıyor…' : 'Maça çık'}</T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
               <Icon name="bolt" size={16} color={empty ? colors.g200 : colors.ink} />
               <T w={600} size={14} color={empty ? colors.g200 : colors.ink}>1</T>

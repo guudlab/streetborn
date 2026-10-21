@@ -1,5 +1,6 @@
-// Spends energy and issues a match ticket (seed + chances). The client plays the
-// match with this seed; match-finish validates the result against the ticket.
+// Spends energy and issues a match ticket (seed + setup). The client plays the
+// match with this setup; match-finish replays the recorded inputs to score it.
+import { ENGINE_VERSION, planMatch, type MatchSetup } from '../../../packages/engine/src/index.ts';
 import { spendEnergy } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
 import { admin, loadEconomyConfig, randomSeed, requirePlayer } from '../_shared/supabase.ts';
@@ -13,7 +14,7 @@ Deno.serve(handle(async (req) => {
     await Promise.all([
       admin.from('wallets').select('energy, energy_updated_at, version').eq('player_id', playerId).single(),
       admin.from('players').select('level').eq('id', playerId).single(),
-      admin.from('player_stats').select('shooting').eq('player_id', playerId).single(),
+      admin.from('player_stats').select('shooting, passing').eq('player_id', playerId).single(),
     ]);
   if (walletError || playerError || statsError) throw walletError ?? playerError ?? statsError;
 
@@ -26,8 +27,15 @@ Deno.serve(handle(async (req) => {
   if (!spent) throw new HttpError(409, 'no_energy');
 
   // Placeholder opponent strength until the league table drives it.
-  const opponentGoalkeeping = Math.min(95, 35 + player.level * 2);
-  const seed = randomSeed();
+  const setup: MatchSetup = {
+    seed: randomSeed(),
+    chances: config.matchChances,
+    shooting: stats.shooting,
+    passing: stats.passing,
+    opponentGoalkeeping: Math.min(95, 35 + player.level * 2),
+    opponentAttack: Math.min(95, 30 + player.level * 2),
+  };
+  planMatch(setup); // throws on a bad setup before energy is spent
   const expiresAt = now + config.ticketTtlSeconds * 1000;
 
   const { data: matchId, error } = await admin.rpc('begin_match', {
@@ -35,19 +43,18 @@ Deno.serve(handle(async (req) => {
     p_expected_version: wallet.version,
     p_energy: spent.energy,
     p_energy_updated_at: new Date(spent.updatedAt).toISOString(),
-    p_seed: seed,
-    p_chances: config.matchChances,
-    p_opponent_goalkeeping: opponentGoalkeeping,
+    p_engine_version: ENGINE_VERSION,
+    p_seed: setup.seed,
+    p_chances: setup.chances,
+    p_shooting: setup.shooting,
+    p_passing: setup.passing,
+    p_opponent_goalkeeping: setup.opponentGoalkeeping,
+    p_opponent_attack: setup.opponentAttack,
     p_expires_at: new Date(expiresAt).toISOString(),
   });
   // Another request changed the wallet first; the client simply retries.
   if (error?.code === '40001') throw new HttpError(409, 'retry');
   if (error) throw error;
 
-  return json({
-    matchId,
-    setup: { seed, chances: config.matchChances, shooting: stats.shooting, opponentGoalkeeping },
-    expiresAt,
-    energy: spent,
-  });
+  return json({ matchId, setup, expiresAt, energy: spent });
 }));

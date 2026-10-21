@@ -8,11 +8,17 @@ export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
   coinPerGoal: number;
-  /** Extra coin for a rating >= ratingBonusFrom (rating is x10, so 75 = 7.5). */
+  coinPerAssist: number;
+  /** Extra coin when the player's team wins. */
+  winBonusCoin: number;
+  /** Extra coin for a rating >= ratingBonusFrom (rating is x10, so 70 = 7.0). */
   ratingBonusCoin: number;
   ratingBonusFrom: number;
   matchXpBase: number;
   xpPerGoal: number;
+  xpPerAssist: number;
+  /** XP per full rating point above 6.0. */
+  xpPerRatingPoint: number;
   /** Coin a player can earn from matches per day; the rest is cut. */
   dailyMatchCoinCap: number;
 
@@ -35,17 +41,22 @@ export interface EconomyConfig {
 export const DEFAULT_CONFIG: EconomyConfig = {
   matchCoinBase: 20,
   coinPerGoal: 15,
+  coinPerAssist: 10,
+  winBonusCoin: 15,
   ratingBonusCoin: 20,
-  ratingBonusFrom: 75,
-  matchXpBase: 30,
+  ratingBonusFrom: 70,
+  // XP follows GDD v2 (40 + 10/goal + 6/assist + 8 per rating point over 6.0).
+  matchXpBase: 40,
   xpPerGoal: 10,
+  xpPerAssist: 6,
+  xpPerRatingPoint: 8,
   dailyMatchCoinCap: 600,
 
   energyMax: 5,
   energyRegenSeconds: 20 * 60,
   matchEnergyCost: 1,
 
-  matchChances: 6,
+  matchChances: 3,
   ticketTtlSeconds: 20 * 60,
   minMsPerChance: 4_000,
   minMsBetweenMatches: 60_000,
