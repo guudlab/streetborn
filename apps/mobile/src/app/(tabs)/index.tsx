@@ -15,7 +15,7 @@ import { Crest, Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T } from '../../ui/kit.tsx';
 import { toast } from '../../ui/overlay.tsx';
 
-const hero = require('../../../assets/hero-alt.webp');
+const hero = require('../../../assets/meshy/hero-street.png');
 
 export default function Hub() {
   const insets = useSafeAreaInsets();
@@ -54,7 +54,7 @@ export default function Hub() {
           </Defs>
           <Ellipse cx={130} cy={23} rx={130} ry={23} fill="url(#glow)" />
         </Svg>
-        <Image source={hero} contentFit="contain" style={{ flex: 1 }} accessibilityLabel={`${g.name}, mahalle forması ile (dokusuz model)`} />
+        <Image source={hero} contentFit="contain" style={{ flex: 1 }} accessibilityLabel={`${g.name}, mahalle forması ile`} />
 
         <View style={{ position: 'absolute', left: 20, top: 26, gap: 10 }}>
           <View>
