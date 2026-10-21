@@ -1,0 +1,19 @@
+{
+  "name": "streetborn",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "start": "npm run start --workspace apps/mobile",
+    "web": "npm run web --workspace apps/mobile"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
