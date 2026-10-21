@@ -36,9 +36,6 @@
       "expo-splash-screen",
       "expo-asset"
     ],
-    "scheme": "streetborn",
-    "experiments": {
-      "baseUrl": "/streetborn"
-    }
+    "scheme": "streetborn"
   }
 }
