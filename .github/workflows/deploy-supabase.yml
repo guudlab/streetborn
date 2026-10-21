@@ -35,10 +35,10 @@ jobs:
         with:
           version: latest
       - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+        run: supabase/scripts/ci-run.sh "Link project" supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
       - name: Apply migrations
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: supabase/scripts/ci-run.sh "Apply migrations" supabase db push --password "$SUPABASE_DB_PASSWORD"
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
       - name: Deploy functions
-        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID" --use-api
+        run: supabase/scripts/ci-run.sh "Deploy functions" supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID" --use-api
