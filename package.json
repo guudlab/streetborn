@@ -8,7 +8,8 @@
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
-    "start": "npm run start --workspace apps/mobile"
+    "start": "npm run start --workspace apps/mobile",
+    "web": "npm run web --workspace apps/mobile"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

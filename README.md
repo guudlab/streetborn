@@ -17,13 +17,14 @@ Mimari kararlar: [Teknik Mimari (MVP)](https://claude.ai/artifact/3TPHWXRnoauCcc
 
 Temel kural: **istemci bakiyeyi asla değiştirmez.** Coin, elmas, XP ve enerji yalnızca sunucuda, `grant_currency()` üzerinden ve deftere yazılarak değişir.
 
-## Telefonda denemek
+## Denemek
 
 1. Node 22 kur, sonra kök klasörde `npm install` çalıştır.
-2. Telefonuna **Expo Go** uygulamasını indir.
-3. `npm start` çalıştır ve terminalde çıkan QR kodunu Expo Go ile okut.
+2. **Tarayıcıda:** `npm run web` çalıştır. Oyun bilgisayarın tarayıcısında açılır.
+3. **Android telefonda:** `npm start` çalıştır ve terminaldeki QR kodu Expo Go ile okut.
+4. **iPhone'da:** App Store'daki Expo Go, SDK 58'i henüz desteklemiyor. iPhone'da denemek için Apple Developer hesabıyla `eas go` ya da development build gerekiyor.
 
-Şu anki ekran yalnızca iskelet: maç motorunun telefonda çalıştığını gösteren basit bir şut denemesi. Ödeme, reklam ve Firebase eklendiğinde Expo Go yerine EAS'ta derlenen development build kullanılacak.
+Şu anki ekran yalnızca iskelet: maç motorunun cihazda çalıştığını gösteren basit bir şut denemesi.
 
 ## Komutlar
 
