@@ -173,6 +173,10 @@ alter table public.iap_events   enable row level security;
 alter table public.ad_events    enable row level security;
 
 revoke insert, update, delete, truncate on all tables in schema public from anon, authenticated;
+-- Explicit grants, so the schema does not depend on the project's auto-expose setting.
+grant select on public.players, public.player_stats, public.wallets, public.ledger,
+  public.inventory, public.matches, public.items, public.config to authenticated;
+grant all on all tables in schema public to service_role;
 
 create policy "own player"    on public.players      for select to authenticated using (id = auth.uid());
 create policy "own stats"     on public.player_stats for select to authenticated using (player_id = auth.uid());
