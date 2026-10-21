@@ -33,8 +33,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
       {Platform.OS === 'web' && (
         <Head>
-          <link rel="manifest" href="/streetborn/manifest.json" />
-          <link rel="apple-touch-icon" href="/streetborn/pwa-icon-192.png" />
+          <link rel="manifest" href="/manifest.json" />
+          <link rel="apple-touch-icon" href="/pwa-icon-192.png" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-title" content="StreetBorn" />
         </Head>
