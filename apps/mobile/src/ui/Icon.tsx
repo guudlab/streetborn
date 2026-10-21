@@ -1,3 +1,4 @@
+import { View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { colors } from '../theme.ts';
@@ -36,13 +37,19 @@ function paths(name: IconName, c: string) {
 }
 
 export function Icon({ name, size = 24, color = colors.g100, label }: { name: IconName; size?: number; color?: string; label?: string }) {
+  // Accessibility props live on the wrapper: react-native-svg passes them to the
+  // DOM on web, where a boolean `accessible` is an invalid attribute.
   return (
-    <Svg
-      width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}
-      strokeLinecap="round" strokeLinejoin="round"
-      accessibilityLabel={label} accessible={!!label} pointerEvents="none"
+    <View
+      style={{ width: size, height: size }} pointerEvents="none"
+      accessible={!!label} accessibilityLabel={label} accessibilityRole={label ? 'image' : undefined}
     >
-      {paths(name, color)}
-    </Svg>
+      <Svg
+        width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        {paths(name, color)}
+      </Svg>
+    </View>
   );
 }
