@@ -50,7 +50,7 @@ export default function Dukkan() {
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <View><Caps>Dükkân</Caps><H1 style={{ marginTop: 4 }}>Enerji ve paketler</H1></View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingLeft: 8, paddingRight: 12, borderRadius: 18, backgroundColor: colors.s2 }}>
-          <Image source={require('../../assets/meshy/gem.png')} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /><T w={600} size={15}>{gems}</T>
+          <Image source={require('../../../assets/meshy/gem.png')} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /><T w={600} size={15}>{gems}</T>
         </View>
       </View>
 
@@ -88,7 +88,7 @@ export default function Dukkan() {
               key={g} accessibilityRole="button" accessibilityLabel={`${g} elmas, ${p} TL`} onPress={() => buy(`${g} elmas`, `${p} TL`)}
               style={{ flex: 1, borderRadius: 16, backgroundColor: colors.s2, paddingVertical: 14, alignItems: 'center', gap: 6 }}
             >
-              <Image source={require('../../assets/meshy/gem.png')} style={{ width: 36, height: 36 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+              <Image source={require('../../../assets/meshy/gem.png')} style={{ width: 36, height: 36 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
               <T w={600} size={17}>{g}</T>
               <T size={13} color={colors.g200}>{p} TL</T>
             </Pressable>

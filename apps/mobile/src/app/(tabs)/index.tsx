@@ -1,3 +1,4 @@
+import { Model3D } from '../../ui/Model3D.tsx';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -54,7 +55,7 @@ export default function Hub() {
           </Defs>
           <Ellipse cx={130} cy={23} rx={130} ry={23} fill="url(#glow)" />
         </Svg>
-        <Image source={hero} contentFit="contain" style={{ flex: 1 }} accessibilityLabel={`${g.name}, mahalle forması ile`} />
+        <Model3D model={require('../../../assets/models/karakter-street-yuruyus.glb')} fallback={hero} loop style={{ flex: 1 }} label={`${g.name}, mahalle forması ile`} />
 
         <View style={{ position: 'absolute', left: 20, top: 26, gap: 10 }}>
           <View>
