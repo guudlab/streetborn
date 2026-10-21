@@ -24,7 +24,8 @@ export default function Gelisim() {
   const [last, setLast] = useState<TrainResult | null>(null);
   const bar = useRef<TimingBarHandle>(null);
   const d = DRILLS[sel];
-  const can = g.trainFree > 0 || g.energy > 0;
+  // Paid training (1 energy) needs a server function; online only the free sessions work for now.
+  const can = g.trainFree > 0 || (g.mode === 'local' && g.energy > 0);
 
   const pick = (k: StatKey) => { if (running) return; setSel(k); setLast(null); };
   const tapBar = () => {
@@ -78,7 +79,7 @@ export default function Gelisim() {
             </View>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name="bolt" size={16} color={colors.g200} /><T w={600} size={13} color={colors.g200}>1 enerji · {g.energy} var</T>
+              <Icon name="bolt" size={16} color={colors.g200} /><T w={600} size={13} color={colors.g200}>{g.mode === 'online' ? 'Ücretsiz haklar bitti' : `1 enerji · ${g.energy} var`}</T>
             </View>
           )}
         </View>
@@ -94,7 +95,7 @@ export default function Gelisim() {
               <T size={14} color={colors.g200}>Çubuk yeşil bölgedeyken dokun. Üç "Mükemmel" = {d.stat} +1.</T>
             )}
             <Cta disabled={!can} onPress={() => { setLast(null); setRunning(true); }}>
-              {can ? (last ? 'Tekrar' : 'Başla') : 'Enerji yok'}
+              {can ? (last ? 'Tekrar' : 'Başla') : g.mode === 'online' ? 'Yarın tekrar' : 'Enerji yok'}
             </Cta>
           </>
         )}

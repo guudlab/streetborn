@@ -10,8 +10,12 @@ import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachFace, Cta, Ghost, H1, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
 
-const RES = { G: 'Galibiyet', B: 'Beraberlik', M: 'Mağlubiyet' } as const;
-const BADGE = { G: [colors.l900, colors.l500], B: [colors.s3, colors.g100], M: ['#3A1D19', '#FFB1A5'] } as const;
+const RES = { W: 'Galibiyet', D: 'Beraberlik', L: 'Mağlubiyet' } as const;
+const BADGE = { W: [colors.l900, colors.l500], D: [colors.s3, colors.g100], L: ['#3A1D19', '#FFB1A5'] } as const;
+const LINE = {
+  goal: ['Gol', '+1,0', 'plus'], saved: ['Kaçan fırsat', '−0,5', 'minus'], wide: ['Kaçan fırsat', '−0,5', 'minus'],
+  over: ['Kaçan fırsat', '−0,5', 'minus'], assist: ['Asist', '+0,7', 'plus'], lost: ['Top kaybı', '−0,3', 'minus'],
+} as const;
 
 export default function MacSonu() {
   const insets = useSafeAreaInsets();
@@ -31,15 +35,14 @@ export default function MacSonu() {
     return () => { live = false; };
   }, [r]);
 
-  const rating = useCountUp(6, r?.rating ?? 6, 800, step >= 1);
+  // Ratings are stored ×10 (75 = 7,5).
+  const rating = useCountUp(6, (r?.rating ?? 60) / 10, 800, step >= 1);
   const coins = useCountUp(0, r?.coins ?? 0, 700, step >= 2);
   if (!r) return <Redirect href="/" />;
 
-  const lines = r.log.map(l => l.kind === 'pas'
-    ? (l.ok ? ['Asist', '+0,7', 'plus'] : ['Top kaybı', '−0,3', 'minus'])
-    : (l.ok ? ['Gol', '+1,0', 'plus'] : ['Kaçan fırsat', '−0,5', 'minus']));
-  const teamDelta = r.result === 'G' ? ['+0,3', 'plus'] : r.result === 'M' ? ['−0,3', 'minus'] : ['0', ''];
-  const quote = r.rating >= 7 ? 'Bugün sahada adamdın.' : r.rating >= 6 ? 'Fena değil, daha iyisi var.' : 'Kötü gün. Yarın antrenmana.';
+  const lines = r.log.map(l => LINE[l.outcome]);
+  const teamDelta = r.result === 'W' ? ['+0,3', 'plus'] : r.result === 'L' ? ['−0,3', 'minus'] : ['0', ''];
+  const quote = r.rating >= 70 ? 'Bugün sahada adamdın.' : r.rating >= 60 ? 'Fena değil, daha iyisi var.' : 'Kötü gün. Yarın antrenmana.';
   const p0 = levelProgress(r.before.level, r.before.xp);
   const p1 = levelProgress(r.after.level, r.after.xp);
   // With a level-up the bar fills to 100%, then restarts from 0 at the new level.
@@ -71,7 +74,7 @@ export default function MacSonu() {
         </Ring>
         <View style={{ gap: 6, flex: 1 }} accessibilityLabel="Not dökümü">
           <Row v="6,0" c={colors.g100} label="Başlangıç" muted />
-          {lines.length ? lines.map(([label, v, k], i) => <Row key={i} v={v!} c={color(k!)} label={`${r.log[i]!.min}' ${label}`} />)
+          {lines.length ? lines.map(([label, v, k], i) => <Row key={i} v={v!} c={color(k!)} label={`${r.log[i]!.minute}' ${label}`} />)
             : <T size={14} color={colors.g200}>Pozisyon oynanmadı</T>}
           <Row v={teamDelta[0]!} c={color(teamDelta[1]!)} label="Takım sonucu" />
         </View>
@@ -110,6 +113,10 @@ export default function MacSonu() {
           <T w={600} size={17} color={r.trustDelta >= 0 ? colors.l500 : colors.bad}>{r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}</T>
         </Gain>
       </View>
+
+      {r.flagged && (
+        <T size={13} color={colors.g200}>Bu maç incelemeye alındı; yalnızca katılım ödülü verildi.</T>
+      )}
 
       <View style={{ gap: 10, marginTop: 'auto' }}>
         {r.scout && (

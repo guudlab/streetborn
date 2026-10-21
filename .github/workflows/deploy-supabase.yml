@@ -65,3 +65,12 @@ jobs:
         run: supabase/scripts/vendor-packages.sh
       - name: Deploy functions
         run: supabase/scripts/ci-run.sh "Deploy functions" supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID" --use-api
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Play one match against the live project
+        env:
+          SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+          # Publishable key: public by design, it also ships inside the app.
+          SUPABASE_KEY: sb_publishable_r3PG8v8LtrA1X0tqD2g-Kw_FvMvJmKg
+        run: node --experimental-strip-types supabase/tests/e2e-match.ts

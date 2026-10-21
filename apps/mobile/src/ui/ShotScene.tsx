@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'reac
 import { PanResponder, Pressable, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Polygon, Polyline, Rect, Stop } from 'react-native-svg';
 
-import { clamp, type ShotResult } from '../game/rules.ts';
+import { clamp } from '../game/rules.ts';
 import { colors } from '../theme.ts';
 import { Icon } from './Icon.tsx';
 import { T } from './kit.tsx';
@@ -18,10 +18,13 @@ export const goalPoint = (tx: number, ty: number) => ({
 });
 
 export interface Target { tx: number; ty: number }
+
+/** Where the shot ended, in goal units (posts at ±1, crossbar at 1), and where the keeper dived. */
+export interface ShotAnim { out: 'gol' | 'kurtardi' | 'aut' | 'ust'; fx: number; fy: number; kx: number }
 export interface Mate { name: string; open: boolean; x: number; y: number }
 
 export interface ShotSceneHandle {
-  animateShot(res: ShotResult): Promise<void>;
+  animateShot(res: ShotAnim): Promise<void>;
   animatePass(x: number, y: number): Promise<void>;
   setAim(t: Target | null): void;
   reset(): void;
@@ -127,8 +130,7 @@ export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({
       const end = res.out === 'aut' ? goalPoint(Math.sign(res.fx) * 1.25, Math.min(res.fy, 0.9))
         : res.out === 'ust' ? goalPoint(clamp(res.fx, -1, 1), 1.25)
           : res.out === 'kurtardi' ? goalPoint(res.kx * 0.9, Math.min(res.fy, 0.7))
-            : res.out === 'direk' ? goalPoint(Math.sign(res.fx), res.fy)
-              : goalPoint(res.fx, res.fy);
+            : goalPoint(res.fx, res.fy);
       const ctrl = { x: (GOAL.ballX + end.x) / 2 + res.fx * 30, y: Math.min(GOAL.ballY, end.y) - 80 };
       const kTarget = clamp(res.kx, -1, 1) * 95;
       const kRot = res.kx === 0 ? 0 : Math.sign(res.kx) * 70;

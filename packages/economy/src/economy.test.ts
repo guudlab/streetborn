@@ -3,10 +3,12 @@ import {
   computeRating,
   currentEnergy,
   DEFAULT_CONFIG as config,
+  levelForXp,
   matchReward,
   spendEnergy,
-  validateMatchReport,
-  type MatchReport,
+  validateMatch,
+  xpNeed,
+  type MatchStats,
   type MatchTicket,
 } from './index.ts';
 
@@ -15,64 +17,66 @@ const ticket: MatchTicket = {
   matchId: 'm1',
   playerId: 'p1',
   seed: 1,
-  chances: 6,
+  chances: 3,
   issuedAt: NOW - 120_000,
   expiresAt: NOW + 600_000,
   status: 'open',
 };
-const report = (over: Partial<MatchReport> = {}): MatchReport => {
-  const base = { matchId: 'm1', shots: 5, shotsOnTarget: 3, goals: 2, durationMs: 90_000, inputHash: 'h' };
-  const merged = { ...base, ...over };
-  return { rating: computeRating({ chances: 6, ...merged }), ...merged };
-};
+const stats = (over: Partial<MatchStats> = {}): MatchStats => ({
+  shots: 2, goals: 1, assists: 1, rating: 75, result: 'W', durationMs: 90_000, ...over,
+});
 const ctx = { playerId: 'p1', now: NOW, lastFinishedAt: null };
 
-describe('validateMatchReport', () => {
+describe('validateMatch', () => {
   it('accepts a normal match', () => {
-    expect(validateMatchReport(ticket, report(), ctx, config)).toEqual({ rejected: [], flagged: [] });
+    expect(validateMatch(ticket, stats(), ctx, config)).toEqual({ rejected: [], flagged: [] });
   });
 
   it('rejects another player, a closed or expired ticket', () => {
-    expect(validateMatchReport(ticket, report(), { ...ctx, playerId: 'p2' }, config).rejected).toContain('ticket_wrong_player');
-    expect(validateMatchReport({ ...ticket, status: 'finished' }, report(), ctx, config).rejected).toContain('ticket_not_open');
-    expect(validateMatchReport(ticket, report(), { ...ctx, now: ticket.expiresAt + 1 }, config).rejected).toContain('ticket_expired');
-  });
-
-  it('rejects impossible stats', () => {
-    for (const bad of [{ goals: 4, shotsOnTarget: 3 }, { shots: 7, shotsOnTarget: 3 }, { goals: -1 }, { shots: 2.5 }]) {
-      expect(validateMatchReport(ticket, report(bad), ctx, config).rejected).toContain('stats_impossible');
-    }
+    expect(validateMatch(ticket, stats(), { ...ctx, playerId: 'p2' }, config).rejected).toContain('ticket_wrong_player');
+    expect(validateMatch({ ...ticket, status: 'finished' }, stats(), ctx, config).rejected).toContain('ticket_not_open');
+    expect(validateMatch(ticket, stats(), { ...ctx, now: ticket.expiresAt + 1 }, config).rejected).toContain('ticket_expired');
   });
 
   it('flags suspicious but possible matches', () => {
-    expect(validateMatchReport(ticket, report({ durationMs: 5_000 }), ctx, config).flagged).toContain('too_short');
-    expect(validateMatchReport(ticket, { ...report(), rating: 100 }, ctx, config).flagged).toContain('rating_mismatch');
-    expect(validateMatchReport(ticket, report({ shots: 6, shotsOnTarget: 6, goals: 6 }), ctx, config).flagged).toContain('conversion_too_high');
-    expect(validateMatchReport(ticket, report(), { ...ctx, lastFinishedAt: NOW - 10_000 }, config).flagged).toContain('too_soon_after_last_match');
+    expect(validateMatch(ticket, stats({ durationMs: 5_000 }), ctx, config).flagged).toContain('too_short');
+    expect(validateMatch({ ...ticket, chances: 6 }, stats({ shots: 6, goals: 6 }), ctx, config).flagged).toContain('conversion_too_high');
+    expect(validateMatch(ticket, stats(), { ...ctx, lastFinishedAt: NOW - 10_000 }, config).flagged).toContain('too_soon_after_last_match');
   });
 });
 
 describe('matchReward', () => {
-  it('pays goals and rating bonus for a clean match', () => {
-    const r = matchReward({ goals: 2, rating: 80 }, false, 0, config);
-    expect(r).toEqual({ coin: 20 + 30 + 20, xp: 30 + 20, capped: false });
+  it('pays goals, assists, the win and the rating bonus for a clean match', () => {
+    const r = matchReward({ goals: 1, assists: 1, rating: 75, result: 'W' }, false, 0, config);
+    expect(r).toEqual({ coin: 20 + 15 + 10 + 15 + 20, xp: 40 + 10 + 6 + 12, capped: false });
   });
 
   it('pays only participation when flagged', () => {
-    expect(matchReward({ goals: 5, rating: 100 }, true, 0, config)).toEqual({ coin: 20, xp: 30, capped: false });
+    expect(matchReward({ goals: 3, assists: 0, rating: 100, result: 'W' }, true, 0, config)).toEqual({ coin: 20, xp: 40, capped: false });
   });
 
   it('respects the daily cap', () => {
-    expect(matchReward({ goals: 2, rating: 80 }, false, config.dailyMatchCoinCap - 10, config)).toEqual({ coin: 10, xp: 50, capped: true });
-    expect(matchReward({ goals: 2, rating: 80 }, false, config.dailyMatchCoinCap, config).coin).toBe(0);
+    const r = { goals: 1, assists: 0, rating: 60, result: 'D' } as const;
+    expect(matchReward(r, false, config.dailyMatchCoinCap - 10, config)).toEqual({ coin: 10, xp: 50, capped: true });
+    expect(matchReward(r, false, config.dailyMatchCoinCap, config).coin).toBe(0);
   });
 });
 
 describe('computeRating', () => {
-  it('stays within 3.0..10.0', () => {
-    expect(computeRating({ chances: 6, shots: 6, shotsOnTarget: 6, goals: 6 })).toBe(100);
-    expect(computeRating({ chances: 6, shots: 0, shotsOnTarget: 0, goals: 0 })).toBe(48);
-    expect(computeRating({ chances: 30, shots: 30, shotsOnTarget: 0, goals: 0 })).toBe(30);
+  it('follows GDD v2 and stays within 1.0..10.0', () => {
+    expect(computeRating({ goals: 1, assists: 1, missed: 1, lost: 0, result: 'W' })).toBe(75);
+    expect(computeRating({ goals: 0, assists: 0, missed: 0, lost: 0, result: 'D' })).toBe(60);
+    expect(computeRating({ goals: 9, assists: 0, missed: 0, lost: 0, result: 'W' })).toBe(100);
+    expect(computeRating({ goals: 0, assists: 0, missed: 12, lost: 0, result: 'L' })).toBe(10);
+  });
+});
+
+describe('levels', () => {
+  it('uses 100 · n^1.5', () => {
+    expect(xpNeed(8)).toBe(2263);
+    expect(levelForXp(0)).toBe(1);
+    expect(levelForXp(2262)).toBe(7);
+    expect(levelForXp(2263)).toBe(8);
   });
 });
 

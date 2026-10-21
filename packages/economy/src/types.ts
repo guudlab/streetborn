@@ -19,14 +19,13 @@ export interface MatchTicket {
   status: MatchStatus;
 }
 
-/** What the client sends to match-finish. Rating is x10 (7.5 → 75). */
-export interface MatchReport {
-  matchId: string;
+/** The server's replay of a finished match: what validation and rewards look at. */
+export interface MatchStats {
   shots: number;
-  shotsOnTarget: number;
   goals: number;
+  assists: number;
+  /** x10 */
   rating: number;
+  result: 'W' | 'D' | 'L';
   durationMs: number;
-  /** Hash of the recorded inputs, kept so a later replay can be matched to this report. */
-  inputHash: string;
 }

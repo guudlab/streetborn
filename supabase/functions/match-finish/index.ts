@@ -1,9 +1,16 @@
-// Validates a finished match against its ticket and pays the reward. The client
-// never says how much to pay; the reward is computed here from the stats.
+// Scores a finished match by replaying the recorded inputs against the ticket,
+// then pays the reward. The client never reports stats or amounts.
 import {
+  EngineInputError,
+  simulateMatch,
+  type ChanceInput,
+  type MatchSetup,
+} from '../../../packages/engine/src/index.ts';
+import {
+  computeRating,
+  levelForXp,
   matchReward,
-  validateMatchReport,
-  type MatchReport,
+  validateMatch,
   type MatchTicket,
 } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
@@ -11,17 +18,35 @@ import { admin, loadEconomyConfig, requirePlayer } from '../_shared/supabase.ts'
 
 Deno.serve(handle(async (req) => {
   const playerId = await requirePlayer(req);
-  const report = parseReport(await req.json().catch(() => null));
+  const body = parseBody(await req.json().catch(() => null));
   const config = await loadEconomyConfig();
   const now = Date.now();
 
   const { data: match, error: matchError } = await admin
     .from('matches')
-    .select('id, player_id, seed, chances, issued_at, expires_at, status')
-    .eq('id', report.matchId)
+    .select('id, player_id, engine_version, seed, chances, shooting, passing, opponent_goalkeeping, opponent_attack, issued_at, expires_at, status')
+    .eq('id', body.matchId)
     .maybeSingle();
   if (matchError) throw matchError;
   if (!match) throw new HttpError(404, 'match_not_found');
+  if (match.engine_version !== 2) throw new HttpError(409, 'old_ticket');
+
+  const setup: MatchSetup = {
+    seed: Number(match.seed),
+    chances: match.chances,
+    shooting: match.shooting,
+    passing: match.passing,
+    opponentGoalkeeping: match.opponent_goalkeeping,
+    opponentAttack: match.opponent_attack,
+  };
+  let sim;
+  try {
+    sim = simulateMatch(setup, body.inputs);
+  } catch (e) {
+    if (e instanceof EngineInputError) throw new HttpError(422, 'bad_inputs', e.message);
+    throw e;
+  }
+  const rating = computeRating(sim);
 
   const { data: last, error: lastError } = await admin
     .from('matches')
@@ -36,63 +61,69 @@ Deno.serve(handle(async (req) => {
   const ticket: MatchTicket = {
     matchId: match.id,
     playerId: match.player_id,
-    seed: match.seed,
+    seed: setup.seed,
     chances: match.chances,
     issuedAt: Date.parse(match.issued_at),
     expiresAt: Date.parse(match.expires_at),
     status: match.status,
   };
-  const result = validateMatchReport(ticket, report, {
+  // The client's clock can lie; never believe a longer match than the server saw.
+  const durationMs = Math.min(body.durationMs, now - ticket.issuedAt);
+  const check = validateMatch(ticket, { ...sim, rating, durationMs }, {
     playerId,
     now,
     lastFinishedAt: last?.finished_at ? Date.parse(last.finished_at) : null,
   }, config);
-  if (result.rejected.length > 0) throw new HttpError(422, 'rejected', result.rejected);
+  if (check.rejected.length > 0) throw new HttpError(422, 'rejected', check.rejected);
 
-  const { data: earnedToday, error: earnedError } = await admin.rpc('match_coin_today', { p_player: playerId });
-  if (earnedError) throw earnedError;
+  const [{ data: earnedToday, error: earnedError }, { data: player, error: playerError }] = await Promise.all([
+    admin.rpc('match_coin_today', { p_player: playerId }),
+    admin.from('players').select('xp').eq('id', playerId).single(),
+  ]);
+  if (earnedError || playerError) throw earnedError ?? playerError;
 
-  const flagged = result.flagged.length > 0;
-  const reward = matchReward(report, flagged, Number(earnedToday), config);
+  const flagged = check.flagged.length > 0;
+  const reward = matchReward({ ...sim, rating }, flagged, Number(earnedToday), config);
 
   const { data, error } = await admin.rpc('finish_match', {
-    p_match: report.matchId,
+    p_match: match.id,
     p_player: playerId,
-    p_shots: report.shots,
-    p_shots_on_target: report.shotsOnTarget,
-    p_goals: report.goals,
-    p_rating: report.rating,
-    p_duration_ms: report.durationMs,
-    p_input_hash: report.inputHash,
-    p_flag_reasons: result.flagged,
+    p_shots: sim.shots,
+    p_shots_on_target: sim.shotsOnTarget,
+    p_goals: sim.goals,
+    p_assists: sim.assists,
+    p_team_goals: sim.us,
+    p_opponent_goals: sim.them,
+    p_rating: rating,
+    p_duration_ms: durationMs,
+    p_inputs: body.inputs,
+    p_flag_reasons: check.flagged,
     p_coin: reward.coin,
     p_xp: reward.xp,
-  }).single<{ coin: number; xp: number; already_finished: boolean }>();
+    p_level: levelForXp(Number(player.xp) + reward.xp),
+  }).single<{ coin: number; xp: number; level: number; already_finished: boolean }>();
   if (error) throw error;
 
   return json({
+    result: { ...sim, rating },
     reward: data.already_finished ? null : reward,
     flagged,
-    balance: { coin: data.coin, xp: data.xp },
+    player: { coin: Number(data.coin), xp: Number(data.xp), level: data.level },
   });
 }));
 
-function parseReport(body: unknown): MatchReport {
+function parseBody(body: unknown): { matchId: string; inputs: ChanceInput[]; durationMs: number } {
   const b = body as Record<string, unknown> | null;
-  const isInt = (v: unknown): v is number => Number.isInteger(v);
-  if (
-    !b || typeof b.matchId !== 'string' || typeof b.inputHash !== 'string' ||
-    !isInt(b.shots) || !isInt(b.shotsOnTarget) || !isInt(b.goals) || !isInt(b.rating) || !isInt(b.durationMs)
-  ) {
-    throw new HttpError(400, 'bad_report');
+  if (!b || typeof b.matchId !== 'string' || !Array.isArray(b.inputs) || b.inputs.length > 12 || !Number.isInteger(b.durationMs)) {
+    throw new HttpError(400, 'bad_body');
   }
-  return {
-    matchId: b.matchId,
-    shots: b.shots,
-    shotsOnTarget: b.shotsOnTarget,
-    goals: b.goals,
-    rating: b.rating,
-    durationMs: b.durationMs,
-    inputHash: b.inputHash.slice(0, 128),
-  };
+  // Keep only the known fields; the engine validates the values.
+  const inputs = b.inputs.map((raw): ChanceInput => {
+    const i = raw as Record<string, unknown>;
+    if (typeof i?.pass === 'string') return { chance: i.chance as number, pass: i.pass as 'left' | 'right' };
+    const s = i?.shot as Record<string, unknown> | undefined;
+    if (!s) throw new HttpError(400, 'bad_body');
+    return { chance: i.chance as number, shot: { aim: s.aim as number, lift: s.lift as number, power: s.power as number } };
+  });
+  return { matchId: b.matchId, inputs, durationMs: b.durationMs as number };
 }
