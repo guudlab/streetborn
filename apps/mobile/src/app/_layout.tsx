@@ -1,4 +1,5 @@
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
+import Head from 'expo-router/head';
 import { Stack, type StackNavigationOptions } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -30,6 +31,14 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
+      {Platform.OS === 'web' && (
+        <Head>
+          <link rel="manifest" href="/streetborn/manifest.json" />
+          <link rel="apple-touch-icon" href="/streetborn/pwa-icon-192.png" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-title" content="StreetBorn" />
+        </Head>
+      )}
       <SafeAreaProvider>
         {/* On a desktop browser, keep the phone-sized layout centred. */}
         <View style={{ flex: 1, backgroundColor: colors.ink, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : undefined, alignSelf: 'center', overflow: 'hidden' }}>

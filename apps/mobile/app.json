@@ -19,7 +19,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "STREETBORN",
+      "shortName": "StreetBorn",
+      "lang": "tr",
+      "display": "standalone",
+      "orientation": "portrait",
+      "backgroundColor": "#0D0D0D",
+      "themeColor": "#0D0D0D"
     },
     "backgroundColor": "#0D0D0D",
     "plugins": [
@@ -29,6 +36,9 @@
       "expo-splash-screen",
       "expo-asset"
     ],
-    "scheme": "streetborn"
+    "scheme": "streetborn",
+    "experiments": {
+      "baseUrl": "/streetborn"
+    }
   }
 }
