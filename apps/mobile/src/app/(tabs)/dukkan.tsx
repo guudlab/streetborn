@@ -1,3 +1,4 @@
+import { Model3D } from '../../ui/Model3D.tsx';
 import { Image } from 'expo-image';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,6 +50,7 @@ export default function Dukkan() {
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <View><Caps>Dükkân</Caps><H1 style={{ marginTop: 4 }}>Enerji ve paketler</H1></View>
+        <Model3D model={require('../../../assets/models/canta.glb')} fallback={require('../../../assets/meshy/canta.png')} spin style={{ width: 56, height: 56 }} label="Maç çantası" />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingLeft: 8, paddingRight: 12, borderRadius: 18, backgroundColor: colors.s2 }}>
           <Image source={require('../../../assets/meshy/gem.png')} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /><T w={600} size={15}>{gems}</T>
         </View>

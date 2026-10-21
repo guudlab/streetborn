@@ -1,3 +1,4 @@
+import { Model3D } from '../../ui/Model3D.tsx';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +56,7 @@ export default function Teklifler() {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ ...pad, paddingBottom: TAB_BAR_SPACE + insets.bottom + 90 }}>
         <View><Caps>İzci raporu · Hafta 10</Caps><H1 style={{ marginTop: 4 }}>2 teklif</H1></View>
+        <Model3D model={require('../../../assets/models/diorama-saha.glb')} fallback={require('../../../assets/meshy/diorama-saha.png')} spin style={{ width: 140, height: 120, alignSelf: 'center' }} label="Mahalle sahası" />
         <View accessibilityRole="radiogroup" style={{ gap: 12 }}>
           {OFFERS.map(o => {
             const on = o.id === sel;
