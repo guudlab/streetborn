@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
@@ -53,6 +54,7 @@ export default function MacSonu() {
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
       <View>
+        <Image source={require('../../assets/meshy/cup-gold.png')} style={{ width: 88, height: 88, alignSelf: 'center' }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
         <Caps>Maç sonu · Hafta 10</Caps>
         <H1 style={{ marginTop: 6 }}>Yıldırımspor {r.us} – {r.them} Kartaltepe</H1>
       </View>

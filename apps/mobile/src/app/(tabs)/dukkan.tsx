@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -49,7 +50,7 @@ export default function Dukkan() {
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <View><Caps>Dükkân</Caps><H1 style={{ marginTop: 4 }}>Enerji ve paketler</H1></View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingLeft: 8, paddingRight: 12, borderRadius: 18, backgroundColor: colors.s2 }}>
-          <Icon name="gem" size={20} color={colors.gem} /><T w={600} size={15}>{gems}</T>
+          <Image source={require('../../assets/meshy/gem.png')} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /><T w={600} size={15}>{gems}</T>
         </View>
       </View>
 
@@ -87,7 +88,7 @@ export default function Dukkan() {
               key={g} accessibilityRole="button" accessibilityLabel={`${g} elmas, ${p} TL`} onPress={() => buy(`${g} elmas`, `${p} TL`)}
               style={{ flex: 1, borderRadius: 16, backgroundColor: colors.s2, paddingVertical: 14, alignItems: 'center', gap: 6 }}
             >
-              <Icon name="gem" size={28} color={colors.gem} />
+              <Image source={require('../../assets/meshy/gem.png')} style={{ width: 36, height: 36 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
               <T w={600} size={17}>{g}</T>
               <T size={13} color={colors.g200}>{p} TL</T>
             </Pressable>
