@@ -30,6 +30,29 @@ jobs:
           for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
             if [ -z "${!name}" ]; then echo "::error::Missing repository secret $name"; exit 1; fi
           done
+          # Catch the common mix-ups without printing the secrets themselves.
+          if ! [[ "$SUPABASE_PROJECT_ID" =~ ^[a-z]{20}$ ]]; then
+            echo "::error title=SUPABASE_PROJECT_ID::Not a project Reference ID (expected 20 lowercase letters, got ${#SUPABASE_PROJECT_ID} characters). Copy it from Project Settings → General → Project ID, not the project name or URL."
+            exit 1
+          fi
+          if [[ "$SUPABASE_ACCESS_TOKEN" != sbp_* ]]; then
+            echo "::warning title=SUPABASE_ACCESS_TOKEN::Token does not start with sbp_. Use a personal access token from Account → Access Tokens, not an API key (anon/service_role/publishable/secret)."
+          fi
+      - name: Check token access
+        run: |
+          # Lists the projects this token can see and checks the configured ref is among them.
+          code=$(curl -s -o projects.json -w '%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects)
+          if [ "$code" != "200" ]; then
+            echo "::error title=Token check::Supabase API answered $code for GET /v1/projects: $(head -c 300 projects.json)"
+            exit 1
+          fi
+          count=$(jq length projects.json)
+          if ! jq -e --arg ref "$SUPABASE_PROJECT_ID" 'any(.[]; .id == $ref or .ref == $ref)' projects.json > /dev/null; then
+            echo "::error title=Token check::The token sees $count project(s), but none has the ref in SUPABASE_PROJECT_ID. Either the ref is wrong or the token belongs to another account/organization."
+            exit 1
+          fi
+          echo "::notice title=Token check::Token sees $count project(s), including the configured one."
+          rm projects.json
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
