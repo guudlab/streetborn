@@ -7,7 +7,7 @@ import {
 } from '@streetborn/engine';
 import { create } from 'zustand';
 
-import { ApiError, finishMatch as apiFinish, loadProfile, startMatch as apiStart } from '../net/api.ts';
+import { ApiError, finishMatch as apiFinish, hasSession, loadProfile, startMatch as apiStart } from '../net/api.ts';
 import { offline } from '../net/supabase.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
 
@@ -22,6 +22,8 @@ const config = DEFAULT_CONFIG;
 const REGEN_MS = config.energyRegenSeconds * 1000;
 
 export type Mode = 'loading' | 'online' | 'local';
+/** `none`: show the sign-in screen. `in`: the player pressed Başla (or had a session). */
+export type Auth = 'unknown' | 'none' | 'in';
 
 export interface LogEntry { minute: number; kind: MomentKind; outcome: ChanceOutcome['outcome'] }
 
@@ -51,6 +53,7 @@ export interface TrainResult {
 
 interface GameState {
   mode: Mode;
+  auth: Auth;
   /** Why the app fell back to local mode, for the banner. */
   offlineReason: string | null;
   name: string; club: string; level: number; xp: number; coins: number; gems: number;
@@ -61,6 +64,8 @@ interface GameState {
   post: PostMatch | null;
 
   init(): Promise<void>;
+  /** Signs in anonymously and loads the player; falls back to local play when the server is out of reach. */
+  startAnonymous(): Promise<void>;
   syncEnergy(now?: number): void;
   startMatch(): Promise<'ok' | 'no_energy' | 'error'>;
   play(input: ChanceInput): ChanceOutcome;
@@ -82,10 +87,36 @@ export function liveScore(m: LiveMatch, minute: number) {
   return { us, them: m.plan.opponentGoals.filter(g => g < minute).length };
 }
 
+const CONNECT_TIMEOUT_MS = 8000;
+
+/** Loads the player from Supabase (signing in anonymously if needed), or switches to local mode. */
+async function connect() {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new ApiError('timeout')), CONNECT_TIMEOUT_MS); });
+    const p = await Promise.race([loadProfile(), timeout]);
+    useGame.setState({
+      mode: 'online', offlineReason: null,
+      level: p.level, xp: p.xp, coins: p.coin, gems: p.gem,
+      energy: p.energy, energyUpdatedAt: p.energyUpdatedAt,
+      stats: { sut: p.stats.shooting, pas: p.stats.passing, hiz: p.stats.pace, fizik: p.stats.stamina },
+      form: [],
+    });
+    useGame.getState().syncEnergy();
+  } catch (e) {
+    console.warn('Supabase unavailable, playing locally', e);
+    const slow = e instanceof ApiError && e.code === 'timeout';
+    useGame.setState({ mode: 'local', offlineReason: slow ? 'Sunucu yanıt vermedi' : 'Sunucuya bağlanılamadı' });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const randomSeed = () => Math.floor(Math.random() * 0x100000000) >>> 0;
 
 export const useGame = create<GameState>()((set, get) => ({
   mode: 'loading',
+  auth: 'unknown',
   offlineReason: null,
   // Sample character from the prototype, used in local mode.
   name: 'Efe Yılmaz',
@@ -111,21 +142,16 @@ export const useGame = create<GameState>()((set, get) => ({
   post: null,
 
   async init() {
-    if (offline) { set({ mode: 'local', offlineReason: 'Çevrimdışı mod' }); return; }
-    try {
-      const p = await loadProfile();
-      set({
-        mode: 'online', offlineReason: null,
-        level: p.level, xp: p.xp, coins: p.coin, gems: p.gem,
-        energy: p.energy, energyUpdatedAt: p.energyUpdatedAt,
-        stats: { sut: p.stats.shooting, pas: p.stats.passing, hiz: p.stats.pace, fizik: p.stats.stamina },
-        form: [],
-      });
-      get().syncEnergy();
-    } catch (e) {
-      console.warn('Supabase unavailable, playing locally', e);
-      set({ mode: 'local', offlineReason: 'Sunucuya bağlanılamadı' });
-    }
+    if (offline) { set({ mode: 'local', offlineReason: 'Çevrimdışı mod', auth: 'none' }); return; }
+    // A returning player goes straight to the hub; a new one sees the sign-in screen first.
+    if (!(await hasSession().catch(() => false))) { set({ mode: 'online', auth: 'none' }); return; }
+    await connect();
+    set({ auth: 'in' });
+  },
+
+  async startAnonymous() {
+    if (get().mode !== 'local') await connect();
+    set({ auth: 'in' });
   },
 
   syncEnergy(now = Date.now()) {

@@ -26,6 +26,12 @@ export class ApiError extends Error {
   constructor(public code: string) { super(code); }
 }
 
+/** Whether this device already has a player session (no network call). */
+export async function hasSession(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  return !!data.session;
+}
+
 /** Signs in anonymously the first time; later launches reuse the stored session. */
 export async function ensureSession(): Promise<string> {
   const { data } = await supabase.auth.getSession();
