@@ -30,7 +30,7 @@ export function Hud() {
           <T size={12} color={colors.g200} numberOfLines={1}>{club} · Amatör Lig</T>
         </View>
       </Pressable>
-      <Pill icon="coin" iconColor={colors.l500} label={`Coin ${g.coins}`} onPress={() => router.navigate('/dukkan')}>
+      <Pill image={require("../../assets/meshy/coin.png")} label={`Coin ${g.coins}`} onPress={() => router.navigate('/dukkan')}>
         <T w={600} size={15}>{tr(g.coins)}</T>
       </Pill>
       <Pill

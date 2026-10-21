@@ -1,3 +1,4 @@
+import { Image, type ImageSource } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -58,13 +59,13 @@ export function Ghost({ children, style, onPress, ...rest }: BtnProps) {
   );
 }
 
-export function Pill({ icon, iconColor, children, onPress, label }: { icon: IconName; iconColor: string; children: ReactNode; onPress?: () => void; label: string }) {
+export function Pill({ icon, iconColor, image, children, onPress, label }: { icon?: IconName; iconColor?: string; image?: ImageSource; children: ReactNode; onPress?: () => void; label: string }) {
   return (
     <Pressable
       accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingLeft: 8, paddingRight: 12, borderRadius: 22, backgroundColor: colors.s2, minWidth: 44 }}
     >
-      <Icon name={icon} size={20} color={iconColor} />
+      {image ? <Image source={image} style={{ width: 28, height: 28, marginLeft: -4, marginVertical: -4 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /> : <Icon name={icon!} size={20} color={iconColor} />}
       {children}
     </Pressable>
   );
