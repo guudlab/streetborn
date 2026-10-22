@@ -31,7 +31,7 @@ export function Hud() {
           <T size={12} color={colors.g200} numberOfLines={1}>{club} · Amatör Lig</T>
         </View>
       </Pressable>
-      <Pill image={require("../../assets/meshy/coin.png")} label={`Coin ${g.coins}`} onPress={() => router.navigate('/dukkan')}>
+      <Pill image={require("../../assets/meshy/coin.webp")} label={`Coin ${g.coins}`} onPress={() => router.navigate('/dukkan')}>
         <Pulse value={g.coins}><T w={600} size={15}>{tr(g.coins)}</T></Pulse>
       </Pill>
       <Pill

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>%WEB_TITLE%</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background: #0d0d0d;
+      }
+      body {
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+    <!-- Fonts start downloading with the JavaScript instead of after it (relative URLs
+         so they work at the domain root and under a base path). -->
+    <link rel="preload" href="fonts/Inter_400Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/Inter_500Medium.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/Inter_600SemiBold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/Inter_700Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- Boot screen: painted with the HTML, before any JavaScript arrives.
+         The root layout fades it out once the first screen is ready. -->
+    <style>
+      #boot {
+        position: fixed; inset: 0; z-index: 10;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+        background: #0d0d0d; color: #7f8185;
+        font: 500 13px/1.4 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        transition: opacity 250ms cubic-bezier(.2,.8,.2,1);
+      }
+      #boot.out { opacity: 0; pointer-events: none; }
+      #boot svg { width: 88px; height: 88px; animation: boot-in 400ms cubic-bezier(.2,.8,.2,1) both; }
+      #boot .track { width: 132px; height: 4px; border-radius: 2px; background: #262626; overflow: hidden; }
+      #boot .bar { width: 40%; height: 100%; border-radius: 2px; background: #cffd5c; animation: boot-bar 1.1s cubic-bezier(.45,0,.55,1) infinite; }
+      @keyframes boot-in { from { opacity: 0; transform: scale(.92); } }
+      @keyframes boot-bar { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @media (prefers-reduced-motion: reduce) {
+        #boot svg { animation: none; }
+        #boot .bar { width: 100%; animation: boot-pulse 1.6s ease-in-out infinite; }
+        @keyframes boot-pulse { 50% { opacity: .35; } }
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript> StreetBorn'u oynamak için JavaScript'i açman gerekiyor. </noscript>
+    <div id="boot" role="progressbar" aria-label="StreetBorn yükleniyor" aria-busy="true">
+      <svg viewBox="0 -158.509 1158.509 1158.509" aria-hidden="true"><path d="M342.020 -939.693 A1000.000 1000.000 0 0 0 -906.193 -422.864 A219.969 219.969 0 1 0 -487.022 -337.481 A618.034 618.034 0 0 1 342.020 -939.693 Z" fill="#CFFD5C" transform="translate(814.415 185.585) rotate(104.8251) scale(0.779228 -0.779228) translate(706.858 329.847)"/><circle cx="814.415" cy="185.585" r="300.283" fill="#FFFFFF" stroke="#0D0D0D" stroke-width="87.621" paint-order="stroke"/></svg>
+      <div class="track"><div class="bar"></div></div>
+      <div id="boot-note">Saha hazırlanıyor</div>
+    </div>
+    <script>
+      // On a slow connection, say so instead of leaving the player guessing.
+      setTimeout(function () { var n = document.getElementById('boot-note'); if (n) n.textContent = 'Bağlantı yavaş, az kaldı'; }, 8000);
+    </script>
+    <div id="root"></div>
+  </body>
+</html>

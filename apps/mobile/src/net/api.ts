@@ -1,6 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChanceInput, MatchResult, MatchSetup } from '@streetborn/engine';
 
-import { supabase } from './supabase.ts';
+import { SESSION_KEY } from './config.ts';
+
+// The Supabase client (~250 KB) loads on first use, not with the app, so the
+// first screen can show without it.
+const client = () => import('./supabase.ts').then(m => m.supabase);
 
 export interface Profile {
   playerId: string;
@@ -26,14 +31,21 @@ export class ApiError extends Error {
   constructor(public code: string) { super(code); }
 }
 
-/** Whether this device already has a player session (no network call). */
-export async function hasSession(): Promise<boolean> {
-  const { data } = await supabase.auth.getSession();
-  return !!data.session;
+/**
+ * The player id of the session stored on this device, read straight from storage
+ * (no network call, no Supabase client). Null for a new player.
+ * On the web, AsyncStorage and supabase-js both use localStorage.
+ */
+export async function storedPlayerId(): Promise<string | null> {
+  const raw = await AsyncStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  const id = (JSON.parse(raw) as { user?: { id?: string } }).user?.id;
+  return typeof id === 'string' ? id : null;
 }
 
 /** Signs in anonymously the first time; later launches reuse the stored session. */
 export async function ensureSession(): Promise<string> {
+  const supabase = await client();
   const { data } = await supabase.auth.getSession();
   if (data.session) return data.session.user.id;
   const { data: signed, error } = await supabase.auth.signInAnonymously();
@@ -43,6 +55,7 @@ export async function ensureSession(): Promise<string> {
 
 export async function loadProfile(): Promise<Profile> {
   const playerId = await ensureSession();
+  const supabase = await client();
   const [p, w, s] = await Promise.all([
     supabase.from('players').select('level, xp').eq('id', playerId).single(),
     supabase.from('wallets').select('coin, gem, energy, energy_updated_at').eq('player_id', playerId).single(),
@@ -65,6 +78,7 @@ export async function loadProfile(): Promise<Profile> {
 
 async function call<T>(name: string, body?: unknown): Promise<T> {
   await ensureSession();
+  const supabase = await client();
   const { data, error } = await supabase.functions.invoke(name, { body: body ?? {} });
   if (error) {
     // Edge Function errors carry { error: code } in the response body.

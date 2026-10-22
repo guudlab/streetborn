@@ -14,7 +14,7 @@ import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 // button. Tapping anywhere starts an anonymous career; "Hesabım var" opens the
 // Apple / Google sheet, which stays a placeholder until those providers are set up.
 
-const HERO = require('../../assets/meshy/hero-street.png');
+const HERO = require('../../assets/meshy/hero-street.webp');
 const LOGO = require('../../assets/brand/logo.png');
 const ease = Easing.bezier(0.2, 0.8, 0.2, 1);
 const native = Platform.OS !== 'web';
