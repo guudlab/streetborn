@@ -6,3 +6,6 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 coverage/
+
+# taste-skill working files
+.taste-skill/

@@ -21,3 +21,7 @@ npm run typecheck && npm test
 (cd supabase/functions && deno check match-start/index.ts match-finish/index.ts)
 supabase/tests/run.sh   # needs a Postgres; see the CI workflow
 ```
+
+## Design skills
+
+`.claude/skills/design-taste-frontend` is vendored from github.com/Leonxlnx/taste-skill (MIT, commit 6010f91). It is written for web pages and dashboards. Use its screenshot-critique loop and its type and motion references on app screens, but StreetBorn's game rules win where they clash: the lime glow, reward effects, icon tiles, the glass tab bar and Concept A tokens in `apps/mobile/src/theme.ts` stay. Do not run its `draw.mjs` to pick a new art direction; the direction is decided (Concept A "Saha Kenarı").
