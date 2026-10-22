@@ -1,17 +1,19 @@
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from 'expo-router';
 import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, View } from 'react-native';
+import { useCallback } from 'react';
+import { Easing, Pressable, View } from 'react-native';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { setAmbience, setMusic, sfx } from '../../audio/audio.ts';
 import { useGame } from '../../game/store.ts';
-import { colors } from '../../theme.ts';
+import { colors, motion } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
-import { buzz } from '../../ui/kit.tsx';
+import { buzz, T } from '../../ui/kit.tsx';
 
-// Kaan's tab bar decision: icons only, floating full-radius glass pill with
-// side and bottom margin; the selected tab is a lime circle with a dark icon.
+// Kaan's tab bar decision (2026-10-22, option B): a compact centred glass pill
+// that hugs its content; the selected tab opens into a lime pill with its
+// label, the others stay icon only.
 const TABS: Record<string, { icon: IconName; label: string }> = {
   index: { icon: 'home', label: 'Kariyer' },
   gelisim: { icon: 'train', label: 'Gelişim' },
@@ -19,56 +21,58 @@ const TABS: Record<string, { icon: IconName; label: string }> = {
   dukkan: { icon: 'bag', label: 'Dükkân' },
 };
 
-const PAD = 9;
-const DISC = 50;
+const HEIGHT = 60;
+const ITEM = 48;
+const resize = LinearTransition.springify().damping(motion.snappy.damping).stiffness(motion.snappy.stiffness);
+
+const APressable = Animated.createAnimatedComponent(Pressable);
 
 function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
   const offersBadge = useGame(s => s.scouted && !s.signed);
-  // The lime disc slides to the selected tab instead of jumping.
-  const [width, setWidth] = useState(0);
-  const pos = useRef(new Animated.Value(state.index)).current;
-  useEffect(() => {
-    Animated.spring(pos, { toValue: state.index, useNativeDriver: Platform.OS !== 'web', speed: 18, bounciness: 6 }).start();
-  }, [pos, state.index]);
-  const slot = (width - PAD * 2) / state.routes.length;
-  const x = pos.interpolate({ inputRange: [0, 1], outputRange: [PAD + (slot - DISC) / 2, PAD + (slot - DISC) / 2 + slot] , extrapolate: 'extend' });
   return (
     <View
-      accessibilityRole="tablist"
-      style={{
-        position: 'absolute', left: 24, right: 24, bottom: Math.max(insets.bottom, 12) + 14, height: 66, borderRadius: 33,
-        overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,.09)',
-      }}
+      pointerEvents="box-none"
+      style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 12) + 14, alignItems: 'center' }}
     >
-      <BlurView
-        intensity={45} tint="dark"
-        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, backgroundColor: 'rgba(38,38,38,.55)' }}
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      <Animated.View
+        accessibilityRole="tablist" layout={resize}
+        style={{
+          height: HEIGHT, borderRadius: HEIGHT / 2, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,.09)',
+          shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 12,
+        }}
       >
-        {width > 0 && (
-          <Animated.View
-            pointerEvents="none"
-            style={{ position: 'absolute', left: 0, top: (66 - 2 - DISC) / 2, width: DISC, height: DISC, borderRadius: DISC / 2, backgroundColor: colors.l600, transform: [{ translateX: x }] }}
-          />
-        )}
-        {state.routes.map((route, i) => {
-          const tab = TABS[route.name];
-          if (!tab) return null;
-          const on = state.index === i;
-          return (
-            <Pressable
-              key={route.key} accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected: on }}
-              onPress={() => { if (!on) { buzz(); sfx('tab'); navigateToTab(route.key); } }}
-              style={{ flex: 1, height: DISC, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Icon name={tab.icon} color={on ? colors.ink : colors.g200} />
-              {route.name === 'teklifler' && offersBadge && !on && (
-                <View style={{ position: 'absolute', top: 9, left: '50%', marginLeft: 7, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.l600, borderWidth: 2, borderColor: colors.s3 }} />
-              )}
-            </Pressable>
-          );
-        })}
-      </BlurView>
+        <BlurView
+          intensity={45} tint="dark"
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 5, backgroundColor: 'rgba(38,38,38,.55)' }}
+        >
+          {state.routes.map((route, i) => {
+            const tab = TABS[route.name];
+            if (!tab) return null;
+            const on = state.index === i;
+            return (
+              <APressable
+                key={route.key} layout={resize}
+                accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected: on }}
+                onPress={() => { if (!on) { buzz(); sfx('tab'); navigateToTab(route.key); } }}
+                style={{
+                  height: ITEM, minWidth: ITEM, borderRadius: ITEM / 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                  gap: 8, paddingLeft: on ? 14 : 0, paddingRight: on ? 18 : 0, backgroundColor: on ? colors.l600 : 'transparent',
+                }}
+              >
+                <Icon name={tab.icon} size={22} color={on ? colors.ink : colors.g200} />
+                {on && (
+                  <Animated.View entering={FadeIn.duration(motion.base)}>
+                    <T w={600} size={14} color={colors.ink} numberOfLines={1}>{tab.label}</T>
+                  </Animated.View>
+                )}
+                {route.name === 'teklifler' && offersBadge && !on && (
+                  <View style={{ position: 'absolute', top: 9, right: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.l600, borderWidth: 2, borderColor: colors.s3 }} />
+                )}
+              </APressable>
+            );
+          })}
+        </BlurView>
+      </Animated.View>
     </View>
   );
 }
