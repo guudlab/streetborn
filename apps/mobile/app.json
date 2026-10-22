@@ -50,7 +50,8 @@
           "backgroundColor": "#0D0D0D"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      ["expo-localization", { "supportedLocales": ["tr", "en"] }]
     ],
     "scheme": "streetborn",
     "experiments": {

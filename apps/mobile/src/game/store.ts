@@ -11,6 +11,7 @@ import { create } from 'zustand';
 import { ApiError, finishMatch as apiFinish, loadProfile, startMatch as apiStart, storedPlayerId, type Profile } from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
+import { t } from '../i18n/index.ts';
 
 // Player state for the Concept A screens.
 // Online (default): level, XP, coin, gem, energy and skills come from Supabase,
@@ -126,7 +127,7 @@ async function connect() {
   } catch (e) {
     console.warn('Supabase unavailable, playing locally', e);
     const slow = e instanceof ApiError && e.code === 'timeout';
-    useGame.setState({ mode: 'local', offlineReason: slow ? 'Sunucu yanıt vermedi' : 'Sunucuya bağlanılamadı' });
+    useGame.setState({ mode: 'local', offlineReason: slow ? t('offline.timeout') : t('offline.unreachable') });
   } finally {
     clearTimeout(timer);
   }
@@ -162,7 +163,7 @@ export const useGame = create<GameState>()((set, get) => ({
   post: null,
 
   async init() {
-    if (offline) { set({ mode: 'local', offlineReason: 'Çevrimdışı mod', auth: 'none' }); return; }
+    if (offline) { set({ mode: 'local', offlineReason: t('offline.mode'), auth: 'none' }); return; }
     // A returning player goes straight to the hub; a new one sees the sign-in screen first.
     const playerId = await storedPlayerId().catch(() => null);
     if (!playerId) { set({ mode: 'online', auth: 'none' }); return; }

@@ -6,6 +6,7 @@ import { clamp } from '../game/rules.ts';
 import { colors } from '../theme.ts';
 import { Icon } from './Icon.tsx';
 import { T } from './kit.tsx';
+import { t } from '../i18n/index.ts';
 
 // The goal seen from behind the player. Ported from sceneSVG/bindShot in the
 // prototype: viewBox 390×560, posts x 95..295, crossbar y 150, ground y 262.
@@ -235,7 +236,7 @@ export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({
 
       {mates?.map(m => (
         <Pressable
-          key={m.name} accessibilityRole="button" accessibilityLabel={`${m.name}, ${m.open ? 'boşta' : 'markajda'}`}
+          key={m.name} accessibilityRole="button" accessibilityLabel={t('match.mateA11y', { name: m.name, state: m.open ? t('match.openA11y') : t('match.markedA11y') })}
           onPress={() => onMate?.(m)}
           style={{ position: 'absolute', left: ox + m.x * k - 50, top: oy + m.y * k - 40, width: 100, alignItems: 'center', gap: 6 }}
         >
@@ -249,7 +250,7 @@ export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 10, backgroundColor: 'rgba(13,13,13,.8)' }}>
             <Icon name={m.open ? 'check' : 'x'} size={14} color={m.open ? colors.l600 : colors.bad} />
-            <T w={600} size={12}>{m.open ? 'Boşta' : 'Markajda'}</T>
+            <T w={600} size={12}>{m.open ? t('match.open') : t('match.marked')}</T>
           </View>
         </Pressable>
       ))}
