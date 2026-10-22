@@ -17,9 +17,9 @@ export interface Offer {
   id: string; club: string; league: string; role: string; weekly: number; length: string; note: string; req: string | null;
 }
 export const OFFERS: readonly Offer[] = [
-  { id: 'kartaltepe', club: 'Kartaltepe SK', league: t('offer.kartaltepe.league'), role: t('offer.kartaltepe.role'), weekly: 300, length: t('offer.kartaltepe.length'),
+  { id: 'kartaltepe', club: t('club.kartaltepe'), league: t('offer.kartaltepe.league'), role: t('offer.kartaltepe.role'), weekly: 300, length: t('offer.kartaltepe.length'),
     note: t('offer.kartaltepe.note'), req: null },
-  { id: 'bogazici', club: 'Boğaziçi Gençlik FK', league: t('offer.bogazici.league'), role: t('offer.bogazici.role'), weekly: 450, length: t('offer.bogazici.length'),
+  { id: 'bogazici', club: t('club.bogazici'), league: t('offer.bogazici.league'), role: t('offer.bogazici.role'), weekly: 450, length: t('offer.bogazici.length'),
     note: t('offer.bogazici.note'), req: t('offer.bogazici.req') },
 ];
 
@@ -32,7 +32,7 @@ export function levelProgress(level: number, xp: number) {
   return clamp((xp - a) / (b - a), 0, 1);
 }
 
-export const OPP = 'Kartaltepe SK';
+export const OPP = t('club.kartaltepe');
 export const MOMENT_TITLE = { shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick') } as const;
 
 export type Grade = 'mukemmel' | 'iyi' | 'kacti';
