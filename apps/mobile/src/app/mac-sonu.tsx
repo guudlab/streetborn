@@ -4,18 +4,21 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { tr } from '../game/format.ts';
+import { setMusic, sfx } from '../audio/audio.ts';
+import { delta, num } from '../game/format.ts';
 import { levelProgress } from '../game/rules.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachFace, Cta, Ghost, H1, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
+import { Pop } from '../ui/motion.tsx';
+import { t } from '../i18n/index.ts';
 
-const RES = { W: 'Galibiyet', D: 'Beraberlik', L: 'Mağlubiyet' } as const;
+const RES = { W: t('post.W'), D: t('post.D'), L: t('post.L') } as const;
 const BADGE = { W: [colors.l900, colors.l500], D: [colors.s3, colors.g100], L: ['#3A1D19', '#FFB1A5'] } as const;
 const LINE = {
-  goal: ['Gol', '+1,0', 'plus'], saved: ['Kaçan fırsat', '−0,5', 'minus'], wide: ['Kaçan fırsat', '−0,5', 'minus'],
-  over: ['Kaçan fırsat', '−0,5', 'minus'], assist: ['Asist', '+0,7', 'plus'], lost: ['Top kaybı', '−0,3', 'minus'],
+  goal: [t('post.line.goal'), delta(1), 'plus'], saved: [t('post.line.miss'), delta(-0.5), 'minus'], wide: [t('post.line.miss'), delta(-0.5), 'minus'],
+  over: [t('post.line.miss'), delta(-0.5), 'minus'], assist: [t('post.line.assist'), delta(0.7), 'plus'], lost: [t('post.line.lost'), delta(-0.3), 'minus'],
 } as const;
 
 export default function MacSonu() {
@@ -26,11 +29,13 @@ export default function MacSonu() {
   useEffect(() => {
     if (!r) return;
     let live = true;
+    setMusic(null);
+    sfx(r.result === 'L' ? 'defeat_sting' : 'victory_sting');
     (async () => {
       await wait(250); if (!live) return; setStep(1);
-      await wait(800); if (!live) return; setStep(2);
-      await wait(700); if (!live) return; buzz(); setStep(3);
-      if (r.ups) { await wait(900); if (!live) return; buzz('success'); setStep(4); }
+      await wait(800); if (!live) return; sfx('coin'); setStep(2);
+      await wait(700); if (!live) return; buzz(); sfx('tab'); setStep(3);
+      if (r.ups) { await wait(900); if (!live) return; buzz('success'); sfx('levelup'); setStep(4); }
       await wait(250); if (!live) return; setStep(5);
     })();
     return () => { live = false; };
@@ -42,8 +47,8 @@ export default function MacSonu() {
   if (!r) return <Redirect href="/" />;
 
   const lines = r.log.map(l => LINE[l.outcome]);
-  const teamDelta = r.result === 'W' ? ['+0,3', 'plus'] : r.result === 'L' ? ['−0,3', 'minus'] : ['0', ''];
-  const quote = r.rating >= 70 ? 'Bugün adam gibi oynadın oğlum. Mahalle seninle gurur duyar.' : r.rating >= 60 ? 'Fena değildi kardeşim, ama daha iyisini biliyorum.' : 'Kötü gün, olur. Yarın sahaya, yine buradayım.';
+  const teamDelta = r.result === 'W' ? [delta(0.3), 'plus'] : r.result === 'L' ? [delta(-0.3), 'minus'] : ['0', ''];
+  const quote = r.rating >= 70 ? t('post.quote.high') : r.rating >= 60 ? t('post.quote.mid') : t('post.quote.low');
   const p0 = levelProgress(r.before.level, r.before.xp);
   const p1 = levelProgress(r.after.level, r.after.xp);
   // With a level-up the bar fills to 100%, then restarts from 0 at the new level.
@@ -54,9 +59,11 @@ export default function MacSonu() {
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
       <View>
-        <Image source={require('../../assets/meshy/cup-gold.png')} style={{ width: 88, height: 88, alignSelf: 'center' }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
-        <Caps>Maç sonu · Hafta 10</Caps>
-        <H1 style={{ marginTop: 6 }}>Yıldırımspor {r.us} – {r.them} Kartaltepe</H1>
+        <Pop delay={150} style={{ alignSelf: 'center' }}>
+          <Image source={require('../../assets/meshy/cup-gold.webp')} style={{ width: 88, height: 88 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+        </Pop>
+        <Caps>{t('post.title')}</Caps>
+        <H1 style={{ marginTop: 6 }}>{t('post.headline', { us: r.us, them: r.them })}</H1>
       </View>
       <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: badgeBg }}>
         <T w={600} size={13} color={badgeFg}>{RES[r.result]}</T>
@@ -66,19 +73,19 @@ export default function MacSonu() {
         <CoachFace size={44} />
         <View style={{ flex: 1 }}>
           <T w={600} size={17} style={{ lineHeight: 22 }}>“{quote}”</T>
-          <Caps style={{ fontSize: 12, marginTop: 2 }}>Burak abi</Caps>
+          <Caps style={{ fontSize: 12, marginTop: 2 }}>{t('coach.name')}</Caps>
         </View>
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
         <Ring size={112} stroke={7} value={(step >= 1 ? rating : 6) / 10}>
-          <T w={700} size={44} style={{ letterSpacing: -0.8 }}>{tr(rating, 1)}</T>
+          <T w={700} size={44} style={{ letterSpacing: -0.8 }}>{num(rating, 1)}</T>
         </Ring>
-        <View style={{ gap: 6, flex: 1 }} accessibilityLabel="Not dökümü">
-          <Row v="6,0" c={colors.g100} label="Başlangıç" muted />
+        <View style={{ gap: 6, flex: 1 }} accessibilityLabel={t('post.ratingA11y')}>
+          <Row v={num(6, 1)} c={colors.g100} label={t('post.start')} muted />
           {lines.length ? lines.map(([label, v, k], i) => <Row key={i} v={v!} c={color(k!)} label={`${r.log[i]!.minute}' ${label}`} />)
-            : <T size={14} color={colors.g200}>Pozisyon oynanmadı</T>}
-          <Row v={teamDelta[0]!} c={color(teamDelta[1]!)} label="Takım sonucu" />
+            : <T size={14} color={colors.g200}>{t('post.noMoments')}</T>}
+          <Row v={teamDelta[0]!} c={color(teamDelta[1]!)} label={t('post.team')} />
         </View>
       </View>
 
@@ -86,20 +93,20 @@ export default function MacSonu() {
         <Gain show={step >= 2} first>
           <Icon name="coin" size={22} color={colors.l500} />
           <View style={{ flex: 1 }}>
-            <T w={500} size={15}>Coin</T>
-            <T size={12} color={colors.g200}>Maç ücreti, gol ve not bonusu</T>
+            <T w={500} size={15}>{t('post.coin')}</T>
+            <T size={12} color={colors.g200}>{t('post.coinSub')}</T>
           </View>
-          <T w={600} size={17} color={colors.l500}>+{tr(coins)}</T>
+          <T w={600} size={17} color={colors.l500}>+{num(coins)}</T>
         </Gain>
         <Gain show={step >= 3}>
           <Icon name="star" size={22} color={colors.l600} />
           <View style={{ flex: 1, gap: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <T w={500} size={15}>Deneyim</T>
+              <T w={500} size={15}>{t('post.xp')}</T>
               {step >= 4 && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.l600 }}>
-                  <Icon name="star" size={14} color={colors.ink} /><T w={700} size={13} color={colors.ink}>Seviye {r.after.level}</T>
-                </View>
+                <Pop style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.l600 }}>
+                  <Icon name="star" size={14} color={colors.ink} /><T w={700} size={13} color={colors.ink}>{t('post.level', { n: r.after.level })}</T>
+                </Pop>
               )}
             </View>
             <Track value={xpBar} reset={step === 4 ? 0 : undefined} />
@@ -109,7 +116,7 @@ export default function MacSonu() {
         <Gain show={step >= 5}>
           <Icon name="whistle" size={22} color={colors.g200} />
           <View style={{ flex: 1, gap: 8 }}>
-            <T w={500} size={15}>Mahalle saygısı</T>
+            <T w={500} size={15}>{t('post.trust')}</T>
             <Track value={(step >= 5 ? r.after.trust : r.before.trust) / 100} />
           </View>
           <T w={600} size={17} color={r.trustDelta >= 0 ? colors.l500 : colors.bad}>{r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}</T>
@@ -117,18 +124,18 @@ export default function MacSonu() {
       </View>
 
       {r.flagged && (
-        <T size={13} color={colors.g200}>Bu maç incelemeye alındı; yalnızca katılım ödülü verildi.</T>
+        <T size={13} color={colors.g200}>{t('post.flagged')}</T>
       )}
 
       <View style={{ gap: 10, marginTop: 'auto' }}>
         {r.scout && (
           <Cta onPress={() => router.replace('/teklifler')}>
-            <Icon name="mail" color={colors.ink} /><T w={600} size={17} color={colors.ink}>İzci raporu: 2 teklif</T>
+            <Icon name="mail" color={colors.ink} /><T w={600} size={17} color={colors.ink}>{t('post.scoutReport')}</T>
           </Cta>
         )}
         {r.scout
-          ? <Ghost onPress={() => router.replace('/')}>Ana ekrana dön</Ghost>
-          : <Cta onPress={() => router.replace('/')}>Ana ekrana dön</Cta>}
+          ? <Ghost onPress={() => router.replace('/')}>{t('post.home')}</Ghost>
+          : <Cta onPress={() => router.replace('/')}>{t('post.home')}</Cta>}
       </View>
     </ScrollView>
   );

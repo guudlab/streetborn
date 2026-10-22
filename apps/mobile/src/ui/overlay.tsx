@@ -6,6 +6,7 @@ import { create } from 'zustand';
 
 import { colors } from '../theme.ts';
 import { T } from './kit.tsx';
+import { t } from '../i18n/index.ts';
 
 // App-wide bottom sheet and toast, drawn above every screen by <OverlayHost/>.
 
@@ -45,7 +46,7 @@ function Sheet({ children }: { children: ReactNode }) {
   return (
     <>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,.55)', opacity: a }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} accessibilityLabel="Kapat" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} accessibilityLabel={t('common.close')} />
       </Animated.View>
       <Animated.View
         accessibilityViewIsModal

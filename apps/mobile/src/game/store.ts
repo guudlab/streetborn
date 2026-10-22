@@ -5,11 +5,13 @@ import {
   planMatch, playChance, simulateMatch,
   type ChanceInput, type ChanceOutcome, type MatchPlan, type MatchSetup, type MomentKind, type TeamResult,
 } from '@streetborn/engine';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import { ApiError, finishMatch as apiFinish, hasSession, loadProfile, startMatch as apiStart } from '../net/api.ts';
-import { offline } from '../net/supabase.ts';
+import { ApiError, finishMatch as apiFinish, loadProfile, startMatch as apiStart, storedPlayerId, type Profile } from '../net/api.ts';
+import { offline } from '../net/config.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
+import { t } from '../i18n/index.ts';
 
 // Player state for the Concept A screens.
 // Online (default): level, XP, coin, gem, energy and skills come from Supabase,
@@ -89,24 +91,43 @@ export function liveScore(m: LiveMatch, minute: number) {
 
 const CONNECT_TIMEOUT_MS = 8000;
 
+// The last profile the server sent, so a returning player sees the hub at once
+// while the fresh one loads. Display only: the server still decides every change.
+const PROFILE_KEY = 'streetborn.profile.v1';
+
+function showProfile(p: Profile) {
+  useGame.setState({
+    level: p.level, xp: p.xp, coins: p.coin, gems: p.gem,
+    energy: p.energy, energyUpdatedAt: p.energyUpdatedAt,
+    stats: { sut: p.stats.shooting, pas: p.stats.passing, hiz: p.stats.pace, fizik: p.stats.stamina },
+    form: [],
+  });
+  useGame.getState().syncEnergy();
+}
+
+async function cachedProfile(playerId: string): Promise<Profile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_KEY);
+    const p = raw ? (JSON.parse(raw) as Profile) : null;
+    return p?.playerId === playerId ? p : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Loads the player from Supabase (signing in anonymously if needed), or switches to local mode. */
 async function connect() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new ApiError('timeout')), CONNECT_TIMEOUT_MS); });
     const p = await Promise.race([loadProfile(), timeout]);
-    useGame.setState({
-      mode: 'online', offlineReason: null,
-      level: p.level, xp: p.xp, coins: p.coin, gems: p.gem,
-      energy: p.energy, energyUpdatedAt: p.energyUpdatedAt,
-      stats: { sut: p.stats.shooting, pas: p.stats.passing, hiz: p.stats.pace, fizik: p.stats.stamina },
-      form: [],
-    });
-    useGame.getState().syncEnergy();
+    useGame.setState({ mode: 'online', offlineReason: null });
+    showProfile(p);
+    void AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(p)).catch(() => {});
   } catch (e) {
     console.warn('Supabase unavailable, playing locally', e);
     const slow = e instanceof ApiError && e.code === 'timeout';
-    useGame.setState({ mode: 'local', offlineReason: slow ? 'Sunucu yanıt vermedi' : 'Sunucuya bağlanılamadı' });
+    useGame.setState({ mode: 'local', offlineReason: slow ? t('offline.timeout') : t('offline.unreachable') });
   } finally {
     clearTimeout(timer);
   }
@@ -142,9 +163,18 @@ export const useGame = create<GameState>()((set, get) => ({
   post: null,
 
   async init() {
-    if (offline) { set({ mode: 'local', offlineReason: 'Çevrimdışı mod', auth: 'none' }); return; }
+    if (offline) { set({ mode: 'local', offlineReason: t('offline.mode'), auth: 'none' }); return; }
     // A returning player goes straight to the hub; a new one sees the sign-in screen first.
-    if (!(await hasSession().catch(() => false))) { set({ mode: 'online', auth: 'none' }); return; }
+    const playerId = await storedPlayerId().catch(() => null);
+    if (!playerId) { set({ mode: 'online', auth: 'none' }); return; }
+    // With a saved profile the hub shows at once and refreshes when the server answers.
+    const cached = await cachedProfile(playerId);
+    if (cached) {
+      set({ mode: 'online', auth: 'in' });
+      showProfile(cached);
+      void connect();
+      return;
+    }
     await connect();
     set({ auth: 'in' });
   },

@@ -3,20 +3,30 @@ import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, useWindowDimensions, View } from 'react-native';
+import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { duckMusic, preloadSfx, setAmbience, setMusic, sfx, type SfxId } from '../audio/audio.ts';
+import { delta } from '../game/format.ts';
 import { clamp, MOMENT_TITLE } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachLine, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
+import { useShake } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { PowerBar, type PowerBarHandle } from '../ui/PowerBar.tsx';
+import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
+import { t } from '../i18n/index.ts';
 
-const KIND = { shot: 'Şut', pass: 'Pas', freekick: 'Serbest vuruş' } as const;
-const SHOT_TEXT = { gol: 'GOL', kurtardi: 'Kaleci kurtardı', aut: 'Auta gitti', ust: 'Üstten auta' } as const;
+const KIND = { shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick') } as const;
+const SHOT_TEXT = { gol: t('match.shot.goal'), kurtardi: t('match.shot.saved'), aut: t('match.shot.wide'), ust: t('match.shot.over') } as const;
 const OUT = { goal: 'gol', saved: 'kurtardi', wide: 'aut', over: 'ust' } as const;
+/** What the ball hits, and how the crowd reacts. */
+const IMPACT: Record<ShotAnim['out'], [SfxId, SfxId]> = {
+  gol: ['net', 'crowd_cheer'], kurtardi: ['save', 'crowd_groan'], aut: ['crowd_groan', 'crowd_groan'], ust: ['crowd_groan', 'crowd_groan'],
+};
 const SPOT: Record<Side, { x: number; y: number }> = { left: { x: 92, y: 330 }, right: { x: 300, y: 300 } };
 
 /** Can is always the open teammate; the plan decides which side he is on. */
@@ -50,6 +60,16 @@ export default function Mac() {
   const [nudge, setNudge] = useState(false);
   const [finishing, setFinishing] = useState<'no' | 'sending' | 'failed'>('no');
   const leaving = useRef(false);
+  const impact = useShake(7);
+
+  // Match atmosphere: crowd bed + match music, kick-off whistle. The tabs restore the menu loop.
+  useEffect(() => {
+    preloadSfx(['kick', 'kick_power', 'net', 'save', 'crowd_cheer', 'crowd_groan', 'whistle_end']);
+    setMusic('match');
+    setAmbience('crowd');
+    sfx('whistle_start');
+    return () => setAmbience(null);
+  }, []);
 
   const moment = match ? match.plan.moments[match.i] : undefined;
   const forced = moment?.kind === 'freekick';
@@ -58,10 +78,10 @@ export default function Mac() {
   // Coach line at the start of each moment.
   useEffect(() => {
     if (!moment || card) return;
-    setLine(moment.kind === 'pass' ? 'Can boşta kardeşim, Mert’in arkasında adam var. Boştakine ver.'
-      : forced ? 'Barajın üstünden at oğlum. Köşeyi seç, gücü yeşilde durdur.'
-        : assisted ? 'Köşeyi seç kardeşim, gücü yeşilde durdur.'
-          : 'Topu kaleye doğru kaydır, köşeye vur oğlum. Kaleci erken yatıyor.');
+    setLine(moment.kind === 'pass' ? t('match.coach.pass')
+      : forced ? t('match.coach.freekick')
+        : assisted ? t('match.coach.assisted')
+          : t('match.coach.swipe'));
   }, [moment, forced, assisted, card]);
 
   if (leaving.current) return null;
@@ -80,13 +100,17 @@ export default function Mac() {
     });
     if (o.kind === 'pass') return;
     const res = toAnim(o);
+    sfx(input.power > 0.7 ? 'kick_power' : 'kick');
     await scene.current?.animateShot(res);
+    const [hit, crowd] = IMPACT[res.out];
+    sfx(hit);
+    if (hit !== crowd) sfx(crowd);
     setTarget(null);
     const goal = o.outcome === 'goal';
-    setCard({ good: goal, title: SHOT_TEXT[res.out], desc: goal ? 'Maç notu +1,0' : 'Maç notu −0,5', icon: goal ? 'ball' : 'x' });
-    if (goal) { buzz('success'); setLine('İşte bu oğlum! Kafanı kaldır, devam.'); }
-    else if (moment?.kind === 'shot' && !assisted) { setLine('Olur böyle kardeşim. Kaydırmak zorsa yardımlı şutu aç, kimseye söylemem.'); setNudge(true); }
-    else setLine('Olur böyle oğlum. Sonrakine bak.');
+    setCard({ good: goal, title: SHOT_TEXT[res.out], desc: goal ? t('match.goalDesc', { delta: delta(1) }) : t('match.missDesc', { delta: delta(-0.5) }), icon: goal ? 'ball' : 'x' });
+    if (goal) { buzz('success'); impact.shake(); duckMusic(2400); setLine(t('match.coach.goal')); }
+    else if (moment?.kind === 'shot' && !assisted) { setLine(t('match.coach.missNudge')); setNudge(true); }
+    else setLine(t('match.coach.miss'));
   };
 
   const pass = async (mate: Mate) => {
@@ -94,17 +118,21 @@ export default function Mac() {
     setBusy(true);
     const side: Side = mate.open ? moment.openSide : moment.openSide === 'left' ? 'right' : 'left';
     const o = useGame.getState().play({ chance: match.i, pass: side });
+    sfx('kick');
     await scene.current?.animatePass(mate.x, mate.y);
     const ok = o.outcome === 'assist';
+    if (ok) { sfx('net'); sfx('crowd_cheer', 0.7); duckMusic(2000); } else sfx('crowd_groan');
     setCard({
-      good: ok, title: ok ? 'Asist' : 'Top kaybı', icon: ok ? 'check' : 'x',
-      desc: ok ? 'Can golü attı · Not +0,7' : mate.open ? 'Pas kesildi · Not −0,3' : 'Mert markajdaydı · Not −0,3',
+      good: ok, title: ok ? t('match.assist') : t('match.lostBall'), icon: ok ? 'check' : 'x',
+      desc: ok ? t('match.assistDesc', { delta: delta(0.7) }) : mate.open ? t('match.cutDesc', { delta: delta(-0.3) }) : t('match.markedDesc', { delta: delta(-0.3) }),
     });
-    setLine(ok ? 'Gözün açık, aferin. Mahalle maçı böyle kazanılır.' : mate.open ? 'Pas doğruydu oğlum, şansa küs.' : 'Mert markajdaydı, Can boştaydı kardeşim. Önce bak, sonra ver.');
+    setLine(ok ? t('match.coach.assistOk') : mate.open ? t('match.coach.passUnlucky') : t('match.coach.passMarked'));
   };
 
   const finish = async () => {
     setFinishing('sending');
+    sfx('whistle_end');
+    setAmbience(null);
     try {
       await useGame.getState().finishMatch();
       leaving.current = true;
@@ -112,7 +140,7 @@ export default function Mac() {
     } catch (e) {
       console.warn('match-finish failed', e);
       setFinishing('failed');
-      toast('Maç sonucu gönderilemedi');
+      toast(t('match.sendFailed'));
     }
   };
 
@@ -122,8 +150,9 @@ export default function Mac() {
     for (const ev of n.events) {
       const m = useGame.getState().match!;
       const score = liveScore(m, ev.minute + 1);
-      setTicker(`${ev.minute}'  Kartaltepe SK golü · YIL ${score.us} – ${score.them} KAR`);
-      setLine('Gol yedik, panik yok kardeşim. Fırsat gelecek.');
+      setTicker(t('match.ticker', { minute: ev.minute, us: score.us, them: score.them }));
+      setLine(t('match.coach.conceded'));
+      sfx('crowd_groan');
       await wait(1300);
       setTicker(null);
     }
@@ -134,10 +163,11 @@ export default function Mac() {
 
   const pause = () => openSheet(
     <>
-      <H3>Maç duraklatıldı</H3>
-      <SheetText>Kalan pozisyonları oynamazsan maç simüle edilir; o pozisyonlardan not ve gol gelmez.</SheetText>
-      <Cta onPress={closeSheet}>Devam et</Cta>
-      <Ghost onPress={() => { closeSheet(); setCard(null); setBusy(true); void finish(); }}>Maçı simüle et ve bitir</Ghost>
+      <H3>{t('match.pauseTitle')}</H3>
+      <SheetText>{t('match.pauseText')}</SheetText>
+      <SoundToggles />
+      <Cta onPress={closeSheet}>{t('match.resume')}</Cta>
+      <Ghost onPress={() => { closeSheet(); setCard(null); setBusy(true); void finish(); }}>{t('match.simulate')}</Ghost>
     </>,
   );
 
@@ -149,7 +179,7 @@ export default function Mac() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
-      <View style={{ height: sceneH }}>
+      <Reanimated.View style={[{ height: sceneH }, impact.style]}>
         {moment && (
           <ShotScene
             key={m?.i}
@@ -160,13 +190,13 @@ export default function Mac() {
             onMate={pass}
             onTarget={setTarget}
             onSwipe={shoot}
-            onShort={() => setLine('Daha uzun sür topu oğlum, kaleye kadar!')}
+            onShort={() => setLine(t('match.coach.short'))}
           />
         )}
 
         {/* Match HUD */}
         <View style={{ position: 'absolute', top: insets.top + 8, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Duraklat" onPress={pause} disabled={finishing !== 'no'} style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('match.pause')} onPress={pause} disabled={finishing !== 'no'} style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
             <BlurView intensity={20} tint="dark" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(13,13,13,.6)' }}>
               <Icon name="pause" color={colors.g100} />
             </BlurView>
@@ -178,7 +208,7 @@ export default function Mac() {
               <T w={600} size={15} color={colors.l600}>{minute}'</T>
             </View>
           </View>
-          <View style={{ width: 44, flexDirection: 'row', gap: 5, justifyContent: 'center' }} accessibilityLabel={`Pozisyon ${Math.min((m?.i ?? total - 1) + 1, total)} / ${total}`}>
+          <View style={{ width: 44, flexDirection: 'row', gap: 5, justifyContent: 'center' }} accessibilityLabel={t('match.momentA11y', { i: Math.min((m?.i ?? total - 1) + 1, total), n: total })}>
             {Array.from({ length: total }, (_, i) => (
               <View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: i < (m?.i ?? total) ? colors.g200 : i === m?.i ? colors.l600 : 'rgba(255,255,255,.25)' }} />
             ))}
@@ -192,27 +222,27 @@ export default function Mac() {
         )}
 
         {card && <ResultCard card={card} />}
-      </View>
+      </Reanimated.View>
 
       {/* Panel */}
       <View style={{ flex: 1, paddingTop: 18, paddingHorizontal: 20, paddingBottom: insets.bottom + 20, gap: 14 }}>
         {moment && finishing === 'no' && (
           <View>
-            <Caps>Pozisyon {(m?.i ?? 0) + 1} · {KIND[moment.kind]}</Caps>
+            <Caps>{t('match.moment', { i: (m?.i ?? 0) + 1, kind: KIND[moment.kind] })}</Caps>
             <H3 style={{ marginTop: 4 }}>{MOMENT_TITLE[moment.kind]}</H3>
           </View>
         )}
         {finishing === 'no' ? <CoachLine text={line} /> : (
           <View style={{ gap: 6 }}>
-            <Caps>Maç sonu</Caps>
-            <H3>{finishing === 'sending' ? 'Sonuç hesaplanıyor…' : 'Sonuç gönderilemedi'}</H3>
+            <Caps>{t('match.end')}</Caps>
+            <H3>{finishing === 'sending' ? t('match.calculating') : t('match.notSent')}</H3>
           </View>
         )}
 
         {target && !card && !busy && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <PowerBar ref={power} key={`${target.tx},${target.ty}`} />
-            <Cta style={{ width: 104, height: 48 }} onPress={() => { const p = power.current?.stop() ?? 0.5; void shoot({ ...target, power: p }); }}>Vur</Cta>
+            <Cta style={{ width: 104, height: 48 }} onPress={() => { const p = power.current?.stop() ?? 0.5; void shoot({ ...target, power: p }); }}>{t('match.shoot')}</Cta>
           </View>
         )}
 
@@ -220,8 +250,8 @@ export default function Mac() {
           {moment?.kind === 'shot' && !card && finishing === 'no' ? (
             <AssistToggle on={assisted} nudge={nudge} onPress={() => { if (busy) return; setTarget(null); setNudge(false); useGame.getState().setAssisted(!assisted); }} />
           ) : <View />}
-          {card && finishing === 'no' && <Cta style={{ width: 150, height: 48 }} onPress={next}>Devam</Cta>}
-          {finishing === 'failed' && <Cta style={{ width: 170, height: 48 }} onPress={finish}>Tekrar dene</Cta>}
+          {card && finishing === 'no' && <Cta style={{ width: 150, height: 48 }} onPress={next}>{t('common.continue')}</Cta>}
+          {finishing === 'failed' && <Cta style={{ width: 170, height: 48 }} onPress={finish}>{t('match.retry')}</Cta>}
         </View>
       </View>
     </View>
@@ -256,7 +286,7 @@ function AssistToggle({ on, nudge, onPress }: { on: boolean; nudge: boolean; onP
       }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: on ? colors.ink : colors.g100, alignSelf: on ? 'flex-end' : 'flex-start' }} />
       </View>
-      <T w={500} size={14} color={colors.g200}>Yardımlı şut</T>
+      <T w={500} size={14} color={colors.g200}>{t('match.assistedShot')}</T>
     </Pressable>
   );
 }

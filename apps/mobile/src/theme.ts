@@ -31,3 +31,15 @@ export type Weight = keyof typeof fonts;
 
 /** Space reserved at the bottom of tab screens for the floating tab bar. */
 export const TAB_BAR_SPACE = 120;
+
+/** Shared animation timings (ms) and springs, so every screen moves the same way. */
+export const motion = {
+  fast: 150,
+  base: 250,
+  slow: 400,
+  celebrate: 900,
+  /** UI feedback: presses, toggles, sliding indicators. */
+  snappy: { damping: 18, stiffness: 260, mass: 1 },
+  /** Rewards only: goals, level ups, coins. */
+  bouncy: { damping: 10, stiffness: 180, mass: 1 },
+} as const;
