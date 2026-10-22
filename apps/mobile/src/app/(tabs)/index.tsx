@@ -100,12 +100,12 @@ export default function Hub() {
         <View style={{ padding: 16, borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 14 }}>
           <Caps>{t('hub.fixture')}</Caps>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Crest text="YIL" bg={colors.l600} fg={colors.ink} />
+            <Crest text={t('club.home.code')} bg={colors.l600} fg={colors.ink} />
             <View style={{ flex: 1, minWidth: 0 }}>
-              <T w={600} size={16} numberOfLines={1}>Yıldırımspor – Kartaltepe SK</T>
+              <T w={600} size={16} numberOfLines={1}>{t('club.home')} – {t('club.kartaltepe')}</T>
               <T size={13} color={colors.g200}>{t('hub.fixtureMeta')}</T>
             </View>
-            <Crest text="KAR" bg={colors.awayCrest} fg={colors.awayCrestText} />
+            <Crest text={t('club.away.code')} bg={colors.awayCrest} fg={colors.awayCrestText} />
           </View>
           <Cta off={empty} onPress={play} accessibilityLabel={empty ? t('hub.waitEnergy') : t('hub.playA11y')}>
             <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>{empty ? t('hub.waitEnergy') : starting ? t('hub.preparing') : t('hub.play')}</T>

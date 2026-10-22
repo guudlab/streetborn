@@ -203,7 +203,7 @@ export default function Mac() {
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(13,13,13,.72)' }}>
-              <T w={600} size={15}>YIL {score.us} – {score.them} KAR</T>
+              <T w={600} size={15}>{t('club.home.code')} {score.us} – {score.them} {t('club.away.code')}</T>
               <View style={{ width: 1, height: 16, backgroundColor: colors.g400 }} />
               <T w={600} size={15} color={colors.l600}>{minute}'</T>
             </View>

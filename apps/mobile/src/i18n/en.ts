@@ -1,12 +1,18 @@
 import type { Key } from './tr.ts';
 
-// English UI. The mentor is "Neighborhood OG" (Burak abi in Turkish); prices are sample USD values like the TL ones.
+// English UI. Clubs use global names (Block United, North FC, Coast SC). The mentor is "Neighborhood OG" (Burak abi in Turkish); prices are sample USD values like the TL ones.
 export const en: Record<Key, string> = {
   'common.start': 'Start',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.ok': 'OK',
   'common.continue': 'Continue',
+  'club.home': 'Block United',
+  'club.home.code': 'BLK',
+  'club.kartaltepe': 'North FC',
+  'club.away.code': 'NOR',
+  'club.bogazici': 'Coast SC',
+
   'common.week10': 'Week 10',
 
   'tab.career': 'Career',
@@ -102,7 +108,7 @@ export const en: Record<Key, string> = {
   'match.coach.conceded': 'We’ve conceded, no panic, bro, our chance will come.',
   'match.coach.short': 'Swipe longer, kid, all the way to the goal!',
   'match.sendFailed': 'Couldn’t send the match result',
-  'match.ticker': '{minute}\'  Kartaltepe SK goal · YIL {us} – {them} KAR',
+  'match.ticker': '{minute}\'  North FC goal · BLK {us} – {them} NOR',
   'match.pauseTitle': 'Match paused',
   'match.pauseText': 'If you skip the remaining chances, the match is simulated; those chances give no rating or goals.',
   'match.resume': 'Resume',
@@ -123,7 +129,7 @@ export const en: Record<Key, string> = {
   'match.markedA11y': 'marked',
 
   'post.title': 'Full time · Week 10',
-  'post.headline': 'Yıldırımspor {us} – {them} Kartaltepe',
+  'post.headline': 'Block United {us} – {them} North FC',
   'post.W': 'Win',
   'post.D': 'Draw',
   'post.L': 'Loss',
@@ -172,11 +178,11 @@ export const en: Record<Key, string> = {
   'offers.none': 'No offers yet',
   'offers.noneText': 'If your match rating is 6.5 or higher, scouts write a report and clubs send offers.',
   'offers.signedTitle': 'You signed with {club}',
-  'offers.signedText': 'You move to your new club at the end of the season (2 weeks). Until then, keep playing for Yıldırımspor.',
+  'offers.signedText': 'You move to your new club at the end of the season (2 weeks). Until then, keep playing for Block United.',
   'offers.trialTitle': '{club} trial match',
   'offers.signTitle': 'Sign with {club}',
   'offers.trialText': 'The trial match is played with your next energy. It needs: {req}. If you fall short, the offer closes; your current club isn’t affected.',
-  'offers.signText': 'You leave Yıldırımspor at the end of the season. This can’t be undone.',
+  'offers.signText': 'You leave Block United at the end of the season. This can’t be undone.',
   'offers.accept': 'Accept',
   'offers.sign': 'Sign',
   'offers.trialAdded': 'Trial match added to the calendar',
@@ -187,7 +193,7 @@ export const en: Record<Key, string> = {
   'offers.role': 'Role',
   'offers.weekly': 'Weekly',
   'offers.length': 'Length',
-  'offers.current': 'Your current club: Yıldırımspor · Rotation · 180 coins/week',
+  'offers.current': 'Your current club: Block United · Rotation · 180 coins/week',
   'offers.trialInCalendar': 'Trial match in calendar',
   'offers.acceptTrial': 'Accept trial match',
 

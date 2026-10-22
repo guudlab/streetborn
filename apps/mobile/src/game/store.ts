@@ -141,7 +141,7 @@ export const useGame = create<GameState>()((set, get) => ({
   offlineReason: null,
   // Sample character from the prototype, used in local mode.
   name: 'Efe Yılmaz',
-  club: 'Yıldırımspor',
+  club: t('club.home'),
   level: 7,
   xp: 2215,
   coins: 1240,

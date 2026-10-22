@@ -6,6 +6,12 @@ export const tr = {
   'common.cancel': 'Vazgeç',
   'common.ok': 'Tamam',
   'common.continue': 'Devam',
+  'club.home': 'Yıldırımspor',
+  'club.home.code': 'YIL',
+  'club.kartaltepe': 'Kartaltepe SK',
+  'club.away.code': 'KAR',
+  'club.bogazici': 'Boğaziçi Gençlik FK',
+
   'common.week10': 'Hafta 10',
 
   'tab.career': 'Kariyer',
