@@ -7,6 +7,7 @@ import { DRILLS, ovr, type StatKey } from '../../game/rules.ts';
 import { useGame, type TrainResult } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
+import { sfx } from '../../audio/audio.ts';
 import { buzz, Caps, Cta, H1, H3, T } from '../../ui/kit.tsx';
 import { TimingBar, type TimingBarHandle } from '../../ui/TimingBar.tsx';
 
@@ -35,6 +36,7 @@ export default function Gelisim() {
     const r = useGame.getState().train(sel, q);
     if (!r) return;
     buzz(r.grade === 'mukemmel' ? 'success' : 'light');
+    sfx(r.ups ? 'levelup' : r.grade === 'mukemmel' ? 'unlock' : r.grade === 'iyi' ? 'coin' : 'error');
     setLast(r);
   };
 

@@ -4,6 +4,7 @@ import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, V
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { setMusic, sfx } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { buzz, Cta, Ghost, H3, T } from '../ui/kit.tsx';
@@ -23,11 +24,13 @@ export default function Giris() {
   const startAnonymous = useGame(s => s.startAnonymous);
   const [busy, setBusy] = useState(false);
   const intro = useIntro();
+  useEffect(() => { setMusic('menu'); }, []);
   const blink = useBlink(!busy);
 
   async function start() {
     if (busy) return;
     buzz('medium');
+    sfx('whistle_start');
     setBusy(true);
     try { await startAnonymous(); } finally { setBusy(false); }
   }

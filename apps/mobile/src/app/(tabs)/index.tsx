@@ -15,6 +15,7 @@ import { openEnergySheet } from '../../ui/energy.tsx';
 import { Crest, Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T } from '../../ui/kit.tsx';
 import { toast } from '../../ui/overlay.tsx';
+import { SoundButton } from '../../ui/settings.tsx';
 
 const hero = require('../../../assets/meshy/hero-street.png');
 
@@ -78,6 +79,8 @@ export default function Hub() {
             </View>
           ))}
         </View>}
+
+        <View style={{ position: 'absolute', right: 16, bottom: 8 }}><SoundButton /></View>
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>

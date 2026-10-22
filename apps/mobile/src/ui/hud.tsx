@@ -8,6 +8,7 @@ import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { energyLeft } from './energy.tsx';
 import { Pill, Ring, T, useNow } from './kit.tsx';
+import { Pulse } from './motion.tsx';
 
 /** Top bar: level ring + name, coins, energy with regen timer. */
 export function Hud() {
@@ -24,20 +25,20 @@ export function Hud() {
         onPress={() => router.navigate('/gelisim')}
         style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }}
       >
-        <Ring size={44} stroke={3} value={levelProgress(g.level, g.xp)}><T w={700} size={16}>{g.level}</T></Ring>
+        <Ring size={44} stroke={3} value={levelProgress(g.level, g.xp)}><Pulse value={g.level}><T w={700} size={16}>{g.level}</T></Pulse></Ring>
         <View style={{ flex: 1, minWidth: 0 }}>
           <T w={600} size={15} numberOfLines={1}>{g.name}</T>
           <T size={12} color={colors.g200} numberOfLines={1}>{club} · Amatör Lig</T>
         </View>
       </Pressable>
       <Pill image={require("../../assets/meshy/coin.png")} label={`Coin ${g.coins}`} onPress={() => router.navigate('/dukkan')}>
-        <T w={600} size={15}>{tr(g.coins)}</T>
+        <Pulse value={g.coins}><T w={600} size={15}>{tr(g.coins)}</T></Pulse>
       </Pill>
       <Pill
         icon="bolt" iconColor={g.energy === 0 ? colors.g400 : colors.l600}
         label={`Enerji ${g.energy}/${g.energyMax}${t ? ', sonraki ' + t : ''}`} onPress={() => router.navigate('/dukkan')}
       >
-        <T w={600} size={15}>{g.energy}/{g.energyMax}</T>
+        <Pulse value={g.energy}><T w={600} size={15}>{g.energy}/{g.energyMax}</T></Pulse>
         {t && <T w={500} size={12} color={colors.g200}>{t}</T>}
       </Pill>
     </View>

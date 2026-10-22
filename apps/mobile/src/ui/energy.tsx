@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { mmss } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
+import { sfx } from '../audio/audio.ts';
 import { buzz, Ghost, H3, Opt, Price, T } from './kit.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from './overlay.tsx';
 
@@ -25,14 +26,14 @@ export function EnergyOptions({ onDone }: { onDone?: () => void }) {
         disabled={soon || !adsLeft || energy >= energyMax}
         onPress={() => {
           openSheet(<><H3>Reklam oynatılıyor</H3><Spinner /><SheetText>Prototip: 2 saniyelik yer tutucu</SheetText></>);
-          setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) toast('+1 enerji'); onDone?.(); }, 2000);
+          setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) { toast('+1 enerji'); sfx('unlock'); } onDone?.(); }, 2000);
         }}
       />
       <Opt
         icon="gem" title="Enerjiyi doldur" sub={soon ? 'Yakında' : `Bakiye: ${gems} elmas`}
         disabled={soon || gems < 20 || energy >= energyMax} right={<Price gem>20</Price>}
         onPress={() => {
-          if (useGame.getState().gemRefill()) { toast('Enerji doldu · −20 elmas'); buzz('medium'); }
+          if (useGame.getState().gemRefill()) { toast('Enerji doldu · −20 elmas'); buzz('medium'); sfx('unlock'); }
           closeSheet(); onDone?.();
         }}
       />

@@ -2,12 +2,14 @@ import { Image, type ImageSource } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  Animated, Platform, Pressable, Text, View, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle,
+  Animated, Platform, Text, View, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { sfx } from '../audio/audio.ts';
 import { colors, fonts, type Weight } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
+import { PressableScale } from './motion.tsx';
 
 /* ---------- Text ---------- */
 
@@ -32,42 +34,42 @@ type BtnProps = Omit<PressableProps, 'style' | 'children'> & { children: ReactNo
 export function Cta({ children, style, off, disabled, onPress, ...rest }: BtnProps) {
   const dim = off || disabled;
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button" disabled={disabled} onPress={(e) => { tap(); onPress?.(e); }} {...rest}
-      style={({ pressed }) => [{
+      style={[{
         height: 56, borderRadius: 28, backgroundColor: dim ? colors.s3 : colors.l600, flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'center', gap: 10, transform: [{ scale: pressed ? 0.97 : 1 }],
+        alignItems: 'center', justifyContent: 'center', gap: 10,
         ...(dim ? {} : { shadowColor: colors.l600, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } }),
       }, style]}
     >
       {typeof children === 'string' ? <T w={600} size={17} color={dim ? colors.g200 : colors.ink}>{children}</T> : children}
-    </Pressable>
+    </PressableScale>
   );
 }
 
 export function Ghost({ children, style, onPress, ...rest }: BtnProps) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button" onPress={(e) => { tap(); onPress?.(e); }} {...rest}
-      style={({ pressed }) => [{
+      style={[{
         height: 48, borderRadius: 24, borderWidth: 1, borderColor: colors.line, flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.7 : 1,
+        alignItems: 'center', justifyContent: 'center', gap: 8,
       }, style]}
     >
       {typeof children === 'string' ? <T w={600} size={16}>{children}</T> : children}
-    </Pressable>
+    </PressableScale>
   );
 }
 
 export function Pill({ icon, iconColor, image, children, onPress, label }: { icon?: IconName; iconColor?: string; image?: ImageSource; children: ReactNode; onPress?: () => void; label: string }) {
   return (
-    <Pressable
-      accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+    <PressableScale
+      accessibilityRole="button" accessibilityLabel={label} onPress={onPress && (() => { tap(); onPress(); })}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingLeft: 8, paddingRight: 12, borderRadius: 22, backgroundColor: colors.s2, minWidth: 44 }}
     >
       {image ? <Image source={image} style={{ width: 28, height: 28, marginLeft: -4, marginVertical: -4 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /> : <Icon name={icon!} size={20} color={iconColor} />}
       {children}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -82,7 +84,8 @@ export function buzz(kind: 'light' | 'medium' | 'success' = 'light') {
   if (kind === 'success') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   else void Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 }
-const tap = () => buzz('light');
+/** Default feedback for a button: light haptic plus the tap sound. */
+export const tap = () => { buzz('light'); sfx('tap'); };
 
 /* ---------- Hooks ---------- */
 
@@ -182,8 +185,8 @@ export function CoachLine({ text }: { text: string }) {
 /** Tappable row used in sheets and the shop. */
 export function Opt({ icon, title, sub, right, disabled, onPress }: { icon: IconName; title: string; sub: string; right?: ReactNode; disabled?: boolean; onPress: () => void }) {
   return (
-    <Pressable
-      accessibilityRole="button" disabled={disabled} onPress={onPress}
+    <PressableScale
+      accessibilityRole="button" disabled={disabled} onPress={() => { tap(); onPress(); }} to={0.98}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2, opacity: disabled ? 0.45 : 1 }}
     >
       <Icon name={icon} color={colors.l600} />
@@ -192,7 +195,7 @@ export function Opt({ icon, title, sub, right, disabled, onPress }: { icon: Icon
         <T w={500} size={13} color={colors.g200}>{sub}</T>
       </View>
       {right ?? <Icon name="chev" color={colors.g200} />}
-    </Pressable>
+    </PressableScale>
   );
 }
 
