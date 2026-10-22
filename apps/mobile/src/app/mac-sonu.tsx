@@ -66,7 +66,7 @@ export default function MacSonu() {
         <CoachFace size={44} />
         <View style={{ flex: 1 }}>
           <T w={600} size={17} style={{ lineHeight: 22 }}>“{quote}”</T>
-          <Caps style={{ fontSize: 12, marginTop: 2 }}>Mahalle abisi</Caps>
+          <Caps style={{ fontSize: 12, marginTop: 2 }}>Burak abi</Caps>
         </View>
       </View>
 

@@ -145,7 +145,7 @@ export function Track({ value, color = colors.l600, height = 8, reset }: { value
   );
 }
 
-/* ---------- Mahalle abisi ---------- */
+/* ---------- Mahalle abisi (Burak abi) ---------- */
 
 export function CoachFace({ size = 40 }: { size?: number }) {
   return (
@@ -172,7 +172,7 @@ export function CoachLine({ text }: { text: string }) {
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <CoachFace />
       <Animated.View style={{ flex: 1, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }] }}>
-        <Caps style={{ fontSize: 12, marginBottom: 2 }}>Mahalle abisi</Caps>
+        <Caps style={{ fontSize: 12, marginBottom: 2 }}>Burak abi</Caps>
         <T w={500} size={15} style={{ lineHeight: 20 }} accessibilityLiveRegion="polite">{text}</T>
       </Animated.View>
     </View>
