@@ -43,7 +43,7 @@ export default function MacSonu() {
 
   const lines = r.log.map(l => LINE[l.outcome]);
   const teamDelta = r.result === 'W' ? ['+0,3', 'plus'] : r.result === 'L' ? ['−0,3', 'minus'] : ['0', ''];
-  const quote = r.rating >= 70 ? 'Bugün sahada adamdın.' : r.rating >= 60 ? 'Fena değil, daha iyisi var.' : 'Kötü gün. Yarın antrenmana.';
+  const quote = r.rating >= 70 ? 'Bugün adam gibi oynadın oğlum. Mahalle seninle gurur duyar.' : r.rating >= 60 ? 'Fena değildi kardeşim, ama daha iyisini biliyorum.' : 'Kötü gün, olur. Yarın sahaya, yine buradayım.';
   const p0 = levelProgress(r.before.level, r.before.xp);
   const p1 = levelProgress(r.after.level, r.after.xp);
   // With a level-up the bar fills to 100%, then restarts from 0 at the new level.
@@ -66,7 +66,7 @@ export default function MacSonu() {
         <CoachFace size={44} />
         <View style={{ flex: 1 }}>
           <T w={600} size={17} style={{ lineHeight: 22 }}>“{quote}”</T>
-          <Caps style={{ fontSize: 12, marginTop: 2 }}>Hoca Rıza</Caps>
+          <Caps style={{ fontSize: 12, marginTop: 2 }}>Mahalle abisi</Caps>
         </View>
       </View>
 
@@ -109,7 +109,7 @@ export default function MacSonu() {
         <Gain show={step >= 5}>
           <Icon name="whistle" size={22} color={colors.g200} />
           <View style={{ flex: 1, gap: 8 }}>
-            <T w={500} size={15}>Hoca güveni</T>
+            <T w={500} size={15}>Mahalle saygısı</T>
             <Track value={(step >= 5 ? r.after.trust : r.before.trust) / 100} />
           </View>
           <T w={600} size={17} color={r.trustDelta >= 0 ? colors.l500 : colors.bad}>{r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}</T>

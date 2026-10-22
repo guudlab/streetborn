@@ -145,7 +145,7 @@ export function Track({ value, color = colors.l600, height = 8, reset }: { value
   );
 }
 
-/* ---------- Hoca Rıza ---------- */
+/* ---------- Mahalle abisi ---------- */
 
 export function CoachFace({ size = 40 }: { size?: number }) {
   return (
@@ -153,9 +153,9 @@ export function CoachFace({ size = 40 }: { size?: number }) {
       <Svg viewBox="0 0 52 52" width="100%" height="100%">
         <Rect width={52} height={52} fill="#3A2E25" />
         <Circle cx={26} cy={30} r={15} fill="#C89A72" />
-        <Path d="M10 22 Q26 6 42 22 L42 18 Q26 2 10 18Z" fill="#2B3A55" />
-        <Rect x={9} y={19} width={34} height={5} rx={2} fill="#22304A" />
-        <Path d="M17 36 Q26 31 35 36 Q26 40 17 36Z" fill="#E9E4DA" />
+        <Path d="M11 24 Q12 10 26 10 Q40 10 41 24 Q36 17 26 17 Q16 17 11 24Z" fill="#1F1A16" />
+        <Path d="M13 33 Q26 50 39 33 Q39 44 26 46 Q13 44 13 33Z" fill="#2B241C" opacity={0.55} />
+        <Path d="M20 37 Q26 35 32 37" stroke="#1F1A16" strokeWidth={1.6} fill="none" />
         <Circle cx={20} cy={28} r={1.8} fill="#2B241C" />
         <Circle cx={32} cy={28} r={1.8} fill="#2B241C" />
         <Rect x={0} y={46} width={52} height={6} fill="#5B3B33" />
@@ -172,7 +172,7 @@ export function CoachLine({ text }: { text: string }) {
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <CoachFace />
       <Animated.View style={{ flex: 1, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }] }}>
-        <Caps style={{ fontSize: 12, marginBottom: 2 }}>Hoca Rıza</Caps>
+        <Caps style={{ fontSize: 12, marginBottom: 2 }}>Mahalle abisi</Caps>
         <T w={500} size={15} style={{ lineHeight: 20 }} accessibilityLiveRegion="polite">{text}</T>
       </Animated.View>
     </View>

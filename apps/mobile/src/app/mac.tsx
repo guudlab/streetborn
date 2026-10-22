@@ -58,10 +58,10 @@ export default function Mac() {
   // Coach line at the start of each moment.
   useEffect(() => {
     if (!moment || card) return;
-    setLine(moment.kind === 'pass' ? 'Can boşta, Mert’in arkasında adam var. Boştakine dokun.'
-      : forced ? 'Barajın üstünden. Kalede hedefe dokun, gücü yeşilde durdur.'
-        : assisted ? 'Kalede bir yer seç, gücü yeşilde durdur.'
-          : 'Topu kaleye doğru kaydır, köşeye vur. Kaleci erken yatıyor.');
+    setLine(moment.kind === 'pass' ? 'Can boşta kardeşim, Mert’in arkasında adam var. Boştakine ver.'
+      : forced ? 'Barajın üstünden at oğlum. Köşeyi seç, gücü yeşilde durdur.'
+        : assisted ? 'Köşeyi seç kardeşim, gücü yeşilde durdur.'
+          : 'Topu kaleye doğru kaydır, köşeye vur oğlum. Kaleci erken yatıyor.');
   }, [moment, forced, assisted, card]);
 
   if (leaving.current) return null;
@@ -84,9 +84,9 @@ export default function Mac() {
     setTarget(null);
     const goal = o.outcome === 'goal';
     setCard({ good: goal, title: SHOT_TEXT[res.out], desc: goal ? 'Maç notu +1,0' : 'Maç notu −0,5', icon: goal ? 'ball' : 'x' });
-    if (goal) { buzz('success'); setLine('İşte bu! Kafanı kaldır, devam.'); }
-    else if (moment?.kind === 'shot' && !assisted) { setLine('Olur böyle. Kaydırmak zorsa yardımlı şutu aç, kimse bilmez.'); setNudge(true); }
-    else setLine('Olur böyle. Sonrakine odaklan.');
+    if (goal) { buzz('success'); setLine('İşte bu oğlum! Kafanı kaldır, devam.'); }
+    else if (moment?.kind === 'shot' && !assisted) { setLine('Olur böyle kardeşim. Kaydırmak zorsa yardımlı şutu aç, kimseye söylemem.'); setNudge(true); }
+    else setLine('Olur böyle oğlum. Sonrakine bak.');
   };
 
   const pass = async (mate: Mate) => {
@@ -100,7 +100,7 @@ export default function Mac() {
       good: ok, title: ok ? 'Asist' : 'Top kaybı', icon: ok ? 'check' : 'x',
       desc: ok ? 'Can golü attı · Not +0,7' : mate.open ? 'Pas kesildi · Not −0,3' : 'Mert markajdaydı · Not −0,3',
     });
-    setLine(ok ? 'Gözün açık. Takım oyunu budur.' : mate.open ? 'Pas doğruydu, şanssızlık.' : 'Mert markajdaydı, Can boştaydı. Önce bak, sonra ver.');
+    setLine(ok ? 'Gözün açık, aferin. Mahalle maçı böyle kazanılır.' : mate.open ? 'Pas doğruydu oğlum, şansa küs.' : 'Mert markajdaydı, Can boştaydı kardeşim. Önce bak, sonra ver.');
   };
 
   const finish = async () => {
@@ -123,7 +123,7 @@ export default function Mac() {
       const m = useGame.getState().match!;
       const score = liveScore(m, ev.minute + 1);
       setTicker(`${ev.minute}'  Kartaltepe SK golü · YIL ${score.us} – ${score.them} KAR`);
-      setLine('Gol yedik. Panik yok, fırsat gelecek.');
+      setLine('Gol yedik, panik yok kardeşim. Fırsat gelecek.');
       await wait(1300);
       setTicker(null);
     }
@@ -160,7 +160,7 @@ export default function Mac() {
             onMate={pass}
             onTarget={setTarget}
             onSwipe={shoot}
-            onShort={() => setLine('Daha uzun sür topu, kaleye kadar!')}
+            onShort={() => setLine('Daha uzun sür topu oğlum, kaleye kadar!')}
           />
         )}
 

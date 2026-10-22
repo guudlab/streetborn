@@ -10,7 +10,7 @@ export type Stats = Record<StatKey, number>;
 export const DRILLS: Record<StatKey, { stat: string; name: string; place: string }> = {
   sut: { stat: 'Şut', name: 'Duvara şut', place: 'Mahalle duvarı' },
   pas: { stat: 'Pas', name: 'Duvar pası', place: 'Garaj önü' },
-  hiz: { stat: 'Hız', name: 'Koni slalomu', place: 'Sokak' },
+  hiz: { stat: 'Hız', name: 'Koni slalomu', place: 'Mahalle arası' },
   fizik: { stat: 'Fizik', name: 'Merdiven koşusu', place: 'Apartman merdiveni' },
 };
 
