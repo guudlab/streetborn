@@ -3,20 +3,28 @@ import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, useWindowDimensions, View } from 'react-native';
+import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { duckMusic, preloadSfx, setAmbience, setMusic, sfx, type SfxId } from '../audio/audio.ts';
 import { clamp, MOMENT_TITLE } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachLine, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
+import { useShake } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { PowerBar, type PowerBarHandle } from '../ui/PowerBar.tsx';
+import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
 
 const KIND = { shot: 'Şut', pass: 'Pas', freekick: 'Serbest vuruş' } as const;
 const SHOT_TEXT = { gol: 'GOL', kurtardi: 'Kaleci kurtardı', aut: 'Auta gitti', ust: 'Üstten auta' } as const;
 const OUT = { goal: 'gol', saved: 'kurtardi', wide: 'aut', over: 'ust' } as const;
+/** What the ball hits, and how the crowd reacts. */
+const IMPACT: Record<ShotAnim['out'], [SfxId, SfxId]> = {
+  gol: ['net', 'crowd_cheer'], kurtardi: ['save', 'crowd_groan'], aut: ['crowd_groan', 'crowd_groan'], ust: ['crowd_groan', 'crowd_groan'],
+};
 const SPOT: Record<Side, { x: number; y: number }> = { left: { x: 92, y: 330 }, right: { x: 300, y: 300 } };
 
 /** Can is always the open teammate; the plan decides which side he is on. */
@@ -50,6 +58,16 @@ export default function Mac() {
   const [nudge, setNudge] = useState(false);
   const [finishing, setFinishing] = useState<'no' | 'sending' | 'failed'>('no');
   const leaving = useRef(false);
+  const impact = useShake(7);
+
+  // Match atmosphere: crowd bed + match music, kick-off whistle. The tabs restore the menu loop.
+  useEffect(() => {
+    preloadSfx(['kick', 'kick_power', 'net', 'save', 'crowd_cheer', 'crowd_groan', 'whistle_end']);
+    setMusic('match');
+    setAmbience('crowd');
+    sfx('whistle_start');
+    return () => setAmbience(null);
+  }, []);
 
   const moment = match ? match.plan.moments[match.i] : undefined;
   const forced = moment?.kind === 'freekick';
@@ -80,11 +98,15 @@ export default function Mac() {
     });
     if (o.kind === 'pass') return;
     const res = toAnim(o);
+    sfx(input.power > 0.7 ? 'kick_power' : 'kick');
     await scene.current?.animateShot(res);
+    const [hit, crowd] = IMPACT[res.out];
+    sfx(hit);
+    if (hit !== crowd) sfx(crowd);
     setTarget(null);
     const goal = o.outcome === 'goal';
     setCard({ good: goal, title: SHOT_TEXT[res.out], desc: goal ? 'Maç notu +1,0' : 'Maç notu −0,5', icon: goal ? 'ball' : 'x' });
-    if (goal) { buzz('success'); setLine('İşte bu! Kafanı kaldır, devam.'); }
+    if (goal) { buzz('success'); impact.shake(); duckMusic(2400); setLine('İşte bu! Kafanı kaldır, devam.'); }
     else if (moment?.kind === 'shot' && !assisted) { setLine('Olur böyle. Kaydırmak zorsa yardımlı şutu aç, kimse bilmez.'); setNudge(true); }
     else setLine('Olur böyle. Sonrakine odaklan.');
   };
@@ -94,8 +116,10 @@ export default function Mac() {
     setBusy(true);
     const side: Side = mate.open ? moment.openSide : moment.openSide === 'left' ? 'right' : 'left';
     const o = useGame.getState().play({ chance: match.i, pass: side });
+    sfx('kick');
     await scene.current?.animatePass(mate.x, mate.y);
     const ok = o.outcome === 'assist';
+    if (ok) { sfx('net'); sfx('crowd_cheer', 0.7); duckMusic(2000); } else sfx('crowd_groan');
     setCard({
       good: ok, title: ok ? 'Asist' : 'Top kaybı', icon: ok ? 'check' : 'x',
       desc: ok ? 'Can golü attı · Not +0,7' : mate.open ? 'Pas kesildi · Not −0,3' : 'Mert markajdaydı · Not −0,3',
@@ -105,6 +129,8 @@ export default function Mac() {
 
   const finish = async () => {
     setFinishing('sending');
+    sfx('whistle_end');
+    setAmbience(null);
     try {
       await useGame.getState().finishMatch();
       leaving.current = true;
@@ -124,6 +150,7 @@ export default function Mac() {
       const score = liveScore(m, ev.minute + 1);
       setTicker(`${ev.minute}'  Kartaltepe SK golü · YIL ${score.us} – ${score.them} KAR`);
       setLine('Gol yedik. Panik yok, fırsat gelecek.');
+      sfx('crowd_groan');
       await wait(1300);
       setTicker(null);
     }
@@ -136,6 +163,7 @@ export default function Mac() {
     <>
       <H3>Maç duraklatıldı</H3>
       <SheetText>Kalan pozisyonları oynamazsan maç simüle edilir; o pozisyonlardan not ve gol gelmez.</SheetText>
+      <SoundToggles />
       <Cta onPress={closeSheet}>Devam et</Cta>
       <Ghost onPress={() => { closeSheet(); setCard(null); setBusy(true); void finish(); }}>Maçı simüle et ve bitir</Ghost>
     </>,
@@ -149,7 +177,7 @@ export default function Mac() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
-      <View style={{ height: sceneH }}>
+      <Reanimated.View style={[{ height: sceneH }, impact.style]}>
         {moment && (
           <ShotScene
             key={m?.i}
@@ -192,7 +220,7 @@ export default function Mac() {
         )}
 
         {card && <ResultCard card={card} />}
-      </View>
+      </Reanimated.View>
 
       {/* Panel */}
       <View style={{ flex: 1, paddingTop: 18, paddingHorizontal: 20, paddingBottom: insets.bottom + 20, gap: 14 }}>

@@ -8,6 +8,7 @@ import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
 import { Crest } from '../../ui/hud.tsx';
+import { sfx } from '../../audio/audio.ts';
 import { buzz, Caps, Cta, Ghost, H1, H3, T } from '../../ui/kit.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../../ui/overlay.tsx';
 
@@ -46,7 +47,7 @@ export default function Teklifler() {
       <Cta onPress={() => {
         closeSheet();
         if (offer.req) { useGame.getState().acceptTrial(); toast('Deneme maçı takvime eklendi'); return; }
-        useGame.getState().sign(offer.id); toast('İmzalandı'); buzz('success');
+        useGame.getState().sign(offer.id); toast('İmzalandı'); buzz('success'); sfx('unlock');
       }}>{offer.req ? 'Kabul et' : 'İmzala'}</Cta>
       <Ghost onPress={closeSheet}>Vazgeç</Ghost>
     </>,

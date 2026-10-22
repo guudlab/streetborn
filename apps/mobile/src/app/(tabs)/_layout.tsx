@@ -1,8 +1,10 @@
 import { BlurView } from 'expo-blur';
+import { useFocusEffect } from 'expo-router';
 import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, View } from 'react-native';
 
+import { setAmbience, setMusic, sfx } from '../../audio/audio.ts';
 import { useGame } from '../../game/store.ts';
 import { colors } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
@@ -56,7 +58,7 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
           return (
             <Pressable
               key={route.key} accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected: on }}
-              onPress={() => { if (!on) { buzz(); navigateToTab(route.key); } }}
+              onPress={() => { if (!on) { buzz(); sfx('tab'); navigateToTab(route.key); } }}
               style={{ flex: 1, height: DISC, alignItems: 'center', justifyContent: 'center' }}
             >
               <Icon name={tab.icon} color={on ? colors.ink : colors.g200} />
@@ -72,6 +74,8 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  // The calm menu loop plays on every tab; the match screen swaps it out.
+  useFocusEffect(useCallback(() => { setMusic('menu'); setAmbience(null); }, []));
   return (
     <Tabs
       tabBar={(p) => <TabBar {...p} />}

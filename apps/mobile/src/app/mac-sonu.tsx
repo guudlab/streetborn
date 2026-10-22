@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { setMusic, sfx } from '../audio/audio.ts';
 import { tr } from '../game/format.ts';
 import { levelProgress } from '../game/rules.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachFace, Cta, Ghost, H1, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
+import { Pop } from '../ui/motion.tsx';
 
 const RES = { W: 'Galibiyet', D: 'Beraberlik', L: 'Mağlubiyet' } as const;
 const BADGE = { W: [colors.l900, colors.l500], D: [colors.s3, colors.g100], L: ['#3A1D19', '#FFB1A5'] } as const;
@@ -26,11 +28,13 @@ export default function MacSonu() {
   useEffect(() => {
     if (!r) return;
     let live = true;
+    setMusic(null);
+    sfx(r.result === 'L' ? 'defeat_sting' : 'victory_sting');
     (async () => {
       await wait(250); if (!live) return; setStep(1);
-      await wait(800); if (!live) return; setStep(2);
-      await wait(700); if (!live) return; buzz(); setStep(3);
-      if (r.ups) { await wait(900); if (!live) return; buzz('success'); setStep(4); }
+      await wait(800); if (!live) return; sfx('coin'); setStep(2);
+      await wait(700); if (!live) return; buzz(); sfx('tab'); setStep(3);
+      if (r.ups) { await wait(900); if (!live) return; buzz('success'); sfx('levelup'); setStep(4); }
       await wait(250); if (!live) return; setStep(5);
     })();
     return () => { live = false; };
@@ -54,7 +58,9 @@ export default function MacSonu() {
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
       <View>
-        <Image source={require('../../assets/meshy/cup-gold.png')} style={{ width: 88, height: 88, alignSelf: 'center' }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+        <Pop delay={150} style={{ alignSelf: 'center' }}>
+          <Image source={require('../../assets/meshy/cup-gold.png')} style={{ width: 88, height: 88 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+        </Pop>
         <Caps>Maç sonu · Hafta 10</Caps>
         <H1 style={{ marginTop: 6 }}>Yıldırımspor {r.us} – {r.them} Kartaltepe</H1>
       </View>
@@ -97,9 +103,9 @@ export default function MacSonu() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <T w={500} size={15}>Deneyim</T>
               {step >= 4 && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.l600 }}>
+                <Pop style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.l600 }}>
                   <Icon name="star" size={14} color={colors.ink} /><T w={700} size={13} color={colors.ink}>Seviye {r.after.level}</T>
-                </View>
+                </Pop>
               )}
             </View>
             <Track value={xpBar} reset={step === 4 ? 0 : undefined} />

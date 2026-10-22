@@ -1,4 +1,5 @@
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
+import Constants from 'expo-constants';
 import Head from 'expo-router/head';
 import { Stack, type StackNavigationOptions } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
@@ -13,6 +14,8 @@ import { colors } from '../theme.ts';
 import { OverlayHost } from '../ui/overlay.tsx';
 
 void SplashScreen.preventAutoHideAsync();
+// "/streetborn" on GitHub Pages, "" on Netlify (see app.config.js).
+const BASE = Constants.expoConfig?.experiments?.baseUrl ?? '';
 // Restore the session (if any) and load the player once.
 void useGame.getState().init();
 
@@ -33,8 +36,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
       {Platform.OS === 'web' && (
         <Head>
-          <link rel="manifest" href="/streetborn/manifest.json" />
-          <link rel="apple-touch-icon" href="/streetborn/pwa-icon-192.png" />
+          <link rel="manifest" href={`${BASE}/manifest.json`} />
+          <link rel="apple-touch-icon" href={`${BASE}/pwa-icon-192.png`} />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-title" content="StreetBorn" />
         </Head>

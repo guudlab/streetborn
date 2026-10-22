@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { sfx } from '../../audio/audio.ts';
 import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
@@ -20,13 +21,13 @@ function buy(name: string, price: string) {
       <SheetText>Fiyat: <T w={600} color={colors.g100}>{price}</T>. Ödeme App Store veya Google Play üzerinden yapılır.</SheetText>
       <Cta onPress={() => {
         openSheet(<><H3>Ödeme bekleniyor</H3><Spinner /><SheetText>Mağaza onayı bekleniyor…</SheetText></>);
-        setTimeout(() => openSheet(
+        setTimeout(() => { sfx('coin'); openSheet(
           <>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}><Icon name="check" color={colors.l600} /><H3 color={colors.l600}>Tamamlandı</H3></View>
             <SheetText>Prototip: gerçek ödeme alınmadı, hesaba bir şey eklenmedi.</SheetText>
             <Cta onPress={closeSheet}>Tamam</Cta>
           </>,
-        ), 1400);
+        ); }, 1400);
       }}>{`Onayla · ${price}`}</Cta>
       <Ghost onPress={closeSheet}>Vazgeç</Ghost>
     </>,
