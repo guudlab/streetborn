@@ -1,8 +1,10 @@
 # Netlify builds the Expo web app from GitHub on every push to main,
 # plus a preview for each pull request.
+# The site's base directory is apps/mobile, so this file lives here and
+# every path below is relative to it.
 [build]
-  command = "npm run build:web --workspace apps/mobile"
-  publish = "apps/mobile/dist"
+  command = "npm run build:web"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
