@@ -1,4 +1,5 @@
 import { xpNeed } from '@streetborn/economy';
+import { t } from '../i18n/index.ts';
 
 // Career-screen rules from the prototype (tasarim-yonleri/prototip/game.js).
 // Match outcomes, rating and rewards are NOT here: they come from
@@ -7,21 +8,19 @@ import { xpNeed } from '@streetborn/economy';
 export type StatKey = 'sut' | 'pas' | 'hiz' | 'fizik';
 export type Stats = Record<StatKey, number>;
 
+const drill = (k: StatKey) => ({ stat: t(`drill.${k}.stat`), name: t(`drill.${k}.name`), place: t(`drill.${k}.place`) });
 export const DRILLS: Record<StatKey, { stat: string; name: string; place: string }> = {
-  sut: { stat: 'Şut', name: 'Duvara şut', place: 'Mahalle duvarı' },
-  pas: { stat: 'Pas', name: 'Duvar pası', place: 'Garaj önü' },
-  hiz: { stat: 'Hız', name: 'Koni slalomu', place: 'Sokak' },
-  fizik: { stat: 'Fizik', name: 'Merdiven koşusu', place: 'Apartman merdiveni' },
+  sut: drill('sut'), pas: drill('pas'), hiz: drill('hiz'), fizik: drill('fizik'),
 };
 
 export interface Offer {
   id: string; club: string; league: string; role: string; weekly: number; length: string; note: string; req: string | null;
 }
 export const OFFERS: readonly Offer[] = [
-  { id: 'kartaltepe', club: 'Kartaltepe SK', league: 'Amatör Lig · A Grubu', role: 'İlk 11', weekly: 300, length: '1 sezon',
-    note: 'Bugün oynadığın rakip. Hocası seni ilk 11 istiyor.', req: null },
-  { id: 'bogazici', club: 'Boğaziçi Gençlik FK', league: 'Bölgesel Amatör Lig', role: 'Rotasyon', weekly: 450, length: '1 sezon + opsiyon',
-    note: 'İzci raporundan geldi. Önce deneme maçı var.', req: 'Deneme maçında not 7,0 veya üstü' },
+  { id: 'kartaltepe', club: 'Kartaltepe SK', league: t('offer.kartaltepe.league'), role: t('offer.kartaltepe.role'), weekly: 300, length: t('offer.kartaltepe.length'),
+    note: t('offer.kartaltepe.note'), req: null },
+  { id: 'bogazici', club: 'Boğaziçi Gençlik FK', league: t('offer.bogazici.league'), role: t('offer.bogazici.role'), weekly: 450, length: t('offer.bogazici.length'),
+    note: t('offer.bogazici.note'), req: t('offer.bogazici.req') },
 ];
 
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -34,7 +33,7 @@ export function levelProgress(level: number, xp: number) {
 }
 
 export const OPP = 'Kartaltepe SK';
-export const MOMENT_TITLE = { shot: 'Ceza sahası yayı', pass: 'Kontra atak', freekick: 'Serbest vuruş' } as const;
+export const MOMENT_TITLE = { shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick') } as const;
 
 export type Grade = 'mukemmel' | 'iyi' | 'kacti';
 /** q: 0..1 hit quality on the timing bar (1 = centre). */

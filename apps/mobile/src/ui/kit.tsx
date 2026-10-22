@@ -10,6 +10,7 @@ import { sfx } from '../audio/audio.ts';
 import { colors, fonts, type Weight } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { PressableScale } from './motion.tsx';
+import { t } from '../i18n/index.ts';
 
 /* ---------- Text ---------- */
 
@@ -175,7 +176,7 @@ export function CoachLine({ text }: { text: string }) {
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <CoachFace />
       <Animated.View style={{ flex: 1, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }] }}>
-        <Caps style={{ fontSize: 12, marginBottom: 2 }}>Hoca Rıza</Caps>
+        <Caps style={{ fontSize: 12, marginBottom: 2 }}>{t('coach.name')}</Caps>
         <T w={500} size={15} style={{ lineHeight: 20 }} accessibilityLiveRegion="polite">{text}</T>
       </Animated.View>
     </View>

@@ -11,6 +11,7 @@ import { Crest } from '../../ui/hud.tsx';
 import { sfx } from '../../audio/audio.ts';
 import { buzz, Caps, Cta, Ghost, H1, H3, T } from '../../ui/kit.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../../ui/overlay.tsx';
+import { lang, t } from '../../i18n/index.ts';
 
 const CREST = { kartaltepe: [colors.awayCrest, colors.awayCrestText], bogazici: ['#20323A', '#9ED3E8'] } as Record<string, [string, string]>;
 
@@ -25,12 +26,11 @@ export default function Teklifler() {
     const o = OFFERS.find(x => x.id === signed);
     return (
       <View style={{ flex: 1, ...pad }}>
-        <View><Caps>Kariyer</Caps><H1 style={{ marginTop: 4 }}>Teklifler</H1></View>
+        <View><Caps>{t('offers.eyebrow')}</Caps><H1 style={{ marginTop: 4 }}>{t('offers.title')}</H1></View>
         <Empty
           icon={o ? 'check' : 'mail'}
-          title={o ? `${o.club} ile imzaladın` : 'Henüz teklif yok'}
-          text={o ? "Sezon sonunda (2 hafta) yeni kulübüne geçiyorsun. O zamana kadar Yıldırımspor'da oynamaya devam."
-            : 'Maç notun 6,5 veya üstü olursa izciler rapor yazar ve kulüpler teklif gönderir.'}
+          title={o ? t('offers.signedTitle', { club: o.club }) : t('offers.none')}
+          text={o ? t('offers.signedText') : t('offers.noneText')}
         />
       </View>
     );
@@ -38,26 +38,26 @@ export default function Teklifler() {
 
   const confirm = () => openSheet(
     <>
-      <H3>{offer.club}{offer.req ? ' deneme maçı' : ' ile imzala'}</H3>
+      <H3>{offer.req ? t('offers.trialTitle', { club: offer.club }) : t('offers.signTitle', { club: offer.club })}</H3>
       <SheetText>
         {offer.req
-          ? `Deneme maçı bir sonraki enerjinle oynanır. ${offer.req} gerekir; altında kalırsan teklif kapanır, mevcut kulübün etkilenmez.`
-          : "Sezon sonunda Yıldırımspor'dan ayrılırsın. Bu karar geri alınamaz."}
+          ? t('offers.trialText', { req: offer.req })
+          : t('offers.signText')}
       </SheetText>
       <Cta onPress={() => {
         closeSheet();
-        if (offer.req) { useGame.getState().acceptTrial(); toast('Deneme maçı takvime eklendi'); return; }
-        useGame.getState().sign(offer.id); toast('İmzalandı'); buzz('success'); sfx('unlock');
-      }}>{offer.req ? 'Kabul et' : 'İmzala'}</Cta>
-      <Ghost onPress={closeSheet}>Vazgeç</Ghost>
+        if (offer.req) { useGame.getState().acceptTrial(); toast(t('offers.trialAdded')); return; }
+        useGame.getState().sign(offer.id); toast(t('offers.signed')); buzz('success'); sfx('unlock');
+      }}>{offer.req ? t('offers.accept') : t('offers.sign')}</Cta>
+      <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
     </>,
   );
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ ...pad, paddingBottom: TAB_BAR_SPACE + insets.bottom + 90 }}>
-        <View><Caps>İzci raporu · Hafta 10</Caps><H1 style={{ marginTop: 4 }}>2 teklif</H1></View>
-        <Model3D model={require('../../../assets/models/diorama-saha.glb')} fallback={require('../../../assets/meshy/diorama-saha.webp')} spin style={{ width: 140, height: 120, alignSelf: 'center' }} label="Mahalle sahası" />
+        <View><Caps>{t('offers.scoutReport')}</Caps><H1 style={{ marginTop: 4 }}>{t('offers.count')}</H1></View>
+        <Model3D model={require('../../../assets/models/diorama-saha.glb')} fallback={require('../../../assets/meshy/diorama-saha.webp')} spin style={{ width: 140, height: 120, alignSelf: 'center' }} label={t('offers.pitch')} />
         <View accessibilityRole="radiogroup" style={{ gap: 12 }}>
           {OFFERS.map(o => {
             const on = o.id === sel;
@@ -68,7 +68,7 @@ export default function Teklifler() {
                 style={{ borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1.5, borderColor: on ? colors.l600 : colors.line, padding: 16, gap: 12 }}
               >
                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                  <Crest text={o.club.slice(0, 3).toLocaleUpperCase('tr')} bg={bg} fg={fg} />
+                  <Crest text={o.club.slice(0, 3).toLocaleUpperCase(lang)} bg={bg} fg={fg} />
                   <View style={{ flex: 1 }}>
                     <T w={600} size={17}>{o.club}</T>
                     <T size={13} color={colors.g200}>{o.league}</T>
@@ -78,11 +78,11 @@ export default function Teklifler() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Term label="Rol"><T w={600} size={15}>{o.role}</T></Term>
-                  <Term label="Haftalık">
+                  <Term label={t('offers.role')}><T w={600} size={15}>{o.role}</T></Term>
+                  <Term label={t('offers.weekly')}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="coin" size={16} color={colors.l500} /><T w={600} size={15}>{o.weekly}</T></View>
                   </Term>
-                  <Term label="Süre"><T w={600} size={13}>{o.length}</T></Term>
+                  <Term label={t('offers.length')}><T w={600} size={13}>{o.length}</T></Term>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Icon name={o.req ? 'lock' : 'info'} size={18} color={colors.g200} />
@@ -92,12 +92,12 @@ export default function Teklifler() {
             );
           })}
         </View>
-        <T size={13} color={colors.g200}>Şu anki kulübün: Yıldırımspor · Rotasyon · 180 coin/hafta</T>
+        <T size={13} color={colors.g200}>{t('offers.current')}</T>
       </ScrollView>
       <View style={{ position: 'absolute', left: 20, right: 20, bottom: TAB_BAR_SPACE + insets.bottom - 8 }}>
         {offer.req && trialAccepted
-          ? <Cta off disabled>Deneme maçı takvimde</Cta>
-          : <Cta onPress={confirm}>{offer.req ? 'Deneme maçını kabul et' : 'İmzala'}</Cta>}
+          ? <Cta off disabled>{t('offers.trialInCalendar')}</Cta>
+          : <Cta onPress={confirm}>{offer.req ? t('offers.acceptTrial') : t('offers.sign')}</Cta>}
       </View>
     </View>
   );

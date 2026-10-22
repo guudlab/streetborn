@@ -5,26 +5,27 @@ import { colors } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { H3, T, tap } from './kit.tsx';
 import { openSheet } from './overlay.tsx';
+import { t } from '../i18n/index.ts';
 
 /** The two sound toggles; used in the settings sheet and the match pause sheet. */
 export function SoundToggles() {
   const s = useSound();
   return (
     <View style={{ gap: 8 }}>
-      <Toggle icon="music" label="Müzik" on={s.music} onPress={() => s.setMusicOn(!s.music)} />
-      <Toggle icon="sound" label="Ses efektleri" on={s.effects} onPress={() => { s.setEffectsOn(!s.effects); if (!s.effects) tap(); }} />
+      <Toggle icon="music" label={t('sound.music')} on={s.music} onPress={() => s.setMusicOn(!s.music)} />
+      <Toggle icon="sound" label={t('sound.effects')} on={s.effects} onPress={() => { s.setEffectsOn(!s.effects); if (!s.effects) tap(); }} />
     </View>
   );
 }
 
-export const openSoundSheet = () => openSheet(<><H3>Ses</H3><SoundToggles /></>);
+export const openSoundSheet = () => openSheet(<><H3>{t('sound.title')}</H3><SoundToggles /></>);
 
 /** Round button that opens the sound sheet; the icon shows whether anything is muted. */
 export function SoundButton() {
   const muted = useSound(s => !s.music && !s.effects);
   return (
     <Pressable
-      accessibilityRole="button" accessibilityLabel="Ses ayarları" onPress={() => { tap(); openSoundSheet(); }}
+      accessibilityRole="button" accessibilityLabel={t('sound.settings')} onPress={() => { tap(); openSoundSheet(); }}
       style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}
     >
       <Icon name={muted ? 'mute' : 'sound'} size={20} color={colors.g200} />

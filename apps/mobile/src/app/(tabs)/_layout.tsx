@@ -10,15 +10,16 @@ import { useGame } from '../../game/store.ts';
 import { colors, motion } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
 import { buzz, T } from '../../ui/kit.tsx';
+import { t } from '../../i18n/index.ts';
 
 // Kaan's tab bar decision (2026-10-22, option B): a compact centred glass pill
 // that hugs its content; the selected tab opens into a lime pill with its
 // label, the others stay icon only.
 const TABS: Record<string, { icon: IconName; label: string }> = {
-  index: { icon: 'home', label: 'Kariyer' },
-  gelisim: { icon: 'train', label: 'Gelişim' },
-  teklifler: { icon: 'mail', label: 'Teklifler' },
-  dukkan: { icon: 'bag', label: 'Dükkân' },
+  index: { icon: 'home', label: t('tab.career') },
+  gelisim: { icon: 'train', label: t('tab.train') },
+  teklifler: { icon: 'mail', label: t('tab.offers') },
+  dukkan: { icon: 'bag', label: t('tab.shop') },
 };
 
 const HEIGHT = 60;
@@ -88,10 +89,10 @@ export default function TabsLayout() {
         animation: 'shift', transitionSpec: { animation: 'timing', config: { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) } },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Kariyer' }} />
-      <Tabs.Screen name="gelisim" options={{ title: 'Gelişim' }} />
-      <Tabs.Screen name="teklifler" options={{ title: 'Teklifler' }} />
-      <Tabs.Screen name="dukkan" options={{ title: 'Dükkân' }} />
+      <Tabs.Screen name="index" options={{ title: t('tab.career') }} />
+      <Tabs.Screen name="gelisim" options={{ title: t('tab.train') }} />
+      <Tabs.Screen name="teklifler" options={{ title: t('tab.offers') }} />
+      <Tabs.Screen name="dukkan" options={{ title: t('tab.shop') }} />
     </Tabs>
   );
 }

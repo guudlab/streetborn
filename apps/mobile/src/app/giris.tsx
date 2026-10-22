@@ -9,6 +9,7 @@ import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { buzz, Cta, Ghost, H3, T } from '../ui/kit.tsx';
 import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
+import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design C "Dokun ve başla"): the whole screen is the
 // button. Tapping anywhere starts an anonymous career; "Hesabım var" opens the
@@ -38,10 +39,10 @@ export default function Giris() {
   function soon(provider: 'Apple' | 'Google') {
     openSheet(
       <>
-        <H3>{provider} ile giriş çok yakında</H3>
-        <SheetText>Şimdilik dokunup başla. {provider} ile girişi açtığımızda bu cihazdaki ilerlemeni hesabına taşıyacağız.</SheetText>
-        <Cta onPress={() => { closeSheet(); void start(); }}>Başla</Cta>
-        <Ghost onPress={closeSheet}>Kapat</Ghost>
+        <H3>{t('login.soonTitle', { provider })}</H3>
+        <SheetText>{t('login.soonText', { provider })}</SheetText>
+        <Cta onPress={() => { closeSheet(); void start(); }}>{t('common.start')}</Cta>
+        <Ghost onPress={closeSheet}>{t('common.close')}</Ghost>
       </>,
     );
   }
@@ -50,7 +51,7 @@ export default function Giris() {
     <View style={{ flex: 1, backgroundColor: colors.ink, overflow: 'hidden' }}>
       <Pressable
         onPress={start} disabled={busy}
-        accessibilityRole="button" accessibilityLabel="Başlamak için dokun" accessibilityState={{ busy }}
+        accessibilityRole="button" accessibilityLabel={t('login.tapA11y')} accessibilityState={{ busy }}
         style={StyleSheet.absoluteFill}
       />
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -66,7 +67,7 @@ export default function Giris() {
 
       <Pressable
         onPress={() => { buzz(); soon('Apple'); }}
-        accessibilityRole="button" accessibilityLabel="Hesabım var"
+        accessibilityRole="button" accessibilityLabel={t('login.haveAccount')}
         hitSlop={8}
         style={({ pressed }) => [styles.account, { top: insets.top + 22, opacity: pressed ? 0.7 : 1 }]}
       >
@@ -74,21 +75,21 @@ export default function Giris() {
           <Path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
           <Path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
         </Svg>
-        <T w={600} size={13} color={colors.g200}>Hesabım var</T>
+        <T w={600} size={13} color={colors.g200}>{t('login.haveAccount')}</T>
       </Pressable>
 
       <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 16) + 56, alignItems: 'center', gap: 22 }}>
         {busy ? (
-          <T w={600} size={13} color={colors.l600} style={{ letterSpacing: 1.8 }} accessibilityLiveRegion="polite">SAHAYA ÇIKIYORSUN…</T>
+          <T w={600} size={13} color={colors.l600} style={{ letterSpacing: 1.8 }} accessibilityLiveRegion="polite">{t('login.entering')}</T>
         ) : (
           <Animated.View style={{ opacity: blink }}>
-            <T w={600} size={13} style={{ letterSpacing: 1.8 }} accessibilityElementsHidden importantForAccessibility="no">BAŞLAMAK İÇİN DOKUN</T>
+            <T w={600} size={13} style={{ letterSpacing: 1.8 }} accessibilityElementsHidden importantForAccessibility="no">{t('login.tap')}</T>
           </Animated.View>
         )}
       </View>
 
       <T pointerEvents="none" w={500} size={11} color={colors.g300} style={{ position: 'absolute', left: 24, right: 24, bottom: Math.max(insets.bottom, 16), textAlign: 'center', lineHeight: 16 }}>
-        Devam ederek Koşullar'ı ve Gizlilik'i kabul edersin.
+        {t('login.terms')}
       </T>
     </View>
   );
