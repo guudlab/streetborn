@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated, Platform, Pressable, Text, View, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 import { colors, fonts, type Weight } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
@@ -150,16 +150,7 @@ export function Track({ value, color = colors.l600, height = 8, reset }: { value
 export function CoachFace({ size = 40 }: { size?: number }) {
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', borderWidth: 2, borderColor: colors.s3 }}>
-      <Svg viewBox="0 0 52 52" width="100%" height="100%">
-        <Rect width={52} height={52} fill="#3A2E25" />
-        <Circle cx={26} cy={30} r={15} fill="#C89A72" />
-        <Path d="M11 24 Q12 10 26 10 Q40 10 41 24 Q36 17 26 17 Q16 17 11 24Z" fill="#1F1A16" />
-        <Path d="M13 33 Q26 50 39 33 Q39 44 26 46 Q13 44 13 33Z" fill="#2B241C" opacity={0.55} />
-        <Path d="M20 37 Q26 35 32 37" stroke="#1F1A16" strokeWidth={1.6} fill="none" />
-        <Circle cx={20} cy={28} r={1.8} fill="#2B241C" />
-        <Circle cx={32} cy={28} r={1.8} fill="#2B241C" />
-        <Rect x={0} y={46} width={52} height={6} fill="#5B3B33" />
-      </Svg>
+      <Image source={require('../../assets/meshy/burak-yuz.webp')} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
     </View>
   );
 }
