@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated, Platform, Text, View, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 import { sfx } from '../audio/audio.ts';
 import { colors, fonts, type Weight } from '../theme.ts';
@@ -149,21 +149,12 @@ export function Track({ value, color = colors.l600, height = 8, reset }: { value
   );
 }
 
-/* ---------- Hoca Rıza ---------- */
+/* ---------- Mahalle abisi (Burak abi) ---------- */
 
 export function CoachFace({ size = 40 }: { size?: number }) {
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', borderWidth: 2, borderColor: colors.s3 }}>
-      <Svg viewBox="0 0 52 52" width="100%" height="100%">
-        <Rect width={52} height={52} fill="#3A2E25" />
-        <Circle cx={26} cy={30} r={15} fill="#C89A72" />
-        <Path d="M10 22 Q26 6 42 22 L42 18 Q26 2 10 18Z" fill="#2B3A55" />
-        <Rect x={9} y={19} width={34} height={5} rx={2} fill="#22304A" />
-        <Path d="M17 36 Q26 31 35 36 Q26 40 17 36Z" fill="#E9E4DA" />
-        <Circle cx={20} cy={28} r={1.8} fill="#2B241C" />
-        <Circle cx={32} cy={28} r={1.8} fill="#2B241C" />
-        <Rect x={0} y={46} width={52} height={6} fill="#5B3B33" />
-      </Svg>
+      <Image source={require('../../assets/meshy/burak-yuz.webp')} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
     </View>
   );
 }
