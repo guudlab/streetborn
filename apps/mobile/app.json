@@ -30,10 +30,26 @@
     },
     "backgroundColor": "#0D0D0D",
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": {
+            "web": false,
+            "default": false
+          }
+        }
+      ],
       "expo-font",
       "expo-image",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#0D0D0D"
+        }
+      ],
       "expo-asset"
     ],
     "scheme": "streetborn",

@@ -3,12 +3,13 @@ import { Asset } from 'expo-asset';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
-import { MeshoptDecoder } from 'meshoptimizer';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // A rigged or static Meshy model, shown on a transparent GL surface.
-// expo-gl has no web backend, so the browser preview shows the PNG render instead.
+// expo-gl has no web backend, so the browser preview shows the image instead.
+// three.js and the meshopt decoder (~700 KB) load with the first model, not
+// with the app, and never on the web.
+
+const load3d = () => import('./three3d.ts');
 
 interface Props {
   /** The bundled .glb, from require('../../assets/models/x.glb'). */
@@ -54,13 +55,14 @@ function Native({ model, fallback, loop, spin, style, label }: Props) {
 
 /** Loads the model, sets up a three.js scene on the GL context and starts the render loop. */
 async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?: boolean; spin?: boolean }) {
+  const { THREE, GLTFLoader, MeshoptDecoder } = await load3d();
   const { width, height } = { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
 
   const renderer = new THREE.WebGLRenderer({
     canvas: { width, height, style: {}, addEventListener() {}, removeEventListener() {}, clientHeight: height, getContext: () => gl } as unknown as HTMLCanvasElement,
     context: gl,
     alpha: true,
-  } as ConstructorParameters<typeof THREE.WebGLRenderer>[0]);
+  } as ConstructorParameters<typeof import('three').WebGLRenderer>[0]);
   renderer.setClearColor(0x000000, 0);
   renderer.setSize(width, height);
 
@@ -78,7 +80,7 @@ async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?:
   await MeshoptDecoder.ready;
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const gltf = await new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((resolve, reject) => {
+  const gltf = await new Promise<{ scene: import('three').Group; animations: import('three').AnimationClip[] }>((resolve, reject) => {
     loader.parse(bytes, '', resolve, reject);
   });
 
@@ -94,7 +96,7 @@ async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?:
   camera.position.set(0, 0, dist);
   camera.lookAt(0, 0, 0);
 
-  let mixer: THREE.AnimationMixer | null = null;
+  let mixer: import('three').AnimationMixer | null = null;
   if (opt.loop && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(root);
     mixer.clipAction(gltf.animations[0]!).play();

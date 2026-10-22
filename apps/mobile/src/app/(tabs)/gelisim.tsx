@@ -44,7 +44,7 @@ export default function Gelisim() {
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <View><Caps>Gelişim</Caps><H1 style={{ marginTop: 4 }}>Antrenman</H1></View>
-        <Model3D model={require('../../../assets/models/ball.glb')} fallback={require('../../../assets/meshy/ball.png')} spin style={{ width: 56, height: 56 }} label="Maç topu" />
+        <Model3D model={require('../../../assets/models/ball.glb')} fallback={require('../../../assets/meshy/ball.webp')} spin style={{ width: 56, height: 56 }} label="Maç topu" />
         <View style={{ alignItems: 'flex-end' }}><Caps>Genel</Caps><H1 style={{ marginTop: 4 }}>{ovr(g.stats)}</H1></View>
       </View>
 

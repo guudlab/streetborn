@@ -59,7 +59,7 @@ export default function MacSonu() {
     <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
       <View>
         <Pop delay={150} style={{ alignSelf: 'center' }}>
-          <Image source={require('../../assets/meshy/cup-gold.png')} style={{ width: 88, height: 88 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+          <Image source={require('../../assets/meshy/cup-gold.webp')} style={{ width: 88, height: 88 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
         </Pop>
         <Caps>Maç sonu · Hafta 10</Caps>
         <H1 style={{ marginTop: 6 }}>Yıldırımspor {r.us} – {r.them} Kartaltepe</H1>

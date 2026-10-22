@@ -17,7 +17,7 @@ import { Caps, Cta, T } from '../../ui/kit.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { SoundButton } from '../../ui/settings.tsx';
 
-const hero = require('../../../assets/meshy/hero-street.png');
+const hero = require('../../../assets/meshy/hero-street.webp');
 
 export default function Hub() {
   const insets = useSafeAreaInsets();
