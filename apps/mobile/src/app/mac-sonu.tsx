@@ -118,7 +118,7 @@ export default function MacSonu() {
         <Gain show={step >= 5}>
           <Icon name="whistle" size={22} color={colors.g200} />
           <View style={{ flex: 1, gap: 8 }}>
-            <T w={500} size={15}>{t('post.trust')}</T>
+            <T w={500} size={15}>{r.coachTrust ? t('career.trust') : t('post.trust')}</T>
             <Track value={(step >= 5 ? r.after.trust : r.before.trust) / 100} />
           </View>
           <T w={600} size={17} color={r.trustDelta >= 0 ? colors.l500 : colors.bad}>{r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}</T>
@@ -126,6 +126,9 @@ export default function MacSonu() {
       </View>
 
       {r.kind === 'mahalle' && <T w={500} size={14} color={colors.g200}>{t('post.mahalle')}</T>}
+      {r.kind === 'trial' && (
+        <T w={600} size={15} color={r.trialPassed ? colors.l500 : colors.g200}>{r.trialPassed ? t('post.trialPassed') : t('post.trialFailed')}</T>
+      )}
 
       {r.first && <LinkStrip />}
 

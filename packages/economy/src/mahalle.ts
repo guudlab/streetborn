@@ -1,4 +1,5 @@
 import type { EconomyConfig } from './config.ts';
+import { rng, weighted } from './random.ts';
 
 /** Turkey has no daylight saving time since 2016, so a fixed +3 h offset is exact. */
 const ISTANBUL_OFFSET_MS = 3 * 3_600_000;
@@ -56,24 +57,6 @@ const OPPONENT_NAMES = [
   'Çamlık Mahallesi', 'Sahil Mahallesi', 'Kale Mahallesi', 'Pınar Mahallesi', 'Bahçe Mahallesi', 'Köprü Mahallesi',
 ];
 
-/** FNV-1a, integer math only. */
-function hash(text: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
-  return h >>> 0;
-}
-
-/** mulberry32 seeded from text; returns ints in [0, n). */
-function rng(seed: string): (n: number) => number {
-  let a = hash(seed);
-  return (n) => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return (((t ^ (t >>> 14)) >>> 0) % n);
-  };
-}
-
 /** The NPC mahalle a mahalle faces on a day. Strength follows the average member level, with a small seeded spread. */
 export function mahalleOpponent(mahalleId: string, day: string, avgLevel: number): MahalleOpponent {
   const next = rng(`${mahalleId}:${day}:opponent`);
@@ -83,15 +66,6 @@ export function mahalleOpponent(mahalleId: string, day: string, avgLevel: number
     goalkeeping: Math.max(1, Math.min(95, 35 + avgLevel * 2 + spread)),
     attack: Math.max(1, Math.min(95, 30 + avgLevel * 2 + spread)),
   };
-}
-
-function weighted(next: (n: number) => number, weights: readonly number[]): number {
-  let roll = next(weights.reduce((a, b) => a + b, 0));
-  for (let i = 0; i < weights.length; i++) {
-    if (roll < weights[i]!) return i;
-    roll -= weights[i]!;
-  }
-  return 0;
 }
 
 /**

@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { num } from '../game/format.ts';
 import { OFFERS, levelProgress } from '../game/rules.ts';
+import { tierName } from '../game/career.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { energyLeft } from './energy.tsx';
@@ -18,7 +19,11 @@ export function Hud() {
   const sync = useGame(s => s.syncEnergy);
   useEffect(() => sync(now), [now, sync]);
   const left = energyLeft(now);
-  const club = g.signed ? t('hud.clubSeasonEnd', { club: OFFERS.find(o => o.id === g.signed)!.club }) : g.club;
+  // Online the line shows the real club and league, or the mahalle before the first contract.
+  const contract = g.mode === 'online' ? g.career?.contract : null;
+  const line = g.mode === 'online'
+    ? contract?.active ? `${contract.clubName} · ${tierName(contract.tier)}` : `${g.mahalle?.name ?? t('hud.mahalle')} · ${t('hud.mahalleLeague')}`
+    : `${g.signed ? t('hud.clubSeasonEnd', { club: OFFERS.find(o => o.id === g.signed)!.club }) : g.club} · ${t('hud.league')}`;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16 }}>
       <Pressable
@@ -29,7 +34,7 @@ export function Hud() {
         <Ring size={44} stroke={3} value={levelProgress(g.level, g.xp)}><Pulse value={g.level}><T w={700} size={16}>{g.level}</T></Pulse></Ring>
         <View style={{ flex: 1, minWidth: 0 }}>
           <T w={600} size={15} numberOfLines={1}>{g.name}</T>
-          <T size={12} color={colors.g200} numberOfLines={1}>{club} · {t('hud.league')}</T>
+          <T size={12} color={colors.g200} numberOfLines={1}>{line}</T>
         </View>
       </Pressable>
       <Pill image={require("../../assets/meshy/coin.webp")} label={t('hud.coinA11y', { n: num(g.coins) })} onPress={() => router.navigate('/dukkan')}>

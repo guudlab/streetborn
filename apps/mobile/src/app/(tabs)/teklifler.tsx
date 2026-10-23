@@ -8,6 +8,7 @@ import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
 import { Crest } from '../../ui/hud.tsx';
+import { CareerScreen } from '../../ui/career-screen.tsx';
 import { sfx } from '../../audio/audio.ts';
 import { buzz, Caps, Cta, Ghost, H1, H3, T } from '../../ui/kit.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../../ui/overlay.tsx';
@@ -16,6 +17,12 @@ import { lang, t } from '../../i18n/index.ts';
 const CREST = { kartaltepe: [colors.awayCrest, colors.awayCrestText], bogazici: ['#20323A', '#9ED3E8'] } as Record<string, [string, string]>;
 
 export default function Teklifler() {
+  const online = useGame(s => s.mode === 'online');
+  return online ? <CareerScreen /> : <LocalOffers />;
+}
+
+/** The offline prototype flow (local mode only). */
+function LocalOffers() {
   const insets = useSafeAreaInsets();
   const { scouted, signed, trialAccepted } = useGame();
   const [sel, setSel] = useState('kartaltepe');

@@ -34,6 +34,45 @@ export interface MahalleConfig {
   fillTheirWeights: [number, number, number];
 }
 
+/** One amateur league level (GDD v3.1 section 7). Multipliers are x100 so the math stays integer. */
+export interface LeagueTier {
+  id: string;
+  minLevel: number;
+  coinMultiplierX100: number;
+  weeklySalary: number;
+  winBonus: number;
+  goalBonus: number;
+  champPrize: number;
+  oppGoalkeeping: number;
+  oppAttack: number;
+}
+
+export interface CareerConfig {
+  /** Mahalle respect that unlocks a third, better first offer. */
+  betterOfferRespect: number;
+  firstContractGem: number;
+  teams: number;
+  /** Extra XP for every league match. */
+  ligXpBonus: number;
+  /** Season prize for places 1, 2, 3 as a share of the tier's champion prize. */
+  placePrizePct: number[];
+  /** Offers vary the tier salary by up to this much either way. */
+  salaryVariancePct: number;
+  trialMinRating: number;
+  trialSalaryBonusPct: number;
+  betterSalaryBonusPct: number;
+  /** A club that takes a player its last coach did not want pays this share of the salary. */
+  weakerSalaryPct: number;
+  trustStart: number;
+  trustRenewMin: number;
+  trustPromoteMin: number;
+  trustRatingHigh: number;
+  trustRatingMid: number;
+  trustRatingLow: number;
+  trustMissed: number;
+  tiers: LeagueTier[];
+}
+
 export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
@@ -69,6 +108,7 @@ export interface EconomyConfig {
   leagueSeasonDays: number;
 
   mahalle: MahalleConfig;
+  career: CareerConfig;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -133,6 +173,32 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     cheerXpGiver: 5,
     fillOurWeights: [30, 50, 20],
     fillTheirWeights: [45, 40, 15],
+  },
+
+  // GDD v3.1 offer and league blocks.
+  career: {
+    betterOfferRespect: 60,
+    firstContractGem: 20,
+    teams: 8,
+    ligXpBonus: 30,
+    placePrizePct: [100, 60, 35],
+    salaryVariancePct: 20,
+    trialMinRating: 70,
+    trialSalaryBonusPct: 10,
+    betterSalaryBonusPct: 15,
+    weakerSalaryPct: 80,
+    trustStart: 50,
+    trustRenewMin: 40,
+    trustPromoteMin: 70,
+    trustRatingHigh: 4,
+    trustRatingMid: 1,
+    trustRatingLow: -3,
+    trustMissed: -6,
+    tiers: [
+      { id: 'ilce_amator', minLevel: 5, coinMultiplierX100: 150, weeklySalary: 700, winBonus: 40, goalBonus: 15, champPrize: 600, oppGoalkeeping: 70, oppAttack: 80 },
+      { id: 'super_amator', minLevel: 12, coinMultiplierX100: 175, weeklySalary: 1050, winBonus: 60, goalBonus: 20, champPrize: 900, oppGoalkeeping: 75, oppAttack: 90 },
+      { id: 'bolge_amator', minLevel: 20, coinMultiplierX100: 200, weeklySalary: 1400, winBonus: 80, goalBonus: 25, champPrize: 1200, oppGoalkeeping: 80, oppAttack: 100 },
+    ],
   },
 
   matchChances: 3,
