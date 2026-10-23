@@ -92,10 +92,14 @@ export async function linkEmail(email: string): Promise<void> {
   fail((await supabase.auth.updateUser({ email }, { emailRedirectTo: `${INVITE_BASE}/hesap` })).error);
 }
 
-/** Sends a sign-in code to the email of an existing account. */
+/**
+ * Sends a sign-in email to an existing account: a code to type in, and a link that
+ * signs in on the web (/hesap). Supabase's default email has only the link; the
+ * code needs the custom template, which needs a custom SMTP server.
+ */
 export async function sendEmailCode(email: string): Promise<void> {
   const supabase = await client();
-  fail((await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })).error);
+  fail((await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${INVITE_BASE}/hesap` } })).error);
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<void> {
