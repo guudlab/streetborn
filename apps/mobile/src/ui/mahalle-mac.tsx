@@ -20,6 +20,7 @@ export function TodayCard() {
   const today = useGame(s => s.mahalleToday);
   const refresh = useGame(s => s.refreshMahalleToday);
   const energy = useGame(s => s.energy);
+  const blocked = useGame(s => s.blocked);
   const [starting, setStarting] = useState(false);
   useEffect(() => { void refresh(); }, [refresh]);
   if (!today) return null;
@@ -69,13 +70,13 @@ export function TodayCard() {
           <View style={{ borderRadius: 14, backgroundColor: colors.s2, overflow: 'hidden' }}>
             {list.map((c, i) => (
               <View key={c.playerId} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.line }}>
-                <T w={600} size={14} numberOfLines={1} style={{ flex: 1 }}>{c.nick ?? t('mahalle.home.newPlayer')}</T>
+                <T w={600} size={14} numberOfLines={1} style={{ flex: 1 }}>{blocked.includes(c.playerId) ? t('report.blockedName') : (c.nick ?? t('mahalle.home.newPlayer'))}</T>
                 <T w={500} size={13} color={colors.g200}>{t('mahalle.today.line', { g: c.goals, a: c.assists })}</T>
                 <T w={600} size={14} color={c.rating >= 70 ? colors.l500 : colors.g100}>{num(c.rating, 1)}</T>
                 {c.playerId !== today.me && (
                   <Pressable
                     accessibilityRole="button" accessibilityLabel={t('mahalle.cheer.a11y', { name: c.nick ?? '' })}
-                    disabled={c.cheered || today.cheersLeft === 0} onPress={() => void cheer(c.playerId, i)}
+                    disabled={c.cheered || today.cheersLeft === 0 || blocked.includes(c.playerId)} onPress={() => void cheer(c.playerId, i)}
                     hitSlop={8}
                     style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.s3, opacity: c.cheered || today.cheersLeft === 0 ? 0.4 : 1 }}
                   >

@@ -138,3 +138,26 @@ do $$ begin
   raise notice 'mahalle match rls: ok';
 end $$;
 reset role;
+
+-- Report and block.
+set role service_role;
+select report_player('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000102','abuse');
+select block_player('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000104');
+select block_player('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000104');
+do $$ begin
+  if (select nick from reports) <> 'P2' then raise exception 'report should keep the nick'; end if;
+  begin perform report_player('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000103','spam'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'self' then raise; end if; end;
+  for i in 1..4 loop perform report_player('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000102','spam'); end loop;
+  begin perform report_player('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000102','spam'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'too_many' then raise; end if; end;
+  raise notice 'report limit: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000103';
+do $$ begin
+  if jsonb_array_length(engellenenler()) <> 1 then raise exception 'blocked list wrong'; end if;
+  if (select count(*) from reports) <> 0 or (select count(*) from blocks) <> 0 then raise exception 'RLS leak: reports or blocks readable'; end if;
+  raise notice 'block rls: ok';
+end $$;
+reset role;

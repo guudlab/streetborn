@@ -171,3 +171,17 @@ export async function loadMahalleToday(): Promise<MahalleToday | null> {
 }
 
 export const cheerMate = (to: string, phrase: number) => call<{ ok: true }>('mahalle', { action: 'cheer', to, phrase });
+
+export type ReportReason = 'abuse' | 'harassment' | 'spam' | 'other';
+export const reportPlayer = (to: string, reason: ReportReason) => call<{ ok: true }>('mahalle', { action: 'report', to, reason });
+export const blockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'block', to });
+export const unblockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'unblock', to });
+
+/** Ids of the players the caller blocked. */
+export async function loadBlocked(): Promise<string[]> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('engellenenler');
+  if (error) throw new ApiError(error.message);
+  return (data as string[] | null) ?? [];
+}

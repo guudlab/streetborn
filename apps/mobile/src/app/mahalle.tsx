@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform, Share, View } from 'react-native';
+import { Platform, Pressable, Share, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
 import { INVITE_BASE } from '../net/config.ts';
@@ -8,6 +8,7 @@ import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, Ghost, H1, H3, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
+import { openPlayerMenu } from '../ui/player-menu.tsx';
 import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
@@ -31,6 +32,8 @@ export default function Mahalle() {
   const mahalle = useGame(s => s.mahalle);
   const leave = useGame(s => s.leaveMahalle);
   const refresh = useGame(s => s.refreshMahalle);
+  const blocked = useGame(s => s.blocked);
+  const me = useGame(s => s.mahalleToday?.me);
   useEffect(() => { void refresh(); }, [refresh]);
   if (!mahalle) return null;
 
@@ -71,13 +74,19 @@ export default function Mahalle() {
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
                 <T w={700} size={12}>{(m.nick ?? '?').slice(0, 2).toLocaleUpperCase('tr')}</T>
               </View>
-              <T w={600} size={15} style={{ flex: 1 }} numberOfLines={1}>{m.nick ?? t('mahalle.home.newPlayer')}</T>
+              <T w={600} size={15} style={{ flex: 1 }} numberOfLines={1}>{blocked.includes(m.playerId) ? t('report.blockedName') : (m.nick ?? t('mahalle.home.newPlayer'))}</T>
               {m.playerId === mahalle.captainId && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: colors.l900 }}>
                   <Icon name="star" size={12} color={colors.l500} /><T w={600} size={11} color={colors.l500}>{t('mahalle.home.captain')}</T>
                 </View>
               )}
               <T w={500} size={13} color={colors.g200}>{t('mahalle.home.level', { n: m.level })}</T>
+              {m.playerId !== me && (
+                <Pressable accessibilityRole="button" accessibilityLabel={t('report.menuA11y', { name: m.nick ?? '' })} hitSlop={8}
+                  onPress={() => openPlayerMenu(m.playerId, m.nick)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="info" size={18} color={colors.g300} />
+                </Pressable>
+              )}
             </View>
           ))}
           {free > 0 && (
