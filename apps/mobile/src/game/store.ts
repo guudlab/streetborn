@@ -10,8 +10,8 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, careerStatus, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type GemGrant, type OwnedItem,
 } from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
@@ -23,7 +23,7 @@ import { t } from '../i18n/index.ts';
 // and every match is started and scored by the server (match-start/finish).
 // Local: when the server can't be reached, the same engine and economy code
 // runs on the device and nothing is saved.
-// Training, offers, shop actions and trust are still local in both modes.
+// Rewarded ads and gem packs are still local (they need the native SDKs).
 
 const config = DEFAULT_CONFIG;
 const REGEN_MS = config.energyRegenSeconds * 1000;
@@ -94,14 +94,19 @@ interface GameState {
   blocked: string[];
   /** Club career from the server (online only). */
   career: Career | null;
-  /** Salary or season result from the last career refresh, shown once by the hub. */
-  careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null } | null;
+  /** Salary, season result or gems from the last career refresh, shown once by the hub. */
+  careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null; gems: GemGrant | null } | null;
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number;
   /** Private sessions left today (online). */
   privateLeft: number; trust: number; form: number[];
   scouted: boolean; signed: string | null; trialAccepted: boolean; adsLeft: number; assisted: boolean;
+  /** Gem refills left today. */
+  refillsLeft: number;
+  /** Items the player owns and the price list (online). */
+  owned: OwnedItem[];
+  catalog: CatalogItem[];
   match: LiveMatch | null;
   post: PostMatch | null;
 
@@ -135,7 +140,11 @@ interface GameState {
   sign(id: string): void;
   acceptTrial(): void;
   watchAd(): boolean;
-  gemRefill(): boolean;
+  /** Fills energy for gems (twice a day). */
+  gemRefill(): Promise<'ok' | 'no_gem' | 'limit' | 'full' | 'error'>;
+  refreshShop(): Promise<void>;
+  buyItem(id: string): Promise<'ok' | 'no_gem' | 'no_coin' | 'owned' | 'error'>;
+  equip(id: string, on: boolean): Promise<void>;
   setAssisted(v: boolean): void;
 }
 
@@ -270,6 +279,9 @@ export const useGame = create<GameState>()((set, get) => ({
   signed: null,
   trialAccepted: false,
   adsLeft: 2,
+  refillsLeft: config.shop.refillsPerDay,
+  owned: [],
+  catalog: [],
   assisted: false,
   match: null,
   post: null,
@@ -346,8 +358,9 @@ export const useGame = create<GameState>()((set, get) => ({
     if (get().mode !== 'online') return;
     try {
       const status = await careerStatus();
-      if (status.salary > 0 || status.seasonEnded) {
-        set({ careerNews: { salary: status.salary, seasonEnded: status.seasonEnded } });
+      const gems = status.gems && (status.gems.coin > 0 || status.gems.gem > 0) ? status.gems : null;
+      if (status.salary > 0 || status.seasonEnded || gems) {
+        set({ careerNews: { salary: status.salary, seasonEnded: status.seasonEnded, gems } });
         const profile = await loadProfile().catch(() => null);
         if (profile) set({ coins: profile.coin, gems: profile.gem });
       }
@@ -589,11 +602,61 @@ export const useGame = create<GameState>()((set, get) => ({
     return true;
   },
 
-  gemRefill() {
+  async gemRefill() {
     const s = get();
-    if (s.mode !== 'local' || s.gems < 20 || s.energy >= s.energyMax) return false;
-    set({ gems: s.gems - 20, energy: s.energyMax, energyUpdatedAt: Date.now() });
-    return true;
+    s.syncEnergy();
+    const sc = config.shop;
+    if (get().energy >= s.energyMax) return 'full';
+    if (s.refillsLeft <= 0) return 'limit';
+    if (s.gems < sc.refillGem) return 'no_gem';
+    if (s.mode !== 'online') {
+      set({ gems: s.gems - sc.refillGem, energy: s.energyMax, energyUpdatedAt: Date.now(), refillsLeft: s.refillsLeft - 1 });
+      return 'ok';
+    }
+    try {
+      const r = await refillEnergy();
+      set({ gems: r.gem, energy: r.energy.energy, energyUpdatedAt: r.energy.updatedAt, refillsLeft: get().refillsLeft - 1 });
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_gem' || e.code === 'limit' || e.code === 'full')) {
+        void get().refreshShop();
+        return e.code;
+      }
+      console.warn('refill failed', e);
+      return 'error';
+    }
+  },
+
+  async refreshShop() {
+    if (get().mode !== 'online') return;
+    try {
+      const today = await loadShopToday();
+      set({ refillsLeft: Math.max(0, config.shop.refillsPerDay - today.refills), owned: today.items, catalog: today.catalog });
+    } catch (e) {
+      console.warn('Could not load the shop', e);
+    }
+  },
+
+  async buyItem(id) {
+    if (get().mode !== 'online') return 'error';
+    try {
+      const r = await apiBuyItem(id);
+      set(r.currency === 'gem' ? { gems: r.balance } : { coins: r.balance });
+      set({ owned: [...get().owned, { id, equipped: false }] });
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_gem' || e.code === 'no_coin' || e.code === 'owned')) {
+        void get().refreshShop();
+        return e.code;
+      }
+      console.warn('buy failed', e);
+      return 'error';
+    }
+  },
+
+  async equip(id, on) {
+    await equipItem(id, on);
+    await get().refreshShop();
   },
 
   setAssisted(v) { set({ assisted: v }); },

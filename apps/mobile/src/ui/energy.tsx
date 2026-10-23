@@ -1,5 +1,6 @@
 import { DEFAULT_CONFIG } from '@streetborn/economy';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 
 import { mmss } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
@@ -17,30 +18,40 @@ export function energyLeft(now: number) {
 
 /** Ad (+1) and gem refill rows; used in the shop and in the "out of energy" sheet. */
 export function EnergyOptions({ onDone }: { onDone?: () => void }) {
-  const { adsLeft, energy, energyMax, gems, mode } = useGame();
-  // Ads and gem refills need server support (AdMob SSV, a gem spend); until then they work offline only.
-  const soon = mode === 'online';
+  const { adsLeft, energy, energyMax, gems, mode, refillsLeft } = useGame();
+  // Rewarded ads need the AdMob SDK in the native app; until then they work offline only.
+  const adSoon = mode === 'online';
+  const cost = DEFAULT_CONFIG.shop.refillGem;
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { void useGame.getState().refreshShop(); }, []);
   return (
     <>
       <Opt
-        icon="ad" title={t('energy.ad')} sub={soon ? t('energy.soon') : t('energy.adSub', { n: adsLeft })}
-        disabled={soon || !adsLeft || energy >= energyMax}
+        icon="ad" title={t('energy.ad')} sub={adSoon ? t('energy.soon') : t('energy.adSub', { n: adsLeft })}
+        disabled={adSoon || !adsLeft || energy >= energyMax}
         onPress={() => {
           openSheet(<><H3>{t('energy.adPlaying')}</H3><Spinner /><SheetText>{t('energy.adPlaceholder')}</SheetText></>);
           setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) { toast(t('energy.plusOne')); sfx('unlock'); } onDone?.(); }, 2000);
         }}
       />
       <Opt
-        icon="gem" title={t('energy.refill')} sub={soon ? t('energy.soon') : t('energy.balance', { n: gems })}
-        disabled={soon || gems < 20 || energy >= energyMax} right={<Price gem>20</Price>}
-        onPress={() => {
-          if (useGame.getState().gemRefill()) { toast(t('energy.refilled')); buzz('medium'); sfx('unlock'); }
+        icon="gem" title={t('energy.refill')}
+        sub={refillsLeft > 0 ? t('energy.refillSub', { n: refillsLeft, g: gems }) : t('energy.refillLimit')}
+        disabled={busy || gems < cost || energy >= energyMax || refillsLeft <= 0} right={<Price gem>{cost}</Price>}
+        onPress={async () => {
+          setBusy(true);
+          const r = await useGame.getState().gemRefill();
+          setBusy(false);
+          if (r === 'ok') { toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock'); }
+          else toast(t(REFILL_ERROR[r]));
           closeSheet(); onDone?.();
         }}
       />
     </>
   );
 }
+
+const REFILL_ERROR = { no_gem: 'energy.noGem', limit: 'energy.refillLimit', full: 'energy.full', error: 'energy.failed' } as const;
 
 export function openEnergySheet() {
   const left = energyLeft(Date.now());

@@ -1,5 +1,6 @@
 // The player's club career. `status` runs on app open and does the day's lazy work:
-// missed league days, season end, daily salary and the first offers. `accept` signs
+// missed league days, season end, daily salary, the first offers, and the starting
+// and level gems (GDD v3.1 section 9). `accept` signs
 // an offer. Amounts and results are computed here, never sent by the client.
 import {
   dailySalary,
@@ -8,6 +9,7 @@ import {
   leagueSchedule,
   leagueTable,
   leagueTeams,
+  levelGemLevels,
   npcScore,
   offerReady,
   seasonEndOffers,
@@ -123,5 +125,12 @@ Deno.serve(handle(async (req) => {
     }
   }
 
-  return json({ salary, seasonEnded });
+  // Starting coin and gems once, then gems every 5 levels. Safe to repeat; the SQL checks the level.
+  const { data: gems, error: gemsError } = await admin.rpc('claim_gems', {
+    p_player: playerId, p_start_coin: config.shop.startCoin, p_start_gem: config.shop.startGem,
+    p_levels: levelGemLevels(player.level, config.shop), p_level_gem: config.shop.levelGem,
+  });
+  fail(gemsError);
+
+  return json({ salary, seasonEnded, gems });
 }));

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adDoubleCoin,
+  derToRaw,
+  levelGemLevels,
+  parseAdReward,
+  parseSsv,
+  verifySsv,
   apNeed,
   applyAp,
   drillGain,
@@ -303,5 +309,70 @@ describe('training', () => {
     expect(applyAp(59, 2, 6, 10, config)).toEqual({ stat: 61, ap: 1, ups: 2 }); // 3 AP for 59→60, 4 for 60→61
     expect(applyAp(57, 0, 20, 5, config)).toEqual({ stat: 57, ap: 3, ups: 0 }); // level 5 cap is 57
     expect(applyAp(57, 3, 0, 6, config)).toEqual({ stat: 58, ap: 0, ups: 1 }); // the cap rose to 59
+  });
+});
+
+describe('shop', () => {
+  const sc = config.shop;
+
+  it('pays level gems every 5 levels up to 30', () => {
+    expect(levelGemLevels(4, sc)).toEqual([]);
+    expect(levelGemLevels(12, sc)).toEqual([5, 10]);
+    expect(levelGemLevels(60, sc)).toEqual([5, 10, 15, 20, 25, 30]);
+  });
+
+  it('cuts the ad double to the room under the daily cap', () => {
+    expect(adDoubleCoin(80, 100, config)).toBe(80);
+    expect(adDoubleCoin(80, 560, config)).toBe(40);
+    expect(adDoubleCoin(80, 600, config)).toBe(0);
+    expect(adDoubleCoin(80, 600, config, 150)).toBe(80); // a club contract raises the cap to 900
+  });
+
+  it('reads the ad custom data', () => {
+    expect(parseAdReward('energy')).toEqual({ kind: 'energy' });
+    expect(parseAdReward('double:0A1B2C3D-0000-4000-8000-000000000001')).toEqual({ kind: 'double', matchId: '0a1b2c3d-0000-4000-8000-000000000001' });
+    expect(parseAdReward('double:x')).toBeNull();
+    expect(parseAdReward('coin')).toBeNull();
+    expect(parseAdReward(null)).toBeNull();
+  });
+});
+
+describe('AdMob SSV', () => {
+  // WebCrypto signs in r‖s form; AdMob sends DER, so the test wraps it.
+  const toDer = (raw: Uint8Array) => {
+    const int = (b: Uint8Array) => {
+      let i = 0;
+      while (i < b.length - 1 && b[i] === 0) i++;
+      const v = b.subarray(i);
+      return v[0]! & 0x80 ? [0x02, v.length + 1, 0, ...v] : [0x02, v.length, ...v];
+    };
+    const body = [...int(raw.subarray(0, 32)), ...int(raw.subarray(32))];
+    return new Uint8Array([0x30, body.length, ...body]);
+  };
+  const b64url = (b: Uint8Array) => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  async function signed(message: string) {
+    const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+    const raw = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, pair.privateKey, new TextEncoder().encode(message)));
+    const spki = new Uint8Array(await crypto.subtle.exportKey('spki', pair.publicKey));
+    return { query: `${message}&signature=${b64url(toDer(raw))}&key_id=3335741209`, keys: [{ keyId: 3335741209, base64: Buffer.from(spki).toString('base64') }], raw };
+  }
+
+  const message = 'ad_network=5450213213286189855&ad_unit=1234567890&custom_data=energy&reward_amount=1&reward_item=Reward&timestamp=1800000000000&transaction_id=123456789&user_id=00000000-0000-0000-0000-000000000001';
+
+  it('accepts a callback signed by the listed key', async () => {
+    const { query, keys, raw } = await signed(message);
+    const cb = parseSsv(query)!;
+    expect(cb.message).toBe(message);
+    expect(cb.params.get('custom_data')).toBe('energy');
+    expect(derToRaw(cb.signature)).toEqual(raw);
+    expect(await verifySsv(cb, keys)).toBe(true);
+  });
+
+  it('refuses a changed reward, an unknown key and an unsigned query', async () => {
+    const { query, keys } = await signed(message);
+    expect(await verifySsv(parseSsv(query.replace('custom_data=energy', 'custom_data=double'))!, keys)).toBe(false);
+    expect(await verifySsv(parseSsv(query)!, [{ ...keys[0]!, keyId: 1 }])).toBe(false);
+    expect(parseSsv(message)).toBeNull();
   });
 });

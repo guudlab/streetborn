@@ -247,3 +247,65 @@ do $$ declare p uuid := '00000000-0000-0000-0000-000000000106'; w record; begin
   raise notice 'training: ok';
 end $$;
 reset role;
+
+-- Shop: starting and level gems, refills, items, rewarded ads, privacy.
+insert into auth.users values ('00000000-0000-0000-0000-000000000201');
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000201'; w record; r jsonb; begin
+  update players set level = 11 where id = p;
+  r := claim_gems(p, 300, 30, array[5, 10, 15], 10);
+  if r <> '{"coin": 300, "gem": 50, "levels": [5, 10]}'::jsonb then raise exception 'claim_gems paid %', r; end if;
+  r := claim_gems(p, 300, 30, array[5, 10, 15], 10);
+  if r <> '{"coin": 0, "gem": 0, "levels": []}'::jsonb then raise exception 'claim_gems paid twice: %', r; end if;
+  raise notice 'start and level gems: ok';
+
+  select * into w from wallets where player_id = p;
+  perform refill_energy(p, 20, 2, w.version, 5::smallint);
+  begin perform refill_energy(p, 20, 2, w.version, 5::smallint); raise exception 'should have failed';
+  exception when serialization_failure then null; end;
+  perform refill_energy(p, 20, 2, w.version + 1, 5::smallint);
+  begin perform refill_energy(p, 20, 2, w.version + 2, 5::smallint); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'limit' then raise; end if; end;
+  if (select gem from wallets where player_id = p) <> 10 then raise exception 'refill cost wrong'; end if;
+  begin perform refill_energy(p, 20, 5, w.version + 2, 5::smallint); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_gem' then raise; end if; end;
+  raise notice 'energy refill: ok';
+
+  begin perform buy_item(p, 'forma_sonbahar'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_gem' then raise; end if; end;
+  perform grant_currency(p, 'gem', 200, 'test', 'x', 'test:shop');
+  r := buy_item(p, 'forma_sonbahar');
+  if r->>'balance' <> '90' or (select source from inventory where player_id = p) <> 'gem' then raise exception 'buy_item wrong: %', r; end if;
+  begin perform buy_item(p, 'forma_sonbahar'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'owned' then raise; end if; end;
+  begin perform buy_item(p, 'yok'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  perform equip_item(p, 'forma_sonbahar', true);
+  if not (select equipped from inventory where player_id = p) then raise exception 'not equipped'; end if;
+  raise notice 'items: ok';
+
+  select * into w from wallets where player_id = p;
+  if apply_ad_reward('tx1', p, 'u', 'ad_energy', null, 3, w.version, 4::smallint, now(), 0) <> 'ok' then raise exception 'ad energy'; end if;
+  if apply_ad_reward('tx1', p, 'u', 'ad_energy', null, 3, w.version + 1, 5::smallint, now(), 0) <> 'duplicate' then raise exception 'ad retry paid'; end if;
+  if apply_ad_reward('tx2', p, 'u', 'ad_double', 'm1', 2, null, null, null, 70) <> 'ok' then raise exception 'ad double'; end if;
+  if apply_ad_reward('tx3', p, 'u', 'ad_double', 'm1', 2, null, null, null, 70) <> 'duplicate' then raise exception 'match doubled twice'; end if;
+  if apply_ad_reward('tx4', p, 'u', 'ad_double', 'm2', 2, null, null, null, 0) <> 'capped' then raise exception 'capped double'; end if;
+  if apply_ad_reward('tx5', p, 'u', 'ad_double', 'm3', 2, null, null, null, 30) <> 'ok' then raise exception 'second double'; end if;
+  if apply_ad_reward('tx6', p, 'u', 'ad_double', 'm4', 2, null, null, null, 30) <> 'limit' then raise exception 'ad limit'; end if;
+  if match_coin_today(p) <> 100 then raise exception 'ad double not under the daily cap'; end if;
+  if (select energy from wallets where player_id = p) <> 4 then raise exception 'ad energy not applied'; end if;
+  raise notice 'rewarded ads: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000201';
+do $$ declare r jsonb := dukkan_bugun(); begin
+  if (r->>'refills')::int <> 2 or (r->>'adEnergy')::int <> 1 or (r->>'adDouble')::int <> 2 or jsonb_array_length(r->'items') <> 1 or r->'catalog'->0->>'priceGem' <> '120' then
+    raise exception 'dukkan_bugun wrong: %', r;
+  end if;
+  if (select count(*) from shop_log) <> 0 then raise exception 'RLS leak: shop_log readable'; end if;
+  if (select count(*) from inventory) <> 1 then raise exception 'inventory not visible to its owner'; end if;
+  begin perform buy_item('00000000-0000-0000-0000-000000000201', 'forma_sonbahar'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'shop rls: ok';
+end $$;
+reset role;
