@@ -8,7 +8,11 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import { ApiError, finishMatch as apiFinish, loadProfile, startMatch as apiStart, storedPlayerId, type Profile } from '../net/api.ts';
+import {
+  ApiError, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
+  loadMahalle, loadProfile, saveProfile, startMatch as apiStart, storedPlayerId,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type Profile,
+} from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
@@ -67,6 +71,12 @@ interface GameState {
   character: Character | null;
   /** True until the first match is finished: the coach teaches the first moment. */
   tutorial: boolean;
+  /** The player's mahalle (friend group), or null before they pick one. */
+  mahalle: MahalleInfo | null;
+  /** False until the first answer about the mahalle (cached or from the server). */
+  mahalleReady: boolean;
+  /** Invite code from a link, kept until the player joins or picks another mahalle. */
+  pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number; trust: number; form: number[];
   scouted: boolean; signed: string | null; trialAccepted: boolean; adsLeft: number; assisted: boolean;
   match: LiveMatch | null;
@@ -75,8 +85,13 @@ interface GameState {
   init(): Promise<void>;
   /** Signs in anonymously and loads the player; falls back to local play when the server is out of reach. */
   startAnonymous(): Promise<void>;
-  /** Saves the new player's choices and nickname on the device, then signs in anonymously. */
+  /** Saves the new player's choices and nickname (on the device and on the server). Throws ApiError `nick_*` when the server refuses the name. */
   createCharacter(c: Character, nick: string): Promise<void>;
+  refreshMahalle(): Promise<void>;
+  createMahalle(name: string, emblem: MahalleEmblem, color: MahalleColor, open: boolean): Promise<void>;
+  joinMahalle(target: { code: string } | { id: string }): Promise<void>;
+  leaveMahalle(): Promise<void>;
+  setPendingInvite(code: string | null): void;
   syncEnergy(now?: number): void;
   startMatch(): Promise<'ok' | 'no_energy' | 'error'>;
   play(input: ChanceInput): ChanceOutcome;
@@ -105,6 +120,9 @@ const CONNECT_TIMEOUT_MS = 8000;
 const PROFILE_KEY = 'streetborn.profile.v1';
 // The new-player choices. Kept on the device until the server stores them.
 const CHARACTER_KEY = 'streetborn.character.v1';
+// Last mahalle the server sent (display only) and an invite code waiting to be used.
+const MAHALLE_KEY = 'streetborn.mahalle.v1';
+const INVITE_KEY = 'streetborn.invite.v1';
 
 interface SavedCharacter { name: string; character: Character; tutorial: boolean }
 
@@ -120,6 +138,23 @@ async function restoreCharacter() {
     const v = raw ? (JSON.parse(raw) as SavedCharacter) : null;
     if (v?.character && typeof v.name === 'string') useGame.setState({ name: v.name, character: { ...DEFAULT_CHARACTER, ...v.character }, tutorial: !!v.tutorial });
   } catch { /* a missing or unreadable save keeps the sample player */ }
+}
+
+async function restoreInvite() {
+  try {
+    const code = await AsyncStorage.getItem(INVITE_KEY);
+    if (code && /^[A-Za-z0-9]{6}$/.test(code)) useGame.setState({ pendingInvite: code.toUpperCase() });
+  } catch { /* no saved invite */ }
+}
+
+async function cachedMahalle(playerId: string): Promise<MahalleInfo | null> {
+  try {
+    const raw = await AsyncStorage.getItem(MAHALLE_KEY);
+    const v = raw ? (JSON.parse(raw) as { playerId: string; mahalle: MahalleInfo }) : null;
+    return v?.playerId === playerId ? v.mahalle : null;
+  } catch {
+    return null;
+  }
 }
 
 function showProfile(p: Profile) {
@@ -170,6 +205,9 @@ export const useGame = create<GameState>()((set, get) => ({
   name: 'Efe Yılmaz',
   character: null,
   tutorial: false,
+  mahalle: null,
+  mahalleReady: false,
+  pendingInvite: null,
   club: t('club.home'),
   level: 7,
   xp: 2215,
@@ -192,7 +230,8 @@ export const useGame = create<GameState>()((set, get) => ({
   post: null,
 
   async init() {
-    if (offline) { set({ mode: 'local', offlineReason: t('offline.mode'), auth: 'none' }); return; }
+    await restoreInvite();
+    if (offline) { set({ mode: 'local', offlineReason: t('offline.mode'), auth: 'none', mahalleReady: true }); return; }
     // A returning player goes straight to the hub; a new one sees the sign-in screen first.
     const playerId = await storedPlayerId().catch(() => null);
     if (playerId) await restoreCharacter();
@@ -200,26 +239,70 @@ export const useGame = create<GameState>()((set, get) => ({
     // With a saved profile the hub shows at once and refreshes when the server answers.
     const cached = await cachedProfile(playerId);
     if (cached) {
-      set({ mode: 'online', auth: 'in' });
+      const mahalle = await cachedMahalle(playerId);
+      set({ mode: 'online', auth: 'in', mahalle, mahalleReady: mahalle !== null });
       showProfile(cached);
-      void connect();
+      void connect().then(() => get().refreshMahalle());
       return;
     }
     await connect();
+    await get().refreshMahalle();
     set({ auth: 'in' });
   },
 
   async startAnonymous() {
     if (get().mode !== 'local') await connect();
+    await get().refreshMahalle();
     set({ auth: 'in' });
   },
 
   async createCharacter(c, nick) {
     const name = nick.trim().slice(0, 14);
     if (name.length < NICK_MIN) return;
+    // The server checks the name too; a network failure keeps the choices on the device.
+    if (get().mode === 'online') {
+      try { await saveProfile(name, c); } catch (e) { if (e instanceof ApiError && e.code.startsWith('nick_')) throw e; }
+    }
     set({ name, character: c, tutorial: true });
     saveCharacter(get());
-    await get().startAnonymous();
+    void get().refreshMahalle();
+  },
+
+  async refreshMahalle() {
+    if (get().mode === 'local') { set({ mahalleReady: true }); return; }
+    try {
+      const m = await loadMahalle();
+      set({ mahalle: m, mahalleReady: true });
+      const playerId = await storedPlayerId().catch(() => null);
+      if (m && playerId) void AsyncStorage.setItem(MAHALLE_KEY, JSON.stringify({ playerId, mahalle: m })).catch(() => {});
+      else void AsyncStorage.removeItem(MAHALLE_KEY).catch(() => {});
+    } catch (e) {
+      console.warn('Could not load the mahalle', e);
+      set({ mahalleReady: true });
+    }
+  },
+
+  async createMahalle(name, emblem, color, open) {
+    await apiCreateMahalle(name, emblem, color, open);
+    get().setPendingInvite(null);
+    await get().refreshMahalle();
+  },
+
+  async joinMahalle(target) {
+    if ('code' in target) await joinMahalleByCode(target.code); else await joinMahalleById(target.id);
+    get().setPendingInvite(null);
+    await get().refreshMahalle();
+  },
+
+  async leaveMahalle() {
+    await apiLeaveMahalle();
+    set({ mahalle: null });
+    void AsyncStorage.removeItem(MAHALLE_KEY).catch(() => {});
+  },
+
+  setPendingInvite(code) {
+    set({ pendingInvite: code });
+    void (code ? AsyncStorage.setItem(INVITE_KEY, code) : AsyncStorage.removeItem(INVITE_KEY)).catch(() => {});
   },
 
   syncEnergy(now = Date.now()) {

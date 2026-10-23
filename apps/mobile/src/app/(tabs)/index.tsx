@@ -11,6 +11,7 @@ import { num } from '../../game/format.ts';
 import { ovr } from '../../game/rules.ts';
 import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
+import { Emblem } from '../../ui/emblem.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Crest, Hud } from '../../ui/hud.tsx';
@@ -85,6 +86,19 @@ export default function Hub() {
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>
+        {g.mahalle && (
+          <Pressable
+            accessibilityRole="button" accessibilityLabel={t('mahalle.card.a11y', { name: g.mahalle.name })} onPress={() => router.push('/mahalle')}
+            style={{ height: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.s2 }}
+          >
+            <Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={36} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T w={600} size={15} numberOfLines={1}>{g.mahalle.name}</T>
+              <T w={500} size={12} color={colors.g200}>{t('mahalle.card.members', { n: g.mahalle.members.length })}</T>
+            </View>
+            <Icon name="chev" color={colors.g200} />
+          </Pressable>
+        )}
         {showOffers && (
           <Pressable
             accessibilityRole="button" onPress={() => router.navigate('/teklifler')}
