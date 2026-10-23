@@ -4,15 +4,17 @@
 # email carries a code (the app types it in; a link would open the browser).
 # Existing redirect URLs are kept. Google and Apple providers are set by hand in
 # the dashboard, because they need secrets from those consoles.
-# Usage: SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_ID=… supabase/scripts/configure-auth.sh
+# SITE_URL (the repository variable of the same name) moves the site, for example
+# to Cloudflare; the Netlify addresses stay allowed until removed by hand.
+# Usage: SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_ID=… [SITE_URL=…] supabase/scripts/configure-auth.sh
 set -euo pipefail
 api="https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_ID/config/auth"
 auth=(-H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'Content-Type: application/json')
-site='https://streetborn.netlify.app'
+site="${SITE_URL:-https://streetborn.netlify.app}"
 
 current="$(curl -fsS "${auth[@]}" "$api")"
 allow="$(jq -r --arg site "$site" '
-  [(.uri_allow_list // "" | split(",") | map(select(length > 0))), [$site + "/**", "https://*--streetborn.netlify.app/**", "streetborn://**"]]
+  [(.uri_allow_list // "" | split(",") | map(select(length > 0))), [$site + "/**", "https://streetborn.netlify.app/**", "https://*--streetborn.netlify.app/**", "streetborn://**"]]
   | add | unique | join(",")' <<<"$current")"
 
 body="$(jq -n --arg site "$site" --arg allow "$allow" '{

@@ -65,6 +65,8 @@ jobs:
         # Account linking settings (redirect URLs, manual linking, email templates).
         # A failure here is reported but does not stop the deploy.
         continue-on-error: true
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
         run: supabase/scripts/ci-run.sh "Configure auth" supabase/scripts/configure-auth.sh
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
