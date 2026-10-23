@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers Builds: serve the Expo web export as static assets.
+  // Build command: npm ci && npm run build:web --workspace apps/mobile
+  "name": "streetborn",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./apps/mobile/dist",
+    "not_found_handling": "single-page-application"
+  }
+}
