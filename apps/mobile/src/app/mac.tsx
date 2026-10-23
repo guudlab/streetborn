@@ -50,6 +50,7 @@ export default function Mac() {
   const { width, height } = useWindowDimensions();
   const match = useGame(s => s.match);
   const assisted = useGame(s => s.assisted);
+  const tutorial = useGame(s => s.tutorial);
   const scene = useRef<ShotSceneHandle>(null);
   const power = useRef<PowerBarHandle>(null);
   const [target, setTarget] = useState<Target | null>(null);
@@ -81,8 +82,9 @@ export default function Mac() {
     setLine(moment.kind === 'pass' ? t('match.coach.pass')
       : forced ? t('match.coach.freekick')
         : assisted ? t('match.coach.assisted')
-          : t('match.coach.swipe'));
-  }, [moment, forced, assisted, card]);
+          : tutorial && match?.i === 0 ? t('match.coach.first')
+            : t('match.coach.swipe'));
+  }, [moment, forced, assisted, card, tutorial, match?.i]);
 
   if (leaving.current) return null;
   if (!match && !card && finishing === 'no') return <Redirect href="/" />;

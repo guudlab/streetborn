@@ -6,6 +6,7 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
+import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL } from '../../game/character.ts';
 import { num } from '../../game/format.ts';
 import { ovr } from '../../game/rules.ts';
 import { useGame } from '../../game/store.ts';
@@ -18,11 +19,10 @@ import { toast } from '../../ui/overlay.tsx';
 import { SoundButton } from '../../ui/settings.tsx';
 import { t } from '../../i18n/index.ts';
 
-const hero = require('../../../assets/meshy/hero-street.webp');
-
 export default function Hub() {
   const insets = useSafeAreaInsets();
   const g = useGame();
+  const ch = g.character ?? DEFAULT_CHARACTER;
   const empty = g.energy === 0;
   const showOffers = g.scouted && !g.signed;
 
@@ -57,7 +57,7 @@ export default function Hub() {
           </Defs>
           <Ellipse cx={130} cy={23} rx={130} ry={23} fill="url(#glow)" />
         </Svg>
-        <Model3D model={require('../../../assets/models/karakter-street-yuruyus.glb')} fallback={hero} loop style={{ flex: 1 }} label={t('hub.heroLabel', { name: g.name })} />
+        <Model3D model={HERO_MODEL[ch.hero]} fallback={HERO_IMAGE[ch.hero][ch.jersey]} loop style={{ flex: 1 }} label={t('hub.heroLabel', { name: g.name })} />
 
         <View style={{ position: 'absolute', left: 20, top: 26, gap: 10 }}>
           <View>

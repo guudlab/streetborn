@@ -1,18 +1,18 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { setMusic, sfx } from '../audio/audio.ts';
-import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { buzz, Cta, Ghost, H3, T } from '../ui/kit.tsx';
 import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design C "Dokun ve başla"): the whole screen is the
-// button. Tapping anywhere starts an anonymous career; "Hesabım var" opens the
+// button. Tapping anywhere opens character creation (the anonymous career starts after it); "Hesabım var" opens the
 // Apple / Google sheet, which stays a placeholder until those providers are set up.
 
 const HERO = require('../../assets/meshy/hero-street.webp');
@@ -22,18 +22,20 @@ const native = Platform.OS !== 'web';
 
 export default function Giris() {
   const insets = useSafeAreaInsets();
-  const startAnonymous = useGame(s => s.startAnonymous);
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const intro = useIntro();
   useEffect(() => { setMusic('menu'); }, []);
   const blink = useBlink(!busy);
 
-  async function start() {
+  function start() {
     if (busy) return;
     buzz('medium');
     sfx('whistle_start');
     setBusy(true);
-    try { await startAnonymous(); } finally { setBusy(false); }
+    // A new player creates a character first; the anonymous account starts when it is done.
+    router.push('/karakter');
+    setTimeout(() => setBusy(false), 400);
   }
 
   function soon(provider: 'Apple' | 'Google') {
@@ -41,7 +43,7 @@ export default function Giris() {
       <>
         <H3>{t('login.soonTitle', { provider })}</H3>
         <SheetText>{t('login.soonText', { provider })}</SheetText>
-        <Cta onPress={() => { closeSheet(); void start(); }}>{t('common.start')}</Cta>
+        <Cta onPress={() => { closeSheet(); start(); }}>{t('common.start')}</Cta>
         <Ghost onPress={closeSheet}>{t('common.close')}</Ghost>
       </>,
     );
