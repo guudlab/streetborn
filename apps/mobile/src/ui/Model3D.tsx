@@ -11,6 +11,8 @@ import { Platform, Text, View, type StyleProp, type ViewStyle } from 'react-nati
 // loading and stays if WebGL is unavailable. three.js and the meshopt decoder
 // (~700 KB) load with the first model, not with the app.
 
+// Last loading step reached, shown by ?3ddebug when a model never appears.
+let stage = 'start';
 const load3d = () => import('./three3d.ts');
 
 interface Props {
@@ -46,19 +48,26 @@ function Web({ model, fallback, loop, spin, style, label }: Props) {
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
     el.appendChild(canvas);
+    const debug = /3ddebug/.test(window.location.search);
+    const stuck = debug
+      ? setTimeout(() => !cancelled && setError(`stuck after: ${stage}`), 12000)
+      : undefined;
     void setupWeb(canvas, el, model, { loop, spin })
       .then((d) => {
         if (cancelled) return d.dispose();
         dispose = d.dispose;
+        clearTimeout(stuck);
+        setError('');
         setReady(true);
       })
       .catch((e: unknown) => {
         // No WebGL or a failed load: the PNG stays. Add ?3ddebug to the URL to see why.
         console.warn('Model3D failed', e);
-        if (/3ddebug/.test(window.location.search) && !cancelled) setError(String((e as Error)?.stack ?? e).slice(0, 300));
+        if (debug && !cancelled) setError(String((e as Error)?.stack ?? e).slice(0, 300));
       });
     return () => {
       cancelled = true;
+      clearTimeout(stuck);
       dispose?.();
       canvas.remove();
     };
@@ -113,12 +122,15 @@ async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?:
 
 /** Web: three.js on a <canvas> that fills its host element. */
 async function setupWeb(canvas: HTMLCanvasElement, host: HTMLElement, model: number, opt: { loop?: boolean; spin?: boolean }) {
+  stage = 'import three';
   const three = await load3d();
+  stage = 'webgl context';
   const renderer = new three.THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const width = Math.max(host.clientWidth, 1);
   const height = Math.max(host.clientHeight, 1);
   renderer.setSize(width, height, false);
+  stage = 'fetch glb';
   const bytes = await fetchBytes(Asset.fromModule(model).uri);
   return run(three, renderer, bytes, width, height, opt);
 }
@@ -146,13 +158,16 @@ async function run(
   key.position.set(2, 4, 3);
   scene.add(key);
 
+  stage = 'meshopt wasm';
   await MeshoptDecoder.ready;
+  stage = 'parse glb';
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const gltf = await new Promise<{ scene: import('three').Group; animations: import('three').AnimationClip[] }>((resolve, reject) => {
     loader.parse(bytes, '', resolve, reject);
   });
 
+  stage = 'render';
   const root = gltf.scene;
   scene.add(root);
 
