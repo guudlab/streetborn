@@ -1,10 +1,13 @@
 // Scores a finished match by replaying the recorded inputs against the ticket,
 // then pays the reward. The client never reports stats or amounts.
 import {
+  ENGINE_VERSIONS,
   EngineInputError,
   simulateMatch,
   type ChanceInput,
+  type EngineVersion,
   type MatchSetup,
+  type Side,
 } from '../../../packages/engine/src/index.ts';
 import {
   computeRating,
@@ -29,9 +32,11 @@ Deno.serve(handle(async (req) => {
     .maybeSingle();
   if (matchError) throw matchError;
   if (!match) throw new HttpError(404, 'match_not_found');
-  if (match.engine_version !== 2) throw new HttpError(409, 'old_ticket');
+  if (!ENGINE_VERSIONS.includes(match.engine_version)) throw new HttpError(409, 'old_ticket');
 
+  // Each match replays with the engine it was issued with.
   const setup: MatchSetup = {
+    ...(match.engine_version === 2 ? {} : { engineVersion: match.engine_version as EngineVersion }),
     seed: Number(match.seed),
     chances: match.chances,
     shooting: match.shooting,
@@ -100,7 +105,7 @@ Deno.serve(handle(async (req) => {
     p_flag_reasons: check.flagged,
     p_coin: reward.coin,
     p_xp: reward.xp,
-    p_level: levelForXp(Number(player.xp) + reward.xp),
+    p_level: levelForXp(Number(player.xp) + reward.xp, config),
   }).single<{ coin: number; xp: number; level: number; already_finished: boolean }>();
   if (error) throw error;
 
@@ -114,16 +119,22 @@ Deno.serve(handle(async (req) => {
 
 function parseBody(body: unknown): { matchId: string; inputs: ChanceInput[]; durationMs: number } {
   const b = body as Record<string, unknown> | null;
-  if (!b || typeof b.matchId !== 'string' || !Array.isArray(b.inputs) || b.inputs.length > 12 || !Number.isInteger(b.durationMs)) {
+  if (!b || typeof b.matchId !== 'string' || !Array.isArray(b.inputs) || b.inputs.length > 14 || !Number.isInteger(b.durationMs)) {
     throw new HttpError(400, 'bad_body');
   }
   // Keep only the known fields; the engine validates the values.
   const inputs = b.inputs.map((raw): ChanceInput => {
     const i = raw as Record<string, unknown>;
-    if (typeof i?.pass === 'string') return { chance: i.chance as number, pass: i.pass as 'left' | 'right' };
+    const chance = i?.chance as number;
+    const timing = i?.timing as number;
+    if (typeof i?.defense === 'string') return { chance, defense: i.defense as Side, timing };
+    if (typeof i?.pass === 'string') {
+      return i.timing === undefined ? { chance, pass: i.pass as Side } : { chance, pass: i.pass as Side, timing };
+    }
     const s = i?.shot as Record<string, unknown> | undefined;
     if (!s) throw new HttpError(400, 'bad_body');
-    return { chance: i.chance as number, shot: { aim: s.aim as number, lift: s.lift as number, power: s.power as number } };
+    const shot = { aim: s.aim as number, lift: s.lift as number, power: s.power as number };
+    return { chance, shot: s.assisted === undefined ? shot : { ...shot, assisted: s.assisted as boolean } };
   });
   return { matchId: b.matchId, inputs, durationMs: b.durationMs as number };
 }

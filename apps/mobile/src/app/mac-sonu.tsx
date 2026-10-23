@@ -19,6 +19,7 @@ const BADGE = { W: [colors.l900, colors.l500], D: [colors.s3, colors.g100], L: [
 const LINE = {
   goal: [t('post.line.goal'), delta(1), 'plus'], saved: [t('post.line.miss'), delta(-0.5), 'minus'], wide: [t('post.line.miss'), delta(-0.5), 'minus'],
   over: [t('post.line.miss'), delta(-0.5), 'minus'], assist: [t('post.line.assist'), delta(0.7), 'plus'], lost: [t('post.line.lost'), delta(-0.3), 'minus'],
+  stopped: [t('post.line.stopped'), delta(0.5), 'plus'], conceded: [t('post.line.conceded'), '0', ''], survived: [t('post.line.survived'), '0', ''],
 } as const;
 
 export default function MacSonu() {

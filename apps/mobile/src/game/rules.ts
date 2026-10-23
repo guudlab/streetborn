@@ -33,7 +33,7 @@ export function levelProgress(level: number, xp: number) {
 }
 
 export const OPP = t('club.kartaltepe');
-export const MOMENT_TITLE = { shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick') } as const;
+export const MOMENT_TITLE = { shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick'), defense: t('moment.defense') } as const;
 
 export type Grade = 'mukemmel' | 'iyi' | 'kacti';
 /** q: 0..1 hit quality on the timing bar (1 = centre). */

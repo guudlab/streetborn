@@ -28,6 +28,7 @@ Deno.serve(handle(async (req) => {
 
   // Placeholder opponent strength until the league table drives it.
   const setup: MatchSetup = {
+    engineVersion: ENGINE_VERSION,
     seed: randomSeed(),
     chances: config.matchChances,
     shooting: stats.shooting,
