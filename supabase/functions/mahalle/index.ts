@@ -6,12 +6,13 @@ import { admin, loadEconomyConfig, requirePlayer } from '../_shared/supabase.ts'
 
 const EMBLEMS = ['shield', 'circle', 'diamond'];
 const COLORS = ['lime', 'blue', 'red', 'purple', 'teal', 'white'];
+const REASONS = ['abuse', 'harassment', 'spam', 'other'];
 const CODE = /^[A-Za-z0-9]{6}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Message codes raised by the SQL functions.
 const SQL_ERRORS: Record<string, number> = {
   already_member: 409, not_found: 404, full: 409, not_open: 403,
-  not_member: 403, not_played: 409, self: 400, too_many: 429, already_cheered: 409,
+  not_member: 403, not_played: 409, self: 400, too_many: 429, already_cheered: 409, blocked: 403,
 };
 
 function fail(error: { message: string } | null) {
@@ -72,6 +73,19 @@ Deno.serve(handle(async (req) => {
         p_level_receiver: levelForXp(xp(to) + m.cheerXpReceiver, config),
         p_respect: m.respectCheer,
       })).error);
+      return json({ ok: true });
+    }
+    case 'report': {
+      const to = typeof body.to === 'string' ? body.to : '';
+      if (!UUID.test(to) || !REASONS.includes(body.reason as string)) throw new HttpError(400, 'bad_report');
+      fail((await admin.rpc('report_player', { p_from: playerId, p_to: to, p_reason: body.reason })).error);
+      return json({ ok: true });
+    }
+    case 'block':
+    case 'unblock': {
+      const to = typeof body.to === 'string' ? body.to : '';
+      if (!UUID.test(to)) throw new HttpError(400, 'bad_block');
+      fail((await admin.rpc(body.action === 'block' ? 'block_player' : 'unblock_player', { p_from: playerId, p_to: to })).error);
       return json({ ok: true });
     }
     default:

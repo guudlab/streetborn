@@ -9,9 +9,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import {
-  ApiError, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  loadMahalle, loadMahalleToday, loadProfile, saveProfile, startMatch as apiStart, storedPlayerId,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type Profile,
+  ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
+  loadBlocked, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type Profile, type ReportReason,
 } from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
@@ -79,6 +79,8 @@ interface GameState {
   mahalleReady: boolean;
   /** Today's mahalle match: live contributions and the last settled day. Null until loaded or without a mahalle. */
   mahalleToday: MahalleToday | null;
+  /** Ids of players this player blocked; their names and cheers are hidden. */
+  blocked: string[];
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number; trust: number; form: number[];
@@ -94,6 +96,8 @@ interface GameState {
   refreshMahalle(): Promise<void>;
   refreshMahalleToday(): Promise<void>;
   cheer(to: string, phrase: number): Promise<void>;
+  report(to: string, reason: ReportReason): Promise<void>;
+  setBlocked(to: string, blocked: boolean): Promise<void>;
   createMahalle(name: string, emblem: MahalleEmblem, color: MahalleColor, open: boolean): Promise<void>;
   joinMahalle(target: { code: string } | { id: string }): Promise<void>;
   leaveMahalle(): Promise<void>;
@@ -218,6 +222,7 @@ export const useGame = create<GameState>()((set, get) => ({
   mahalle: null,
   mahalleReady: false,
   mahalleToday: null,
+  blocked: [],
   pendingInvite: null,
   club: t('club.home'),
   level: 7,
@@ -284,6 +289,7 @@ export const useGame = create<GameState>()((set, get) => ({
     try {
       const m = await loadMahalle();
       set({ mahalle: m, mahalleReady: true });
+      if (m) void loadBlocked().then(blocked => set({ blocked }), () => {});
       const playerId = await storedPlayerId().catch(() => null);
       if (m && playerId) void AsyncStorage.setItem(MAHALLE_KEY, JSON.stringify({ playerId, mahalle: m })).catch(() => {});
       else void AsyncStorage.removeItem(MAHALLE_KEY).catch(() => {});
@@ -305,6 +311,15 @@ export const useGame = create<GameState>()((set, get) => ({
   async cheer(to, phrase) {
     await cheerMate(to, phrase);
     await get().refreshMahalleToday();
+  },
+
+  async report(to, reason) {
+    await reportPlayer(to, reason);
+  },
+
+  async setBlocked(to, blocked) {
+    await (blocked ? blockPlayer(to) : unblockPlayer(to));
+    set({ blocked: blocked ? [...new Set([...get().blocked, to])] : get().blocked.filter(id => id !== to) });
   },
 
   async createMahalle(name, emblem, color, open) {
