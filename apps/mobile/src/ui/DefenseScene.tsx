@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Polygon, Rect, Stop } from 'react-native-svg';
 
 import { colors } from '../theme.ts';
+import { t } from '../i18n/index.ts';
 
 // A defense moment seen from behind the player: the forward runs at you with the
 // ball. His shoulder drops to the side he is about to go; that is the cue to read.
@@ -59,7 +60,10 @@ export const DefenseScene = forwardRef<DefenseSceneHandle, Props>(function Defen
 
   const lean = sign(attackSide) * 14;
   return (
-    <View style={{ flex: 1, overflow: 'hidden' }} pointerEvents="none">
+    <View
+      style={{ flex: 1, overflow: 'hidden' }} pointerEvents="none" accessible
+      accessibilityLabel={t('match.defense.cueA11y', { side: attackSide === 'left' ? t('match.defense.cueLeft') : t('match.defense.cueRight') })}
+    >
       <Svg width="100%" height="100%" viewBox="0 0 390 560" preserveAspectRatio="xMidYMid slice">
         <Defs>
           <LinearGradient id="dGrass" x1="0" y1="0" x2="0" y2="1">
