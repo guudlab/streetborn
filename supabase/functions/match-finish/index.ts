@@ -27,7 +27,7 @@ Deno.serve(handle(async (req) => {
 
   const { data: match, error: matchError } = await admin
     .from('matches')
-    .select('id, player_id, engine_version, seed, chances, shooting, passing, opponent_goalkeeping, opponent_attack, issued_at, expires_at, status')
+    .select('id, player_id, kind, engine_version, seed, chances, shooting, passing, opponent_goalkeeping, opponent_attack, issued_at, expires_at, status')
     .eq('id', body.matchId)
     .maybeSingle();
   if (matchError) throw matchError;
@@ -81,6 +81,7 @@ Deno.serve(handle(async (req) => {
   }, config);
   if (check.rejected.length > 0) throw new HttpError(422, 'rejected', check.rejected);
 
+  // The daily coin cap counts energy matches only; mahalle matches pay under their own ledger reason.
   const [{ data: earnedToday, error: earnedError }, { data: player, error: playerError }] = await Promise.all([
     admin.rpc('match_coin_today', { p_player: playerId }),
     admin.from('players').select('xp').eq('id', playerId).single(),
@@ -88,7 +89,7 @@ Deno.serve(handle(async (req) => {
   if (earnedError || playerError) throw earnedError ?? playerError;
 
   const flagged = check.flagged.length > 0;
-  const reward = matchReward({ ...sim, rating }, flagged, Number(earnedToday), config);
+  const reward = matchReward({ ...sim, rating }, flagged, match.kind === 'mahalle' ? 0 : Number(earnedToday), config);
 
   const { data, error } = await admin.rpc('finish_match', {
     p_match: match.id,

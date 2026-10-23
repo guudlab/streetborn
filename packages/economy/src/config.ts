@@ -4,6 +4,36 @@
  * and are used in tests. Every number here is an assumption to be tuned with
  * soft launch data.
  */
+export interface MahalleConfig {
+  minMembers: number;
+  maxMembers: number;
+  /** Contributions that count toward the day's score; empty slots are filled by NPC "mahalle çocukları". */
+  slots: number;
+  winBonusCoin: number;
+  drawBonusCoin: number;
+  winXp: number;
+  turnoutBonusCoin: number;
+  /** Share of real members (percent) that must have played for the turnout bonus. */
+  turnoutPct: number;
+  /** A member counts as real after this many hours in the mahalle and this many finished matches. */
+  realMemberMinAgeHours: number;
+  realMemberMinMatches: number;
+  motmXp: number;
+  respectRatingHigh: number;
+  respectRatingMid: number;
+  respectRatingLow: number;
+  respectWin: number;
+  respectMotm: number;
+  respectCheer: number;
+  cheersPerDay: number;
+  cheersReceivedMax: number;
+  cheerXpReceiver: number;
+  cheerXpGiver: number;
+  /** Weights (percent) of an NPC slot adding 0, 1 or 2 goals for the mahalle / against it. */
+  fillOurWeights: [number, number, number];
+  fillTheirWeights: [number, number, number];
+}
+
 export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
@@ -37,6 +67,8 @@ export interface EconomyConfig {
   offerMinMatches: number;
   offerMinMahalleMatches: number;
   leagueSeasonDays: number;
+
+  mahalle: MahalleConfig;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -75,6 +107,33 @@ export const DEFAULT_CONFIG: EconomyConfig = {
   offerMinMatches: 10,
   offerMinMahalleMatches: 3,
   leagueSeasonDays: 14,
+
+  // GDD v3.1 mahalle block. The fill weights are tuned so a mahalle of NPCs only wins about 60% of days.
+  mahalle: {
+    minMembers: 2,
+    maxMembers: 12,
+    slots: 7,
+    winBonusCoin: 40,
+    drawBonusCoin: 15,
+    winXp: 25,
+    turnoutBonusCoin: 20,
+    turnoutPct: 50,
+    realMemberMinAgeHours: 24,
+    realMemberMinMatches: 3,
+    motmXp: 15,
+    respectRatingHigh: 4,
+    respectRatingMid: 1,
+    respectRatingLow: -2,
+    respectWin: 2,
+    respectMotm: 3,
+    respectCheer: 1,
+    cheersPerDay: 3,
+    cheersReceivedMax: 3,
+    cheerXpReceiver: 10,
+    cheerXpGiver: 5,
+    fillOurWeights: [30, 50, 20],
+    fillTheirWeights: [45, 40, 15],
+  },
 
   matchChances: 3,
   ticketTtlSeconds: 20 * 60,

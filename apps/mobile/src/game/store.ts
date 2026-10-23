@@ -9,9 +9,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import {
-  ApiError, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  loadMahalle, loadProfile, saveProfile, startMatch as apiStart, storedPlayerId,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type Profile,
+  ApiError, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
+  loadMahalle, loadMahalleToday, loadProfile, saveProfile, startMatch as apiStart, storedPlayerId,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type Profile,
 } from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
@@ -35,6 +35,7 @@ export type Auth = 'unknown' | 'none' | 'in';
 export interface LogEntry { minute: number; kind: MomentKind; outcome: ChanceOutcome['outcome'] }
 
 export interface PostMatch {
+  kind: 'energy' | 'mahalle';
   result: TeamResult; us: number; them: number; rating: number; goals: number; assists: number;
   coins: number; xp: number; trustDelta: number; ups: number; scout: boolean; flagged: boolean;
   log: LogEntry[];
@@ -45,6 +46,7 @@ export interface PostMatch {
 }
 
 export interface LiveMatch {
+  kind: 'energy' | 'mahalle';
   matchId: string | null;
   setup: MatchSetup;
   plan: MatchPlan;
@@ -75,6 +77,8 @@ interface GameState {
   mahalle: MahalleInfo | null;
   /** False until the first answer about the mahalle (cached or from the server). */
   mahalleReady: boolean;
+  /** Today's mahalle match: live contributions and the last settled day. Null until loaded or without a mahalle. */
+  mahalleToday: MahalleToday | null;
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number; trust: number; form: number[];
@@ -88,12 +92,14 @@ interface GameState {
   /** Saves the new player's choices and nickname (on the device and on the server). Throws ApiError `nick_*` when the server refuses the name. */
   createCharacter(c: Character, nick: string): Promise<void>;
   refreshMahalle(): Promise<void>;
+  refreshMahalleToday(): Promise<void>;
+  cheer(to: string, phrase: number): Promise<void>;
   createMahalle(name: string, emblem: MahalleEmblem, color: MahalleColor, open: boolean): Promise<void>;
   joinMahalle(target: { code: string } | { id: string }): Promise<void>;
   leaveMahalle(): Promise<void>;
   setPendingInvite(code: string | null): void;
   syncEnergy(now?: number): void;
-  startMatch(): Promise<'ok' | 'no_energy' | 'error'>;
+  startMatch(kind?: 'energy' | 'mahalle'): Promise<'ok' | 'no_energy' | 'already_played' | 'error'>;
   play(input: ChanceInput): ChanceOutcome;
   /** Moves to the next moment; returns the opponent goals scored in between. */
   advance(): { done: boolean; events: { minute: number }[] };
@@ -211,6 +217,7 @@ export const useGame = create<GameState>()((set, get) => ({
   tutorial: false,
   mahalle: null,
   mahalleReady: false,
+  mahalleToday: null,
   pendingInvite: null,
   club: t('club.home'),
   level: 7,
@@ -286,6 +293,20 @@ export const useGame = create<GameState>()((set, get) => ({
     }
   },
 
+  async refreshMahalleToday() {
+    if (get().mode !== 'online') return;
+    try {
+      set({ mahalleToday: await loadMahalleToday() });
+    } catch (e) {
+      console.warn('Could not load today\'s mahalle match', e);
+    }
+  },
+
+  async cheer(to, phrase) {
+    await cheerMate(to, phrase);
+    await get().refreshMahalleToday();
+  },
+
   async createMahalle(name, emblem, color, open) {
     await apiCreateMahalle(name, emblem, color, open);
     get().setPendingInvite(null);
@@ -315,20 +336,23 @@ export const useGame = create<GameState>()((set, get) => ({
     if (next.energy !== s.energy || next.updatedAt !== s.energyUpdatedAt) set({ energy: next.energy, energyUpdatedAt: next.updatedAt });
   },
 
-  async startMatch() {
+  async startMatch(kind = 'energy') {
     const s = get();
     s.syncEnergy();
-    if (get().energy < config.matchEnergyCost) return 'no_energy';
+    const cost = kind === 'mahalle' ? config.fixtureEnergyCost : config.matchEnergyCost;
+    if (get().energy < cost) return 'no_energy';
+    if (kind === 'mahalle' && s.mode !== 'online') return 'error';
     let matchId: string | null = null;
     let setup: MatchSetup;
     if (s.mode === 'online') {
       try {
-        const t = await apiStart();
+        const t = await apiStart(kind);
         matchId = t.matchId;
         setup = t.setup;
         set({ energy: t.energy.energy, energyUpdatedAt: t.energy.updatedAt });
       } catch (e) {
         if (e instanceof ApiError && e.code === 'no_energy') { set({ energy: 0 }); return 'no_energy'; }
+        if (e instanceof ApiError && e.code === 'already_played') return 'already_played';
         console.warn('match-start failed', e);
         return 'error';
       }
@@ -344,7 +368,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const plan = planMatch(setup);
     set({
       match: {
-        matchId, setup, plan, i: 0, inputs: [],
+        kind, matchId, setup, plan, i: 0, inputs: [],
         outcomes: plan.moments.map(() => null), startedAt: Date.now(),
       },
     });
@@ -404,7 +428,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const trust = clamp(s.trust + trustDelta, 0, 100);
     const scout = rating >= 65;
     const post: PostMatch = {
-      result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
+      kind: m.kind, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
       coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial,
       before, after: { ...after, trust },
     };
@@ -415,6 +439,7 @@ export const useGame = create<GameState>()((set, get) => ({
       match: null, post, tutorial: false,
     });
     saveCharacter(get());
+    if (m.kind === 'mahalle') void get().refreshMahalleToday();
     return post;
   },
 

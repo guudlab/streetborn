@@ -19,7 +19,11 @@ export interface Profile {
   stats: { shooting: number; passing: number; pace: number; stamina: number };
 }
 
-export interface Ticket { matchId: string; setup: MatchSetup; expiresAt: number; energy: { energy: number; updatedAt: number } }
+export interface Ticket {
+  matchId: string; setup: MatchSetup; expiresAt: number; energy: { energy: number; updatedAt: number };
+  /** Mahalle matches only: the NPC mahalle the whole mahalle faces today. */
+  opponentName?: string;
+}
 
 export interface FinishResponse {
   result: MatchResult & { rating: number };
@@ -90,7 +94,7 @@ async function call<T>(name: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
-export const startMatch = () => call<Ticket>('match-start');
+export const startMatch = (kind: 'energy' | 'mahalle' = 'energy') => call<Ticket>('match-start', { kind });
 export const finishMatch = (matchId: string, inputs: ChanceInput[], durationMs: number) =>
   call<FinishResponse>('match-finish', { matchId, inputs, durationMs });
 
@@ -138,3 +142,32 @@ export const joinMahalleByCode = (code: string) => call<{ ok: true }>('mahalle',
 export const joinMahalleById = (id: string) => call<{ ok: true }>('mahalle', { action: 'join', id });
 export const leaveMahalle = () => call<{ ok: true }>('mahalle', { action: 'leave' });
 export const saveProfile = (nick: string, character: Character) => call<{ ok: true }>('profile-set', { nick, character });
+
+export interface MahalleContribution {
+  playerId: string; nick: string | null; goals: number; assists: number; opponentGoals: number;
+  /** x10 */
+  rating: number;
+  cheers: number; cheered: boolean;
+}
+export interface MahalleLastDay {
+  day: string; opponent: { name: string }; ourGoals: number; theirGoals: number; result: 'W' | 'D' | 'L';
+  summary: {
+    motm: string | null; turnout: boolean; fills: number;
+    payouts: { player: string; coin: number; xp: number; respect: number }[];
+  };
+}
+export interface MahalleToday {
+  me: string; day: string; opponent: { name: string } | null; played: boolean;
+  contributions: MahalleContribution[]; cheersLeft: number; respect: number; last: MahalleLastDay | null;
+}
+
+/** Today's mahalle match (live contributions) and the last settled day. Null without a mahalle. */
+export async function loadMahalleToday(): Promise<MahalleToday | null> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('mahalle_bugun');
+  if (error) throw new ApiError(error.message);
+  return (data as MahalleToday | null) ?? null;
+}
+
+export const cheerMate = (to: string, phrase: number) => call<{ ok: true }>('mahalle', { action: 'cheer', to, phrase });

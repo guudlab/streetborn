@@ -25,7 +25,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check match-start/index.ts match-finish/index.ts mahalle/index.ts profile-set/index.ts
+      - run: deno check match-start/index.ts match-finish/index.ts mahalle/index.ts mahalle-close/index.ts profile-set/index.ts
         working-directory: supabase/functions
 
   database:
