@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, ScrollView, View } from 'react-native';
+import { Animated, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setMusic, sfx } from '../audio/audio.ts';
@@ -10,8 +10,9 @@ import { levelProgress } from '../game/rules.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
-import { buzz, Caps, CoachFace, Cta, Ghost, H1, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
+import { buzz, Caps, CoachFace, Cta, Ghost, H1, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
 import { Pop } from '../ui/motion.tsx';
+import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
 
 const RES = { W: t('post.W'), D: t('post.D'), L: t('post.L') } as const;
@@ -123,6 +124,8 @@ export default function MacSonu() {
         </Gain>
       </View>
 
+      {r.first && <LinkStrip />}
+
       {r.flagged && (
         <T size={13} color={colors.g200}>{t('post.flagged')}</T>
       )}
@@ -161,5 +164,40 @@ function Gain({ show, first, children }: { show: boolean; first?: boolean; child
     }}>
       {children}
     </Animated.View>
+  );
+}
+
+/** Soft account-link offer after the very first match. Apple / Google stay placeholders until set up. */
+function LinkStrip() {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  const soon = () => {
+    buzz();
+    openSheet(
+      <>
+        <H3>{t('post.link.soonTitle')}</H3>
+        <SheetText>{t('post.link.soonText')}</SheetText>
+        <Ghost onPress={closeSheet}>{t('common.close')}</Ghost>
+      </>,
+    );
+  };
+  return (
+    <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l700, padding: 16, gap: 12 }}>
+      <View style={{ gap: 4 }}>
+        <T w={600} size={17}>{t('post.link.title')}</T>
+        <T size={14} color={colors.g200} style={{ lineHeight: 20 }}>{t('post.link.text')}</T>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Pressable onPress={soon} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+          <T w={600} size={15} color={colors.ink}>{t('post.link.apple')}</T>
+        </Pressable>
+        <Pressable onPress={soon} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+          <T w={600} size={15}>{t('post.link.google')}</T>
+        </Pressable>
+      </View>
+      <Pressable onPress={() => setHidden(true)} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center', minHeight: 32, justifyContent: 'center' }}>
+        <T w={500} size={14} color={colors.g200}>{t('post.link.later')}</T>
+      </Pressable>
+    </View>
   );
 }
