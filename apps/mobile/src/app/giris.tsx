@@ -7,13 +7,13 @@ import Svg, { Path } from 'react-native-svg';
 import { setMusic, sfx } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
-import { buzz, Cta, Ghost, H3, T } from '../ui/kit.tsx';
-import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
+import { openSignInSheet } from '../ui/account.tsx';
+import { buzz, T } from '../ui/kit.tsx';
 import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design C "Dokun ve başla"): the whole screen is the
-// button. Tapping anywhere starts an anonymous career, then the mahalle and character steps follow; "Hesabım var" opens the
-// Apple / Google sheet, which stays a placeholder until those providers are set up.
+// button. Tapping anywhere starts an anonymous career, then the mahalle and character steps follow; "Hesabım var" signs
+// in to an account linked before (Apple, Google or an email code).
 
 const HERO = require('../../assets/meshy/hero-street.webp');
 const LOGO = require('../../assets/brand/logo.png');
@@ -37,17 +37,6 @@ export default function Giris() {
     try { await startAnonymous(); } finally { setBusy(false); }
   }
 
-  function soon(provider: 'Apple' | 'Google') {
-    openSheet(
-      <>
-        <H3>{t('login.soonTitle', { provider })}</H3>
-        <SheetText>{t('login.soonText', { provider })}</SheetText>
-        <Cta onPress={() => { closeSheet(); void start(); }}>{t('common.start')}</Cta>
-        <Ghost onPress={closeSheet}>{t('common.close')}</Ghost>
-      </>,
-    );
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, overflow: 'hidden' }}>
       <Pressable
@@ -67,7 +56,7 @@ export default function Giris() {
       </Animated.View>
 
       <Pressable
-        onPress={() => { buzz(); soon('Apple'); }}
+        onPress={() => { buzz(); openSignInSheet(); }}
         accessibilityRole="button" accessibilityLabel={t('login.haveAccount')}
         hitSlop={8}
         style={({ pressed }) => [styles.account, { top: insets.top + 22, opacity: pressed ? 0.7 : 1 }]}

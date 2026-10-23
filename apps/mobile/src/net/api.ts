@@ -19,6 +19,9 @@ export interface Profile {
   stats: { shooting: number; passing: number; pace: number; stamina: number };
   /** AP collected toward each stat's next point. */
   ap: { shooting: number; passing: number; pace: number; stamina: number };
+  /** Nickname and new-player choices saved by profile-set; null before character creation. */
+  nick?: string | null;
+  character?: Partial<Character> | null;
 }
 
 export interface Ticket {
@@ -68,7 +71,7 @@ export async function loadProfile(): Promise<Profile> {
   const playerId = await ensureSession();
   const supabase = await client();
   const [p, w, s] = await Promise.all([
-    supabase.from('players').select('level, xp').eq('id', playerId).single(),
+    supabase.from('players').select('level, xp, nick, character').eq('id', playerId).single(),
     supabase.from('wallets').select('coin, gem, energy, energy_updated_at').eq('player_id', playerId).single(),
     supabase.from('player_stats').select('shooting, passing, pace, stamina, ap_shooting, ap_passing, ap_pace, ap_stamina').eq('player_id', playerId).single(),
   ]);
@@ -85,6 +88,8 @@ export async function loadProfile(): Promise<Profile> {
     energyUpdatedAt: Date.parse(w.data.energy_updated_at),
     stats: { shooting: s.data.shooting, passing: s.data.passing, pace: s.data.pace, stamina: s.data.stamina },
     ap: { shooting: s.data.ap_shooting ?? 0, passing: s.data.ap_passing ?? 0, pace: s.data.ap_pace ?? 0, stamina: s.data.ap_stamina ?? 0 },
+    nick: p.data.nick ?? null,
+    character: p.data.character ?? null,
   };
 }
 

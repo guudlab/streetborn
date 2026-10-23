@@ -61,6 +61,11 @@ jobs:
         run: supabase/scripts/ci-run.sh "Link project" supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
       - name: Apply migrations
         run: supabase/scripts/ci-run.sh "Apply migrations" supabase db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Configure auth
+        # Account linking settings (redirect URLs, manual linking, email templates).
+        # A failure here is reported but does not stop the deploy.
+        continue-on-error: true
+        run: supabase/scripts/ci-run.sh "Configure auth" supabase/scripts/configure-auth.sh
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
       - name: Deploy functions
