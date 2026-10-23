@@ -73,6 +73,33 @@ export interface CareerConfig {
   tiers: LeagueTier[];
 }
 
+export interface TrainingConfig {
+  freeDrillsPerDay: number;
+  drillEnergyCost: number;
+  /** AP and XP per drill grade. */
+  drillPerfectAp: number;
+  drillPerfectXp: number;
+  drillGoodAp: number;
+  drillGoodXp: number;
+  drillMissXp: number;
+  /** Timing quality (0..100) for a perfect and for a good drill. */
+  drillPerfectFrom: number;
+  drillGoodFrom: number;
+  /** A drill faster than this is scored as a miss: no one hits the bar that quickly. */
+  drillMinMs: number;
+  privateSessionsPerDay: number;
+  privateCostBase: number;
+  privateCostPerStat: number;
+  privateAp: number;
+  privateXp: number;
+  /** AP needed for the next stat point while the stat is below `below`. */
+  apPerStat: { below: number; ap: number }[];
+  /** Stat cap = statCapBase + level × statCapPerLevelX10 / 10, at most statMax. */
+  statCapBase: number;
+  statCapPerLevelX10: number;
+  statMax: number;
+}
+
 export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
@@ -109,6 +136,7 @@ export interface EconomyConfig {
 
   mahalle: MahalleConfig;
   career: CareerConfig;
+  training: TrainingConfig;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -199,6 +227,29 @@ export const DEFAULT_CONFIG: EconomyConfig = {
       { id: 'super_amator', minLevel: 12, coinMultiplierX100: 175, weeklySalary: 1050, winBonus: 60, goalBonus: 20, champPrize: 900, oppGoalkeeping: 75, oppAttack: 90 },
       { id: 'bolge_amator', minLevel: 20, coinMultiplierX100: 200, weeklySalary: 1400, winBonus: 80, goalBonus: 25, champPrize: 1200, oppGoalkeeping: 80, oppAttack: 100 },
     ],
+  },
+
+  // GDD v3.1 section 6.
+  training: {
+    freeDrillsPerDay: 3,
+    drillEnergyCost: 1,
+    drillPerfectAp: 2,
+    drillPerfectXp: 30,
+    drillGoodAp: 1,
+    drillGoodXp: 20,
+    drillMissXp: 8,
+    drillPerfectFrom: 85,
+    drillGoodFrom: 50,
+    drillMinMs: 600,
+    privateSessionsPerDay: 5,
+    privateCostBase: 100,
+    privateCostPerStat: 8,
+    privateAp: 2,
+    privateXp: 15,
+    apPerStat: [{ below: 60, ap: 3 }, { below: 70, ap: 4 }, { below: 80, ap: 5 }, { below: 100, ap: 6 }],
+    statCapBase: 50,
+    statCapPerLevelX10: 15,
+    statMax: 99,
   },
 
   matchChances: 3,

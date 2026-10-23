@@ -10,8 +10,8 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, careerStatus, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type Profile, type ReportReason, type Career,
+  acceptOffer as apiAcceptOffer, careerStatus, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career,
 } from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
@@ -64,9 +64,14 @@ export interface LiveMatch {
 }
 
 export interface TrainResult {
-  key: StatKey; grade: 'mukemmel' | 'iyi' | 'kacti'; xp: number; ups: number; statUp: number;
+  key: StatKey; grade: 'mukemmel' | 'iyi' | 'kacti' | 'ozel'; xp: number; ups: number; statUp: number;
   before: number; after: number; progress: number;
+  /** Coin paid for a private session. */
+  coin: number;
 }
+
+const SERVER_STAT: Record<StatKey, ServerStat> = { sut: 'shooting', pas: 'passing', hiz: 'pace', fizik: 'stamina' };
+const GRADE_TR = { perfect: 'mukemmel', good: 'iyi', miss: 'kacti' } as const;
 
 interface GameState {
   mode: Mode;
@@ -93,7 +98,9 @@ interface GameState {
   careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null } | null;
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
-  stats: Stats; drillProgress: Stats; trainFree: number; trust: number; form: number[];
+  stats: Stats; drillProgress: Stats; trainFree: number;
+  /** Private sessions left today (online). */
+  privateLeft: number; trust: number; form: number[];
   scouted: boolean; signed: string | null; trialAccepted: boolean; adsLeft: number; assisted: boolean;
   match: LiveMatch | null;
   post: PostMatch | null;
@@ -120,7 +127,11 @@ interface GameState {
   /** Moves to the next moment; returns the opponent goals scored in between. */
   advance(): { done: boolean; events: { minute: number }[] };
   finishMatch(): Promise<PostMatch>;
-  train(key: StatKey, q: number): TrainResult | null;
+  /** A timing drill. Online the server grades it and pays AP; offline it stays local. */
+  train(key: StatKey, q: number, durationMs: number): Promise<TrainResult | 'no_energy' | null>;
+  /** A coin-paid private session (online only). */
+  privateTrain(key: StatKey): Promise<TrainResult | 'no_coin' | 'limit' | null>;
+  refreshTraining(): Promise<void>;
   sign(id: string): void;
   acceptTrial(): void;
   watchAd(): boolean;
@@ -188,6 +199,9 @@ function showProfile(p: Profile) {
     level: p.level, xp: p.xp, coins: p.coin, gems: p.gem,
     energy: p.energy, energyUpdatedAt: p.energyUpdatedAt,
     stats: { sut: p.stats.shooting, pas: p.stats.passing, hiz: p.stats.pace, fizik: p.stats.stamina },
+    drillProgress: p.ap
+      ? { sut: p.ap.shooting, pas: p.ap.passing, hiz: p.ap.pace, fizik: p.ap.stamina }
+      : { sut: 0, pas: 0, hiz: 0, fizik: 0 },
     form: [],
   });
   useGame.getState().syncEnergy();
@@ -249,6 +263,7 @@ export const useGame = create<GameState>()((set, get) => ({
   stats: { sut: 52, pas: 47, hiz: 58, fizik: 44 },
   drillProgress: { sut: 1, pas: 0, hiz: 2, fizik: 0 },
   trainFree: 3,
+  privateLeft: 0,
   trust: 62,
   form: [6.8, 7.4, 5.9],
   scouted: false,
@@ -508,13 +523,22 @@ export const useGame = create<GameState>()((set, get) => ({
     return post;
   },
 
-  train(key, q) {
+  async train(key, q, durationMs) {
     const s = get();
+    if (s.mode === 'online') {
+      try {
+        const r = await trainDrill(SERVER_STAT[key], Math.round(q * 100), Math.round(durationMs));
+        return applyTraining(key, r);
+      } catch (e) {
+        if (e instanceof ApiError && e.code === 'no_energy') { set({ energy: 0 }); return 'no_energy'; }
+        console.warn('train failed', e);
+        return null;
+      }
+    }
     let { trainFree, energy } = s;
     if (trainFree > 0) trainFree--;
-    // Paid training needs a server function first; online it is free sessions only.
-    else if (s.mode === 'local' && energy > 0) energy--;
-    else return null;
+    else if (energy > 0) energy--;
+    else return 'no_energy';
     const g = gradeDrill(q);
     const xp = s.xp + g.xp;
     const level = Math.max(s.level, levelForXp(xp));
@@ -527,7 +551,32 @@ export const useGame = create<GameState>()((set, get) => ({
       drillProgress: { ...s.drillProgress, [key]: progress },
       stats: { ...s.stats, [key]: before + statUp },
     });
-    return { key, grade: g.grade, xp: g.xp, ups: level - s.level, statUp, before, after: before + statUp, progress };
+    return { key, grade: g.grade, xp: g.xp, ups: level - s.level, statUp, before, after: before + statUp, progress, coin: 0 };
+  },
+
+  async privateTrain(key) {
+    if (get().mode !== 'online') return null;
+    try {
+      return applyTraining(key, await trainPrivate(SERVER_STAT[key]));
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_coin' || e.code === 'limit')) return e.code;
+      console.warn('private training failed', e);
+      return null;
+    }
+  },
+
+  async refreshTraining() {
+    if (get().mode !== 'online') return;
+    try {
+      const today = await loadTrainingToday();
+      const tc = config.training;
+      set({
+        trainFree: Math.max(0, tc.freeDrillsPerDay - today.free),
+        privateLeft: Math.max(0, tc.privateSessionsPerDay - today.private),
+      });
+    } catch (e) {
+      console.warn('Could not load today\'s training', e);
+    }
   },
 
   sign(id) { if (OFFERS.some(o => o.id === id)) set({ signed: id }); },
@@ -549,3 +598,19 @@ export const useGame = create<GameState>()((set, get) => ({
 
   setAssisted(v) { set({ assisted: v }); },
 }));
+
+/** Writes a server training result into the store and shapes it for the result line. */
+function applyTraining(key: StatKey, r: TrainResponse): TrainResult {
+  const s = useGame.getState();
+  useGame.setState({
+    xp: r.player.xp, level: r.player.level, coins: r.player.coin,
+    stats: { ...s.stats, [key]: r.stat.after },
+    drillProgress: { ...s.drillProgress, [key]: r.stat.ap },
+    ...(r.energy ? { energy: r.energy.energy, energyUpdatedAt: r.energy.updatedAt } : {}),
+    ...(r.grade ? { trainFree: Math.max(0, s.trainFree - 1) } : { privateLeft: Math.max(0, s.privateLeft - 1) }),
+  });
+  return {
+    key, grade: r.grade ? GRADE_TR[r.grade] : 'ozel', xp: r.xp, ups: r.player.level - s.level,
+    statUp: r.stat.after - r.stat.before, before: r.stat.before, after: r.stat.after, progress: r.stat.ap, coin: r.coin,
+  };
+}

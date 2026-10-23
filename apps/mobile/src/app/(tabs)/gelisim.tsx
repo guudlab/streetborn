@@ -1,14 +1,17 @@
 import { Model3D } from '../../ui/Model3D.tsx';
-import { useRef, useState } from 'react';
+import { apNeed, DEFAULT_CONFIG, privateCost } from '@streetborn/economy';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DRILLS, ovr, type StatKey } from '../../game/rules.ts';
 import { useGame, type TrainResult } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
+import { openEnergySheet } from '../../ui/energy.tsx';
 import { Icon } from '../../ui/Icon.tsx';
+import { toast } from '../../ui/overlay.tsx';
 import { sfx } from '../../audio/audio.ts';
-import { buzz, Caps, Cta, H1, H3, T } from '../../ui/kit.tsx';
+import { buzz, Caps, Cta, Ghost, H1, H3, T } from '../../ui/kit.tsx';
 import { TimingBar, type TimingBarHandle } from '../../ui/TimingBar.tsx';
 import { t } from '../../i18n/index.ts';
 
@@ -17,7 +20,9 @@ const GRADES = {
   mukemmel: { color: colors.l600, icon: 'star', label: t('train.grade.mukemmel') },
   iyi: { color: colors.g100, icon: 'check', label: t('train.grade.iyi') },
   kacti: { color: colors.bad, icon: 'x', label: t('train.grade.kacti') },
+  ozel: { color: colors.l600, icon: 'whistle', label: t('train.grade.ozel') },
 } as const;
+const tc = DEFAULT_CONFIG.training;
 
 export default function Gelisim() {
   const insets = useSafeAreaInsets();
@@ -25,20 +30,42 @@ export default function Gelisim() {
   const [sel, setSel] = useState<StatKey>('sut');
   const [running, setRunning] = useState(false);
   const [last, setLast] = useState<TrainResult | null>(null);
+  const [busy, setBusy] = useState(false);
   const bar = useRef<TimingBarHandle>(null);
+  const startedAt = useRef(0);
   const d = DRILLS[sel];
-  // Paid training (1 energy) needs a server function; online only the free sessions work for now.
-  const can = g.trainFree > 0 || (g.mode === 'local' && g.energy > 0);
+  const online = g.mode === 'online';
+  // After the free drills each drill costs 1 energy (online the server checks both).
+  const can = g.trainFree > 0 || g.energy > 0;
+  // Online the AP needed per point grows with the stat (GDD v3.1); the offline prototype keeps 3.
+  const need = (k: StatKey) => (online ? apNeed(g.stats[k], tc) : 3);
+  const cost = privateCost(g.stats[sel], tc);
+  const coach = g.career?.contract?.active ? t('train.private.clubCoach') : t('train.private.burak');
 
-  const pick = (k: StatKey) => { if (running) return; setSel(k); setLast(null); };
-  const tapBar = () => {
+  useEffect(() => { if (online) void useGame.getState().refreshTraining(); }, [online]);
+
+  const pick = (k: StatKey) => { if (running || busy) return; setSel(k); setLast(null); };
+  const show = (r: Awaited<ReturnType<ReturnType<typeof useGame.getState>['train']>>) => {
+    if (r === 'no_energy') return openEnergySheet();
+    if (!r) return toast(t('train.failed'));
+    buzz(r.grade === 'mukemmel' || r.grade === 'ozel' ? 'success' : 'light');
+    sfx(r.ups ? 'levelup' : r.grade === 'mukemmel' || r.statUp ? 'unlock' : r.grade === 'kacti' ? 'error' : 'coin');
+    setLast(r);
+  };
+  const tapBar = async () => {
     const q = bar.current?.stop() ?? 0;
     setRunning(false);
-    const r = useGame.getState().train(sel, q);
-    if (!r) return;
-    buzz(r.grade === 'mukemmel' ? 'success' : 'light');
-    sfx(r.ups ? 'levelup' : r.grade === 'mukemmel' ? 'unlock' : r.grade === 'iyi' ? 'coin' : 'error');
-    setLast(r);
+    setBusy(true);
+    show(await useGame.getState().train(sel, q, Date.now() - startedAt.current));
+    setBusy(false);
+  };
+  const privateSession = async () => {
+    setBusy(true);
+    const r = await useGame.getState().privateTrain(sel);
+    setBusy(false);
+    if (r === 'no_coin') return toast(t('train.private.noCoin', { n: cost }));
+    if (r === 'limit') return toast(t('train.private.limit'));
+    show(r);
   };
 
   return (
@@ -67,7 +94,7 @@ export default function Gelisim() {
                   <View style={{ width: `${g.stats[k]}%`, height: '100%', borderRadius: 3, backgroundColor: on ? colors.l600 : colors.g200 }} />
                 </View>
                 <View style={{ flexDirection: 'row', gap: 4 }} accessibilityLabel={t('train.progressA11y', { n: g.drillProgress[k] })}>
-                  {[0, 1, 2].map(i => <View key={i} style={{ width: 14, height: 6, borderRadius: 3, backgroundColor: i < g.drillProgress[k] ? colors.l600 : colors.s3 }} />)}
+                  {Array.from({ length: need(k) }, (_, i) => <View key={i} style={{ width: 14, height: 6, borderRadius: 3, backgroundColor: i < g.drillProgress[k] ? colors.l600 : colors.s3 }} />)}
                 </View>
               </View>
             </Pressable>
@@ -84,7 +111,7 @@ export default function Gelisim() {
             </View>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name="bolt" size={16} color={colors.g200} /><T w={600} size={13} color={colors.g200}>{g.mode === 'online' ? t('train.freeOver') : t('train.oneEnergy', { n: g.energy })}</T>
+              <Icon name="bolt" size={16} color={colors.g200} /><T w={600} size={13} color={colors.g200}>{t('train.oneEnergy', { n: g.energy })}</T>
             </View>
           )}
         </View>
@@ -92,16 +119,23 @@ export default function Gelisim() {
         {running ? (
           <>
             <TimingBar ref={bar} />
-            <Cta onPress={tapBar}>{t('train.tap')}</Cta>
+            <Cta onPress={() => void tapBar()}>{t('train.tap')}</Cta>
           </>
         ) : (
           <>
-            {last ? <DrillResult r={last} stat={DRILLS[last.key].stat} level={g.level} /> : (
+            {last ? <DrillResult r={last} stat={DRILLS[last.key].stat} level={g.level} need={need(last.key)} /> : (
               <T size={14} color={colors.g200}>{t('train.hint', { stat: d.stat })}</T>
             )}
-            <Cta disabled={!can} onPress={() => { setLast(null); setRunning(true); }}>
-              {can ? (last ? t('train.again') : t('common.start')) : g.mode === 'online' ? t('train.again.tomorrow') : t('train.noEnergy')}
+            <Cta disabled={!can || busy} off={busy} onPress={() => { setLast(null); startedAt.current = Date.now(); setRunning(true); }}>
+              {can ? (last ? t('train.again') : t('common.start')) : t('train.noEnergy')}
             </Cta>
+            {online && (
+              <Ghost disabled={busy || g.privateLeft === 0} onPress={() => void privateSession()}>
+                {g.privateLeft === 0
+                  ? t('train.private.limit')
+                  : t('train.private.cta', { coach, n: cost, left: g.privateLeft })}
+              </Ghost>
+            )}
           </>
         )}
       </View>
@@ -109,14 +143,15 @@ export default function Gelisim() {
   );
 }
 
-function DrillResult({ r, stat, level }: { r: TrainResult; stat: string; level: number }) {
+function DrillResult({ r, stat, level, need }: { r: TrainResult; stat: string; level: number; need: number }) {
   const G = GRADES[r.grade];
-  const sub = r.statUp ? `${stat} ${r.before} → ${r.after}` : r.grade === 'kacti' ? t('train.noProgress') : t('train.progress', { n: r.progress });
+  const sub = r.statUp ? `${stat} ${r.before} → ${r.after}` : r.grade === 'kacti' ? t('train.noProgress') : t('train.progress', { n: r.progress, need });
+  const paid = r.coin ? ` · −${r.coin} coin` : '';
   return (
     <View accessibilityLiveRegion="polite" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Icon name={G.icon} size={22} color={G.color} />
       <View>
-        <T w={600} size={15} color={G.color}>{G.label} · +{r.xp} XP</T>
+        <T w={600} size={15} color={G.color}>{G.label} · +{r.xp} XP{paid}</T>
         <T w={500} size={13} color={colors.g200}>{sub}{r.ups ? t('train.levelUp', { n: level }) : ''}</T>
       </View>
     </View>

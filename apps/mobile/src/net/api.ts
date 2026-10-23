@@ -17,6 +17,8 @@ export interface Profile {
   energy: number;
   energyUpdatedAt: number;
   stats: { shooting: number; passing: number; pace: number; stamina: number };
+  /** AP collected toward each stat's next point. */
+  ap: { shooting: number; passing: number; pace: number; stamina: number };
 }
 
 export interface Ticket {
@@ -68,7 +70,7 @@ export async function loadProfile(): Promise<Profile> {
   const [p, w, s] = await Promise.all([
     supabase.from('players').select('level, xp').eq('id', playerId).single(),
     supabase.from('wallets').select('coin, gem, energy, energy_updated_at').eq('player_id', playerId).single(),
-    supabase.from('player_stats').select('shooting, passing, pace, stamina').eq('player_id', playerId).single(),
+    supabase.from('player_stats').select('shooting, passing, pace, stamina, ap_shooting, ap_passing, ap_pace, ap_stamina').eq('player_id', playerId).single(),
   ]);
   const err = p.error ?? w.error ?? s.error;
   if (err) throw new ApiError(err.message);
@@ -81,7 +83,8 @@ export async function loadProfile(): Promise<Profile> {
     gem: Number(w.data.gem),
     energy: w.data.energy,
     energyUpdatedAt: Date.parse(w.data.energy_updated_at),
-    stats: s.data,
+    stats: { shooting: s.data.shooting, passing: s.data.passing, pace: s.data.pace, stamina: s.data.stamina },
+    ap: { shooting: s.data.ap_shooting ?? 0, passing: s.data.ap_passing ?? 0, pace: s.data.ap_pace ?? 0, stamina: s.data.ap_stamina ?? 0 },
   };
 }
 
@@ -220,4 +223,24 @@ export async function loadCareer(): Promise<Career | null> {
   const { data, error } = await supabase.rpc('kariyer');
   if (error) throw new ApiError(error.message);
   return (data as Career | null) ?? null;
+}
+
+export type ServerStat = 'shooting' | 'passing' | 'pace' | 'stamina';
+export interface TrainResponse {
+  grade: 'perfect' | 'good' | 'miss' | null; ap: number; xp: number; coin: number;
+  stat: { name: ServerStat; before: number; after: number; ap: number };
+  player: { xp: number; level: number; coin: number };
+  energy: { energy: number; updatedAt: number } | null;
+}
+export const trainDrill = (stat: ServerStat, quality: number, durationMs: number) =>
+  call<TrainResponse>('train', { kind: 'drill', stat, quality, durationMs });
+export const trainPrivate = (stat: ServerStat) => call<TrainResponse>('train', { kind: 'private', stat });
+
+/** Today's training counts (free drills, energy drills, private sessions). */
+export async function loadTrainingToday(): Promise<{ free: number; energy: number; private: number }> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('antrenman_bugun');
+  if (error) throw new ApiError(error.message);
+  return data as { free: number; energy: number; private: number };
 }
