@@ -1,10 +1,11 @@
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import Head from 'expo-router/head';
+import { router } from 'expo-router';
 import { Stack, type StackNavigationOptions } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -59,11 +60,25 @@ export default function RootLayout() {
   const auth = useGame(s => s.auth);
   // A new player goes to the sign-in screen at once; a returning one sees the saved
   // profile at once, or waits for the server on the first launch after an update.
-  const ready = useGame(s => s.auth === 'none' || (s.auth === 'in' && s.mode !== 'loading'));
+  const ready = useGame(s => s.auth === 'none' || (s.auth === 'in' && s.mode !== 'loading' && (s.mode === 'local' || s.mahalleReady)));
+  // A signed-in player without a mahalle or a character goes through setup first (local play skips it).
+  const hasMahalle = useGame(s => s.mahalle !== null);
+  const setup = useGame(s => s.auth === 'in' && s.mode === 'online' && (s.mahalle === null || s.character === null));
   // Until then the native splash (app) or the HTML boot screen (web) stays up.
   useEffect(() => {
     if ((loaded || error) && ready) { void SplashScreen.hideAsync(); hideBoot(); }
   }, [loaded, error, ready]);
+  // The router does not pick which screen of a newly active group opens first, so
+  // setup is entered explicitly: mahalle choice, then character creation.
+  const stage = !ready ? null : setup ? (hasMahalle ? '/karakter' : '/mahalle-secim') : null;
+  const entered = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loaded || entered.current === stage) return;
+    entered.current = stage;
+    // Let the stack finish rebuilding for the new group first; it picks a screen of its own.
+    const id = setTimeout(() => { if (stage) router.replace(stage); }, 120);
+    return () => clearTimeout(id);
+  }, [stage, loaded]);
   if ((!loaded && !error) || !ready) return null;
 
   return (
@@ -83,12 +98,22 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.ink }, ...slide }}>
             <Stack.Protected guard={auth !== 'in'}>
               <Stack.Screen name="giris" options={fade} />
-              <Stack.Screen name="karakter" options={slide} />
             </Stack.Protected>
-            <Stack.Protected guard={auth === 'in'}>
+            <Stack.Protected guard={setup && !hasMahalle}>
+              <Stack.Screen name="mahalle-secim" options={fade} />
+              <Stack.Screen name="mahalle-kur" options={slide} />
+              <Stack.Screen name="mahalle-kod" options={slide} />
+              <Stack.Screen name="mahalle-acik" options={slide} />
+              <Stack.Screen name="mahalle-davet" options={fade} />
+            </Stack.Protected>
+            <Stack.Protected guard={setup && hasMahalle}>
+              <Stack.Screen name="karakter" options={fade} />
+            </Stack.Protected>
+            <Stack.Protected guard={auth === 'in' && !setup}>
               <Stack.Screen name="(tabs)" options={fade} />
               <Stack.Screen name="mac" options={fade} />
               <Stack.Screen name="mac-sonu" options={fade} />
+              <Stack.Screen name="mahalle" options={slide} />
             </Stack.Protected>
           </Stack>
           <OverlayHost />

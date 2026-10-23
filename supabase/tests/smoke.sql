@@ -33,3 +33,45 @@ do $$ begin
   if (select count(*) from wallets) <> 0 then raise exception 'RLS leak: another player can see wallets'; end if;
   raise notice 'rls isolation: ok';
 end $$;
+
+-- Mahalle: create, join, capacity, leave, privacy.
+reset role;
+insert into auth.users select ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid from generate_series(1, 13) g;
+insert into players (id, nick) select ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid, 'P' || g from generate_series(1, 13) g
+  on conflict do nothing;
+set role service_role;
+select id as mid, code as mcode from create_mahalle('00000000-0000-0000-0000-000000000101', 'Çınaraltı', 'shield', 'lime', true) \gset
+do $$ begin
+  begin perform create_mahalle('00000000-0000-0000-0000-000000000101', 'Baska', 'shield', 'lime', false); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'already_member' then raise; end if; end;
+end $$;
+select join_mahalle(('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid, lower(:'mcode'), null) from generate_series(2, 12) g;
+do $$ begin
+  begin perform join_mahalle('00000000-0000-0000-0000-000000000113', null, (select id from mahalle)); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'full' then raise; end if; end;
+  begin perform join_mahalle('00000000-0000-0000-0000-000000000113', 'AAAAAA', null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_found' then raise; end if; end;
+  if (select count(*) from mahalle_uye) <> 12 then raise exception 'mahalle should hold 12'; end if;
+  raise notice 'mahalle capacity: ok';
+end $$;
+select leave_mahalle('00000000-0000-0000-0000-000000000101');
+do $$ begin
+  if (select captain_id from mahalle) <> '00000000-0000-0000-0000-000000000102' then raise exception 'captain not handed over'; end if;
+  raise notice 'mahalle captain handover: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000105';
+do $$ begin
+  if jsonb_array_length(mahalle_overview()->'members') <> 11 then raise exception 'overview should list 11 members'; end if;
+  if (select count(*) from mahalle) <> 0 then raise exception 'RLS leak: mahalle readable directly'; end if;
+  begin insert into mahalle_uye values ('00000000-0000-0000-0000-000000000105', gen_random_uuid()); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'mahalle rls: ok';
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000113';
+do $$ begin
+  if mahalle_overview() is not null then raise exception 'outsider sees a mahalle'; end if;
+  begin perform join_mahalle('00000000-0000-0000-0000-000000000113', 'AAAAAA', null); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;

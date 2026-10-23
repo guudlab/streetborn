@@ -1,0 +1,49 @@
+import { router } from 'expo-router';
+import type { ReactNode } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ApiError } from '../net/api.ts';
+import { colors } from '../theme.ts';
+import { Icon } from './Icon.tsx';
+import { buzz, T } from './kit.tsx';
+import { t, type Key } from '../i18n/index.ts';
+
+/** Screen frame of the mahalle steps: back button and label on top, scrolling content, pinned footer. */
+export function Shell({ label, back = true, children, footer }: { label?: string; back?: boolean; children: ReactNode; footer?: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.ink }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 16, gap: 18 }}
+      >
+        {(back || label) && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
+            {back && (
+              <Pressable
+                accessibilityRole="button" accessibilityLabel={t('mahalle.back')} hitSlop={6}
+                onPress={() => { buzz(); router.back(); }}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Icon name="back" color={colors.g100} />
+              </Pressable>
+            )}
+            {label && <T w={600} size={11} color={colors.g200} style={{ letterSpacing: 1 }}>{label}</T>}
+          </View>
+        )}
+        {children}
+      </ScrollView>
+      {footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 10 }}>{footer}</View>}
+    </View>
+  );
+}
+
+/** Player-facing text for an error from the mahalle functions or the name check. */
+export function mahalleError(e: unknown): string {
+  const code = e instanceof ApiError ? e.code : '';
+  const name = /^name_(too_short|too_long|bad_chars|blocked)$/.exec(code);
+  if (name) return t(`name.err.${name[1]}` as Key);
+  const known = ['full', 'not_found', 'not_open', 'already_member'];
+  return t(`mahalle.err.${known.includes(code) ? code : 'generic'}` as Key);
+}

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChanceInput, MatchResult, MatchSetup } from '@streetborn/engine';
 
+import type { Character } from '../game/character.ts';
 import { SESSION_KEY } from './config.ts';
 
 // The Supabase client (~250 KB) loads on first use, not with the app, so the
@@ -92,3 +93,48 @@ async function call<T>(name: string, body?: unknown): Promise<T> {
 export const startMatch = () => call<Ticket>('match-start');
 export const finishMatch = (matchId: string, inputs: ChanceInput[], durationMs: number) =>
   call<FinishResponse>('match-finish', { matchId, inputs, durationMs });
+
+export type MahalleEmblem = 'shield' | 'circle' | 'diamond';
+export type MahalleColor = 'lime' | 'blue' | 'red' | 'purple' | 'teal' | 'white';
+
+export interface MahalleMember { playerId: string; nick: string | null; level: number; joinedAt: string }
+export interface MahalleInfo {
+  id: string; name: string; emblem: MahalleEmblem; color: MahalleColor; code: string; isOpen: boolean;
+  captainId: string | null; members: MahalleMember[];
+}
+export interface MahallePreview {
+  id: string; name: string; emblem: MahalleEmblem; color: MahalleColor; memberCount: number; captainNick: string | null;
+}
+export interface OpenMahalle { id: string; name: string; emblem: MahalleEmblem; color: MahalleColor; memberCount: number }
+
+/** The caller's own mahalle, or null when they have none. */
+export async function loadMahalle(): Promise<MahalleInfo | null> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('mahalle_overview');
+  if (error) throw new ApiError(error.message);
+  return (data as MahalleInfo | null) ?? null;
+}
+
+export async function previewMahalle(code: string): Promise<MahallePreview | null> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('mahalle_preview', { p_code: code });
+  if (error) throw new ApiError(error.message);
+  return (data as MahallePreview | null) ?? null;
+}
+
+export async function listOpenMahalle(): Promise<OpenMahalle[]> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('open_mahalleler', { p_limit: 20 });
+  if (error) throw new ApiError(error.message);
+  return (data as OpenMahalle[] | null) ?? [];
+}
+
+export const createMahalle = (name: string, emblem: MahalleEmblem, color: MahalleColor, open: boolean) =>
+  call<{ ok: true }>('mahalle', { action: 'create', name, emblem, color, open });
+export const joinMahalleByCode = (code: string) => call<{ ok: true }>('mahalle', { action: 'join', code });
+export const joinMahalleById = (id: string) => call<{ ok: true }>('mahalle', { action: 'join', id });
+export const leaveMahalle = () => call<{ ok: true }>('mahalle', { action: 'leave' });
+export const saveProfile = (nick: string, character: Character) => call<{ ok: true }>('profile-set', { nick, character });

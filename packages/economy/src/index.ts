@@ -10,3 +10,4 @@ export {
 } from './validate.ts';
 export { matchReward, type MatchReward, type RewardInput } from './rewards.ts';
 export { currentEnergy, spendEnergy, type EnergyState } from './energy.ts';
+export { checkName, normalizeName, NAME_LIMITS, type NameKind, type NameProblem } from './naming.ts';

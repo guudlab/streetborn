@@ -10,3 +10,6 @@ export const offline = process.env.EXPO_PUBLIC_OFFLINE === '1';
 
 /** Where supabase-js keeps the session (its default key: sb-<project ref>-auth-token). */
 export const SESSION_KEY = `sb-${SUPABASE_URL.replace(/^https?:\/\//, '').split(/[.:/]/)[0]}-auth-token`;
+
+/** Where invite links point. The web build opens them directly; the app takes over once it has a domain. */
+export const INVITE_BASE = process.env.EXPO_PUBLIC_INVITE_BASE ?? 'https://streetborn.netlify.app';

@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { checkName } from '@streetborn/economy';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BackHandler, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import {
   type Character, type Dream, type Hero, type Jersey, type Position, type Trait,
 } from '../game/character.ts';
 import { useGame } from '../game/store.ts';
+import { ApiError } from '../net/api.ts';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachLine, Cta, H1, T, tap } from '../ui/kit.tsx';
@@ -37,6 +38,7 @@ export default function Karakter() {
   const [c, setC] = useState<Character>(DEFAULT_CHARACTER);
   const [nick, setNick] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setMusic('menu'); }, []);
   // Android back goes one step back instead of leaving the flow.
@@ -52,8 +54,16 @@ export default function Karakter() {
   const next = () => setStep(s => Math.min(LAST, s + 1));
   async function finish() {
     if (busy || nick.trim().length < NICK_MIN) return;
+    const problem = checkName(nick, 'nick');
+    if (problem) { setError(t(`name.err.${problem}`)); return; }
     setBusy(true);
-    try { await createCharacter(c, nick); } finally { setBusy(false); }
+    try {
+      await createCharacter(c, nick);
+    } catch (e) {
+      // The server's check can be stricter than the app's.
+      const code = e instanceof ApiError ? e.code.replace(/^nick_/, '') : '';
+      setError(t(`name.err.${code === 'too_short' || code === 'too_long' || code === 'bad_chars' ? code : 'blocked'}`));
+    } finally { setBusy(false); }
   }
 
   const pad = { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 16) + 8 };
@@ -90,7 +100,7 @@ export default function Karakter() {
     <View style={[{ flex: 1, paddingHorizontal: 20, gap: 16 }, pad]}>
       <Steps n={step} />
       {step === 5 ? (
-        <Nick nick={nick} onChange={setNick} busy={busy} onDone={finish} />
+        <Nick nick={nick} onChange={(s) => { setNick(s); setError(null); }} busy={busy} onDone={finish} error={error} />
       ) : (
         <Question step={step} c={c} onChange={setC} onNext={next} />
       )}
@@ -283,7 +293,7 @@ function Mini({ hero, jersey = 'lime', selected, locked, onPress, label }: { her
 
 /* ---------- Nickname ---------- */
 
-function Nick({ nick, onChange, busy, onDone }: { nick: string; onChange: (s: string) => void; busy: boolean; onDone: () => void }) {
+function Nick({ nick, onChange, busy, onDone, error }: { nick: string; onChange: (s: string) => void; busy: boolean; onDone: () => void; error: string | null }) {
   const ok = nick.trim().length >= NICK_MIN;
   return (
     <>
@@ -302,7 +312,9 @@ function Nick({ nick, onChange, busy, onDone }: { nick: string; onChange: (s: st
             paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_600SemiBold', fontSize: 22,
           }}
         />
-        <T w={500} size={13} color={colors.g300} style={{ paddingHorizontal: 4 }}>{t('char.nick.hint')}</T>
+        {error
+          ? <T w={500} size={13} color={colors.bad} style={{ paddingHorizontal: 4 }} accessibilityLiveRegion="polite">{error}</T>
+          : <T w={500} size={13} color={colors.g300} style={{ paddingHorizontal: 4 }}>{t('char.nick.hint')}</T>}
       </View>
       <View style={{ gap: 8 }}>
         <Caps>{t('char.nick.suggest')}</Caps>

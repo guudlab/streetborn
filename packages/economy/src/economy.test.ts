@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  checkName,
   computeRating,
   currentEnergy,
   DEFAULT_CONFIG as config,
@@ -104,5 +105,26 @@ describe('energy', () => {
   it('cannot go negative', () => {
     expect(spendEnergy({ energy: 0, updatedAt: NOW }, 1, NOW, config)).toBeNull();
     expect(spendEnergy({ energy: 5, updatedAt: NOW - step }, 1, NOW, config)).toEqual({ energy: 4, updatedAt: NOW });
+  });
+});
+
+describe('checkName', () => {
+  it('accepts Turkish names and short tags', () => {
+    expect(checkName('Çınaraltı', 'mahalle')).toBeNull();
+    expect(checkName('Efe_10', 'nick')).toBeNull();
+    expect(checkName('Karagümrük Gençler', 'mahalle')).toBeNull();
+  });
+  it('enforces length and characters', () => {
+    expect(checkName('E', 'nick')).toBe('too_short');
+    expect(checkName('a'.repeat(15), 'nick')).toBe('too_long');
+    expect(checkName('a'.repeat(15), 'mahalle')).toBeNull();
+    expect(checkName('Efe <3', 'nick')).toBe('bad_chars');
+  });
+  it('blocks swear words, also with swapped letters, but not words that merely contain them', () => {
+    expect(checkName('Orospu FC', 'mahalle')).toBe('blocked');
+    expect(checkName('0rospu', 'nick')).toBe('blocked');
+    expect(checkName('amk takım', 'mahalle')).toBe('blocked');
+    expect(checkName('Sikke Sokak', 'mahalle')).toBeNull();
+    expect(checkName('Akıncılar', 'mahalle')).toBeNull();
   });
 });
