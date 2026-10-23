@@ -22,7 +22,8 @@ export async function requirePlayer(req: Request): Promise<string> {
 export async function loadEconomyConfig(): Promise<EconomyConfig> {
   const { data, error } = await admin.from('config').select('value').eq('key', 'economy').maybeSingle();
   if (error) throw error;
-  return { ...DEFAULT_CONFIG, ...(data?.value ?? {}) };
+  const live = data?.value ?? {};
+  return { ...DEFAULT_CONFIG, ...live, mahalle: { ...DEFAULT_CONFIG.mahalle, ...(live.mahalle ?? {}) } };
 }
 
 export function randomSeed(): number {

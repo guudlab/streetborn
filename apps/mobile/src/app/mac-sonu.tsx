@@ -125,6 +125,8 @@ export default function MacSonu() {
         </Gain>
       </View>
 
+      {r.kind === 'mahalle' && <T w={500} size={14} color={colors.g200}>{t('post.mahalle')}</T>}
+
       {r.first && <LinkStrip />}
 
       {r.flagged && (

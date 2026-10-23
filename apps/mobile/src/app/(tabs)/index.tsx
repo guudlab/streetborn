@@ -1,7 +1,7 @@
 import { Model3D } from '../../ui/Model3D.tsx';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
@@ -26,6 +26,9 @@ export default function Hub() {
   const ch = g.character ?? DEFAULT_CHARACTER;
   const empty = g.energy === 0;
   const showOffers = g.scouted && !g.signed;
+
+  const mahalleId = g.mahalle?.id;
+  useEffect(() => { if (mahalleId) void useGame.getState().refreshMahalleToday(); }, [mahalleId]);
 
   const [starting, setStarting] = useState(false);
   const play = async () => {
@@ -94,7 +97,9 @@ export default function Hub() {
             <Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={36} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <T w={600} size={15} numberOfLines={1}>{g.mahalle.name}</T>
-              <T w={500} size={12} color={colors.g200}>{t('mahalle.card.members', { n: g.mahalle.members.length })}</T>
+              <T w={500} size={12} color={g.mahalleToday && !g.mahalleToday.played ? colors.l500 : colors.g200}>
+                {g.mahalleToday && !g.mahalleToday.played ? t('mahalle.card.ready') : t('mahalle.card.members', { n: g.mahalle.members.length })}
+              </T>
             </View>
             <Icon name="chev" color={colors.g200} />
           </Pressable>

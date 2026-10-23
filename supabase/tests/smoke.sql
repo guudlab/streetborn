@@ -75,3 +75,66 @@ do $$ begin
   exception when insufficient_privilege then null; end;
 end $$;
 reset role;
+
+-- Mahalle match: one a day, contribution, settlement, bonuses paid once, cheers, privacy.
+reset role;
+set role service_role;
+select begin_mahalle_match('00000000-0000-0000-0000-000000000102',0,4::smallint,now(),2::smallint,1,3::smallint,40::smallint,40::smallint,40::smallint,40::smallint,now()+interval '20 min','{"name":"Test Mahallesi","goalkeeping":40,"attack":40}') as mm \gset
+select begin_mahalle_match('00000000-0000-0000-0000-000000000103',0,4::smallint,now(),2::smallint,2,3::smallint,40::smallint,40::smallint,40::smallint,40::smallint,now()+interval '20 min','{"name":"Test Mahallesi","goalkeeping":40,"attack":40}') as mm2 \gset
+do $$ begin
+  begin perform begin_mahalle_match('00000000-0000-0000-0000-000000000102',1,3::smallint,now(),2::smallint,3,3::smallint,40::smallint,40::smallint,40::smallint,40::smallint,now()+interval '20 min','{}'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'already_played' then raise; end if; end;
+  begin perform begin_mahalle_match('00000000-0000-0000-0000-000000000113',0,4::smallint,now(),2::smallint,3,3::smallint,40::smallint,40::smallint,40::smallint,40::smallint,now()+interval '20 min','{}'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_member' then raise; end if; end;
+  raise notice 'mahalle match once a day: ok';
+end $$;
+select * from finish_match(:'mm','00000000-0000-0000-0000-000000000102',2::smallint,1::smallint,1::smallint,1::smallint,2::smallint,1::smallint,80::smallint,90000,'[]'::jsonb,'{}',100,50,2);
+select * from finish_match(:'mm2','00000000-0000-0000-0000-000000000103',2::smallint,1::smallint,0::smallint,0::smallint,0::smallint,1::smallint,50::smallint,90000,'[]'::jsonb,'{}',20,40,1);
+do $$ begin
+  if (select count(*) from mahalle_katki) <> 2 then raise exception 'contributions missing'; end if;
+  -- Mahalle matches stay out of the daily cap sum (reason mahalle_match, not match).
+  if match_coin_today('00000000-0000-0000-0000-000000000102') <> 0 then raise exception 'mahalle match counted in the cap'; end if;
+  raise notice 'mahalle contribution: ok';
+end $$;
+-- Nothing to settle while the day is still running.
+do $$ begin
+  if (select count(*) from mahalle_to_settle(24, 3)) <> 0 then raise exception 'open day offered for settlement'; end if;
+end $$;
+-- Cheers: only for teammates who played today.
+select give_cheer('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000102',1::smallint,3,3,5,10,1,1,1);
+do $$ begin
+  begin perform give_cheer('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000102',1::smallint,3,3,5,10,1,1,1); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'already_cheered' then raise; end if; end;
+  begin perform give_cheer('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000104',1::smallint,3,3,5,10,1,1,1); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_played' then raise; end if; end;
+  if (select respect from players where id = '00000000-0000-0000-0000-000000000102') <> 1 then raise exception 'cheer respect missing'; end if;
+  raise notice 'mahalle cheers: ok';
+end $$;
+-- Move the day into the past, as if midnight passed, then settle.
+update mahalle_gun set day = day - 1;
+update mahalle_katki set day = day - 1;
+select count(*) as to_settle from mahalle_to_settle(24, 3) \gset
+do $$ declare m uuid := (select id from mahalle); begin
+  if (select count(*) from mahalle_to_settle(24, 3)) <> 11 then raise exception 'settlement rows should cover all 11 members'; end if;
+  if not settle_mahalle_day(m, (select day from mahalle_gun), 3::smallint, 1::smallint, 'W',
+       '{"motm":"x"}', '[{"player":"00000000-0000-0000-0000-000000000102","coin":60,"xp":40,"level":2,"respect":9},{"player":"00000000-0000-0000-0000-000000000103","coin":60,"xp":25,"level":1,"respect":-2}]') then
+    raise exception 'first settlement should apply';
+  end if;
+  if settle_mahalle_day(m, (select day from mahalle_gun), 9::smallint, 9::smallint, 'L', '{}', '[{"player":"00000000-0000-0000-0000-000000000102","coin":999,"xp":0,"level":1,"respect":0}]') then
+    raise exception 'closed day settled twice';
+  end if;
+  if (select coin from wallets where player_id = '00000000-0000-0000-0000-000000000102') <> 160 then raise exception 'mahalle bonus paid wrong (100 match + 60 bonus)'; end if;
+  if (select respect from players where id = '00000000-0000-0000-0000-000000000103') <> 0 then raise exception 'respect must not go below 0'; end if;
+  if (select count(*) from mahalle_to_settle(24, 3)) <> 0 then raise exception 'closed day offered again'; end if;
+  raise notice 'mahalle settlement: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000102';
+do $$ begin
+  if (select count(*) from mahalle_katki) <> 0 or (select count(*) from mahalle_gun) <> 0 then raise exception 'RLS leak: mahalle match tables readable'; end if;
+  if mahalle_bugun()->'last'->>'result' <> 'W' then raise exception 'mahalle_bugun should show the settled day'; end if;
+  begin perform settle_mahalle_day(gen_random_uuid(), current_date, 0::smallint, 0::smallint, 'D', '{}', '[]'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'mahalle match rls: ok';
+end $$;
+reset role;

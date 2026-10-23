@@ -8,6 +8,7 @@ import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, Ghost, H1, H3, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
+import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -59,6 +60,8 @@ export default function Mahalle() {
           <T w={500} size={13} color={colors.g200}>{mahalle.isOpen ? t('mahalle.home.open') : t('mahalle.home.closed')}</T>
         </View>
       </View>
+
+      <TodayCard />
 
       <View style={{ gap: 8 }}>
         <Caps>{t('mahalle.home.roster', { n: members.length })}</Caps>

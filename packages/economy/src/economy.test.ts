@@ -5,7 +5,10 @@ import {
   currentEnergy,
   DEFAULT_CONFIG as config,
   levelForXp,
+  istanbulDay,
+  mahalleOpponent,
   matchReward,
+  settleMahalleDay,
   spendEnergy,
   validateMatch,
   xpNeed,
@@ -126,5 +129,58 @@ describe('checkName', () => {
     expect(checkName('amk takım', 'mahalle')).toBe('blocked');
     expect(checkName('Sikke Sokak', 'mahalle')).toBeNull();
     expect(checkName('Akıncılar', 'mahalle')).toBeNull();
+  });
+});
+
+describe('mahalle day', () => {
+  const m = config.mahalle;
+  const c = (playerId: string, goals: number, assists: number, opponentGoals: number, rating: number) =>
+    ({ playerId, goals, assists, opponentGoals, rating });
+
+  it('uses the Turkey calendar day', () => {
+    expect(istanbulDay(Date.UTC(2026, 9, 23, 20, 59))).toBe('2026-10-23');
+    expect(istanbulDay(Date.UTC(2026, 9, 23, 21, 0))).toBe('2026-10-24');
+  });
+
+  it('is deterministic and keeps the opponent in range', () => {
+    const a = mahalleOpponent('m1', '2026-10-23', 6);
+    expect(mahalleOpponent('m1', '2026-10-23', 6)).toEqual(a);
+    expect(a.goalkeeping).toBeGreaterThanOrEqual(44);
+    expect(a.attack).toBeLessThanOrEqual(95);
+  });
+
+  it('counts the best slots, fills the rest and pays everyone who played', () => {
+    const contributions = [c('a', 2, 1, 0, 90), c('b', 0, 0, 2, 55), c('c', 1, 0, 1, 70)];
+    const members = ['a', 'b', 'c', 'd'].map((playerId) => ({ playerId, real: true }));
+    const day = settleMahalleDay({ mahalleId: 'm1', day: '2026-10-23', contributions, members }, config);
+    expect(day.fills).toBe(m.slots - 3);
+    expect(day.counted).toEqual(['a', 'c', 'b']);
+    expect(day.motm).toBe('a');
+    expect(day.turnout).toBe(true); // 3 of 4 real members played
+    expect(day.payouts.map((p) => p.playerId)).toEqual(['a', 'c', 'b']);
+    expect(settleMahalleDay({ mahalleId: 'm1', day: '2026-10-23', contributions, members }, config)).toEqual(day);
+    if (day.result === 'W') expect(day.payouts[0]).toMatchObject({ coin: m.winBonusCoin + m.turnoutBonusCoin, xp: m.winXp + m.motmXp });
+    expect(day.payouts[2]!.respect).toBe(m.respectRatingLow + (day.result === 'W' ? m.respectWin : 0));
+  });
+
+  it('drops the best-of rule beyond the slot count and skips turnout without real members', () => {
+    const contributions = Array.from({ length: 9 }, (_, i) => c(`p${i}`, 1, 0, 0, 60 + i));
+    const day = settleMahalleDay({ mahalleId: 'm2', day: '2026-10-23', contributions, members: [] }, config);
+    expect(day.counted).toHaveLength(m.slots);
+    expect(day.counted[0]).toBe('p8');
+    expect(day.fills).toBe(0);
+    expect(day.ourGoals).toBe(m.slots);
+    expect(day.turnout).toBe(false);
+    expect(day.payouts).toHaveLength(9); // extra players still get the bonus
+  });
+
+  it('lets a mahalle of NPC children win about 60% of days', () => {
+    let wins = 0;
+    for (let i = 0; i < 4000; i++) {
+      const d = settleMahalleDay({ mahalleId: `m${i}`, day: '2026-10-23', contributions: [], members: [] }, config);
+      if (d.result === 'W') wins++;
+    }
+    expect(wins / 4000).toBeGreaterThan(0.55);
+    expect(wins / 4000).toBeLessThan(0.65);
   });
 });
