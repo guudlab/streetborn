@@ -8,12 +8,37 @@ import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { EnergyOptions, energyLeft } from '../../ui/energy.tsx';
-import { Caps, Card, Cta, Ghost, H1, H3, Price, T, useNow } from '../../ui/kit.tsx';
-import { closeSheet, openSheet, SheetText, Spinner } from '../../ui/overlay.tsx';
+import { buzz, Caps, Card, Cta, Ghost, H1, H3, Price, T, useNow } from '../../ui/kit.tsx';
+import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
 import { t } from '../../i18n/index.ts';
 
-// Prices are samples from the prototype. Store purchases are not wired yet
-// (RevenueCat comes later), so "buy" only shows the flow.
+// Gem packs and the season pass are store purchases (RevenueCat comes later), so
+// their "buy" only shows the flow. Online, gem items are bought on the server at
+// the catalog price; offline they show the same prototype flow.
+
+const JERSEY = 'forma_sonbahar';
+
+function buyWithGems(id: string, name: string, price: number) {
+  const gems = useGame.getState().gems;
+  if (gems < price) {
+    openSheet(<><H3>{name}</H3><SheetText>{t('shop.noGem')}</SheetText><Cta onPress={closeSheet}>{t('common.ok')}</Cta></>);
+    return;
+  }
+  openSheet(
+    <>
+      <H3>{name}</H3>
+      <SheetText>{t('shop.gemConfirm', { price, balance: gems })}</SheetText>
+      <Cta onPress={async () => {
+        openSheet(<><H3>{name}</H3><Spinner /></>);
+        const r = await useGame.getState().buyItem(id);
+        closeSheet();
+        if (r === 'ok' || r === 'owned') { sfx('coin'); buzz('medium'); toast(t('shop.bought', { name })); }
+        else toast(t(r === 'no_gem' ? 'energy.noGem' : 'shop.buyFailed'));
+      }}>{t('shop.gemBuy', { price })}</Cta>
+      <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
+    </>,
+  );
+}
 
 function buy(name: string, price: string) {
   openSheet(
@@ -45,8 +70,11 @@ const Check = ({ children, muted }: { children: string; muted?: boolean }) => (
 export default function Dukkan() {
   const insets = useSafeAreaInsets();
   const now = useNow();
-  const { energy, energyMax, gems } = useGame();
+  const { energy, energyMax, gems, mode, owned, catalog } = useGame();
   const left = energyLeft(now);
+  const online = mode === 'online';
+  const jerseyPrice = catalog.find(i => i.id === JERSEY)?.priceGem ?? 120;
+  const jersey = owned.find(i => i.id === JERSEY);
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
@@ -110,7 +138,7 @@ export default function Dukkan() {
             <T w={600} size={17}>{t('shop.jersey')}</T>
             <T size={13} color={colors.g200}>{t('shop.jerseySub')}</T>
           </View>
-          <Price gem>120</Price>
+          {jersey ? <T w={600} size={13} color={colors.l600}>{jersey.equipped ? t('shop.equipped') : t('shop.owned')}</T> : <Price gem>{jerseyPrice}</Price>}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -127,7 +155,9 @@ export default function Dukkan() {
           <Icon name="lock" size={14} color={colors.g200} />
           <T w={600} size={12} color={colors.g200}>{t('shop.releasable')}</T>
         </Pressable>
-        <Ghost onPress={() => buy(t('shop.jersey'), t('shop.gemPack', { n: 120 }))}>{t('shop.buy')}</Ghost>
+        {!online ? <Ghost onPress={() => buy(t('shop.jersey'), t('shop.gemPack', { n: jerseyPrice }))}>{t('shop.buy')}</Ghost>
+          : jersey ? <Ghost onPress={() => void useGame.getState().equip(JERSEY, !jersey.equipped).catch(() => toast(t('shop.buyFailed')))}>{jersey.equipped ? t('shop.unequip') : t('shop.equip')}</Ghost>
+          : <Ghost onPress={() => buyWithGems(JERSEY, t('shop.jersey'), jerseyPrice)}>{t('shop.buy')}</Ghost>}
       </Card>
     </ScrollView>
   );

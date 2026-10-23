@@ -212,9 +212,10 @@ export interface Career {
   offers: CareerOffer[];
 }
 
-/** Runs the day's career work on the server (missed days, season end, salary, first offers). */
+export interface GemGrant { coin: number; gem: number; levels: number[] }
+/** Runs the day's career work on the server (missed days, season end, salary, first offers, starting and level gems). */
 export const careerStatus = () =>
-  call<{ salary: number; seasonEnded: { place: number; prize: number } | null }>('career', { action: 'status' });
+  call<{ salary: number; seasonEnded: { place: number; prize: number } | null; gems?: GemGrant }>('career', { action: 'status' });
 export const acceptOffer = (offerId: string) => call<{ ok: true }>('career', { action: 'accept', offerId });
 
 export async function loadCareer(): Promise<Career | null> {
@@ -243,4 +244,21 @@ export async function loadTrainingToday(): Promise<{ free: number; energy: numbe
   const { data, error } = await supabase.rpc('antrenman_bugun');
   if (error) throw new ApiError(error.message);
   return data as { free: number; energy: number; private: number };
+}
+
+export const refillEnergy = () => call<{ gem: number; energy: { energy: number; updatedAt: number } }>('shop', { action: 'refill' });
+export const buyItem = (itemId: string) => call<{ currency: 'coin' | 'gem'; price: number; balance: number }>('shop', { action: 'buy', itemId });
+export const equipItem = (itemId: string, on: boolean) => call<{ ok: true }>('shop', { action: 'equip', itemId, on });
+
+export interface OwnedItem { id: string; equipped: boolean }
+export interface CatalogItem { id: string; kind: string; priceGem: number | null; priceCoin: number | null }
+export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[] }
+
+/** Today's refills and rewarded ads, the caller's items and the price list. */
+export async function loadShopToday(): Promise<ShopToday> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('dukkan_bugun');
+  if (error) throw new ApiError(error.message);
+  return data as ShopToday;
 }

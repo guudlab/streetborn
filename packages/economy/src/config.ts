@@ -100,6 +100,27 @@ export interface TrainingConfig {
   statMax: number;
 }
 
+/** Gems, energy refills and rewarded ads (GDD v3.1 section 9). */
+export interface ShopConfig {
+  /** Paid once to every new account. */
+  startCoin: number;
+  startGem: number;
+  /** levelGem gems at every levelGemEvery levels, up to levelGemUntil. */
+  levelGemEvery: number;
+  levelGem: number;
+  levelGemUntil: number;
+  /** A gem refill sets energy to full. */
+  refillGem: number;
+  refillsPerDay: number;
+  /** Rewarded ad: +adEnergy energy, adEnergyPerDay times a day. */
+  adEnergy: number;
+  adEnergyPerDay: number;
+  /** Rewarded ad that pays an energy match's coin once more; counts toward the daily coin cap. */
+  adDoublePerDay: number;
+  /** The double has to be watched this soon after the match. */
+  adDoubleWindowMinutes: number;
+}
+
 export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
@@ -137,6 +158,7 @@ export interface EconomyConfig {
   mahalle: MahalleConfig;
   career: CareerConfig;
   training: TrainingConfig;
+  shop: ShopConfig;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -250,6 +272,21 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     statCapBase: 50,
     statCapPerLevelX10: 15,
     statMax: 99,
+  },
+
+  // GDD v3.1 section 9 (refill 20 gems, at most 2 a day: Kaan approved).
+  shop: {
+    startCoin: 300,
+    startGem: 30,
+    levelGemEvery: 5,
+    levelGem: 10,
+    levelGemUntil: 30,
+    refillGem: 20,
+    refillsPerDay: 2,
+    adEnergy: 1,
+    adEnergyPerDay: 3,
+    adDoublePerDay: 2,
+    adDoubleWindowMinutes: 30,
   },
 
   matchChances: 3,

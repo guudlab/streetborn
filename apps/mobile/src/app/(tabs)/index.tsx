@@ -36,6 +36,8 @@ export default function Hub() {
     if (!news) return;
     if (news.seasonEnded) toast(t('career.seasonEnded', { place: news.seasonEnded.place, prize: news.seasonEnded.prize }));
     else if (news.salary > 0) toast(t('career.salaryPaid', { n: news.salary }));
+    else if (news.gems?.coin) toast(t('career.welcomeGems', { coin: news.gems.coin, gem: news.gems.gem }));
+    else if (news.gems?.levels.length) toast(t('career.levelGems', { level: news.gems.levels[news.gems.levels.length - 1]!, gem: news.gems.gem }));
     useGame.setState({ careerNews: null });
   }, [news]);
 
