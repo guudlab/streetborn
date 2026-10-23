@@ -1,14 +1,23 @@
 // Spends energy and issues a match ticket (seed + setup). The client plays the
 // match with this setup; match-finish replays the recorded inputs to score it.
 import { ENGINE_VERSION, planMatch, type MatchSetup } from '../../../packages/engine/src/index.ts';
-import { istanbulDay, mahalleOpponent, spendEnergy } from '../../../packages/economy/src/index.ts';
+import {
+  istanbulDay,
+  leagueSchedule,
+  mahalleOpponent,
+  playerOpponent,
+  spendEnergy,
+  type LeagueTeam,
+} from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
 import { admin, loadEconomyConfig, randomSeed, requirePlayer } from '../_shared/supabase.ts';
 
 Deno.serve(handle(async (req) => {
   const playerId = await requirePlayer(req);
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-  const mahalleMatch = body.kind === 'mahalle';
+  const kind = ['mahalle', 'league', 'trial'].includes(body.kind as string) ? body.kind as 'mahalle' | 'league' | 'trial' : 'energy';
+  const mahalleMatch = kind === 'mahalle';
+  const fixture = kind !== 'energy';
   const config = await loadEconomyConfig();
   const now = Date.now();
 
@@ -22,7 +31,7 @@ Deno.serve(handle(async (req) => {
 
   const spent = spendEnergy(
     { energy: wallet.energy, updatedAt: Date.parse(wallet.energy_updated_at) },
-    mahalleMatch ? config.fixtureEnergyCost : config.matchEnergyCost,
+    fixture ? config.fixtureEnergyCost : config.matchEnergyCost,
     now,
     config,
   );
@@ -54,6 +63,31 @@ Deno.serve(handle(async (req) => {
       opponent = mahalleOpponent(membership.mahalle_id, day, avg);
     }
   }
+  let league: { season: string; round: number } | null = null;
+  let offerId: string | null = null;
+  if (kind === 'league') {
+    // Today's round of the player's season; the opponent is that round's NPC club.
+    const { data: contract, error: contractError } = await admin
+      .from('contracts').select('active, season_id, league_seasons(start_day, teams, status)').eq('player_id', playerId).maybeSingle();
+    if (contractError) throw contractError;
+    const season = contract?.league_seasons as unknown as { start_day: string; teams: LeagueTeam[]; status: string } | null;
+    if (!contract?.active || !contract.season_id || !season || season.status !== 'active') throw new HttpError(403, 'no_contract');
+    const round = Math.round((Date.parse(`${istanbulDay(now)}T00:00:00Z`) - Date.parse(`${season.start_day}T00:00:00Z`)) / 86_400_000);
+    if (round < 0 || round >= leagueSchedule(season.teams.length).length) throw new HttpError(409, 'season_over');
+    const rival = season.teams[playerOpponent(season.teams.length, round)]!;
+    opponent = { name: rival.name, goalkeeping: rival.goalkeeping, attack: rival.attack };
+    league = { season: contract.season_id, round };
+  } else if (kind === 'trial') {
+    // The trial club plays at its tier's opponent strength.
+    offerId = typeof body.offerId === 'string' ? body.offerId : null;
+    const { data: offer, error: offerError } = offerId
+      ? await admin.from('offers').select('tier, club_name, kind, status').eq('id', offerId).eq('player_id', playerId).maybeSingle()
+      : { data: null, error: null };
+    if (offerError) throw offerError;
+    if (!offer || offer.kind !== 'trial' || offer.status !== 'open') throw new HttpError(404, 'not_found');
+    const tier = config.career.tiers[offer.tier]!;
+    opponent = { name: offer.club_name, goalkeeping: tier.oppGoalkeeping, attack: tier.oppAttack };
+  }
   const setup: MatchSetup = {
     engineVersion: ENGINE_VERSION,
     seed: randomSeed(),
@@ -66,7 +100,8 @@ Deno.serve(handle(async (req) => {
   planMatch(setup); // throws on a bad setup before energy is spent
   const expiresAt = now + config.ticketTtlSeconds * 1000;
 
-  const { data: matchId, error } = await admin.rpc(mahalleMatch ? 'begin_mahalle_match' : 'begin_match', {
+  const rpc = mahalleMatch ? 'begin_mahalle_match' : fixture ? 'begin_fixture_match' : 'begin_match';
+  const { data: matchId, error } = await admin.rpc(rpc, {
     p_player: playerId,
     p_expected_version: wallet.version,
     p_energy: spent.energy,
@@ -80,12 +115,17 @@ Deno.serve(handle(async (req) => {
     p_opponent_attack: setup.opponentAttack,
     p_expires_at: new Date(expiresAt).toISOString(),
     ...(mahalleMatch ? { p_opponent: opponent } : {}),
+    ...(kind === 'league' || kind === 'trial'
+      ? { p_kind: kind, p_season: league?.season ?? null, p_round: league?.round ?? null, p_offer: offerId }
+      : {}),
   });
   // Another request changed the wallet first; the client simply retries.
   if (error?.code === '40001') throw new HttpError(409, 'retry');
   if (error?.message === 'not_member') throw new HttpError(403, 'not_member');
   if (error?.message === 'already_played') throw new HttpError(409, 'already_played');
+  if (error?.message === 'no_contract') throw new HttpError(403, 'no_contract');
+  if (error?.message === 'not_found') throw new HttpError(404, 'not_found');
   if (error) throw error;
 
-  return json({ matchId, setup, expiresAt, energy: spent, ...(mahalleMatch ? { opponentName: opponent.name } : {}) });
+  return json({ matchId, setup, expiresAt, energy: spent, ...(fixture ? { opponentName: opponent.name } : {}) });
 }));

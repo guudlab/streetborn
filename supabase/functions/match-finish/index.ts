@@ -11,6 +11,7 @@ import {
 } from '../../../packages/engine/src/index.ts';
 import {
   computeRating,
+  leagueReward,
   levelForXp,
   matchReward,
   validateMatch,
@@ -81,15 +82,32 @@ Deno.serve(handle(async (req) => {
   }, config);
   if (check.rejected.length > 0) throw new HttpError(422, 'rejected', check.rejected);
 
-  // The daily coin cap counts energy matches only; mahalle matches pay under their own ledger reason.
-  const [{ data: earnedToday, error: earnedError }, { data: player, error: playerError }] = await Promise.all([
-    admin.rpc('match_coin_today', { p_player: playerId }),
-    admin.from('players').select('xp').eq('id', playerId).single(),
-  ]);
-  if (earnedError || playerError) throw earnedError ?? playerError;
+  // The daily coin cap counts energy matches only; the other kinds pay under their own ledger reasons.
+  const [{ data: earnedToday, error: earnedError }, { data: player, error: playerError }, { data: contract, error: contractError }] =
+    await Promise.all([
+      admin.rpc('match_coin_today', { p_player: playerId }),
+      admin.from('players').select('xp').eq('id', playerId).single(),
+      admin.from('contracts').select('tier, active').eq('player_id', playerId).maybeSingle(),
+    ]);
+  if (earnedError || playerError || contractError) throw earnedError ?? playerError ?? contractError;
 
   const flagged = check.flagged.length > 0;
-  const reward = matchReward({ ...sim, rating }, flagged, match.kind === 'mahalle' ? 0 : Number(earnedToday), config);
+  const report = { ...sim, rating };
+  let reward: { coin: number; xp: number; capped: boolean };
+  let extra: { trustDelta?: number; trialPassed?: boolean } = {};
+  if (match.kind === 'league' && contract) {
+    // League match: club multiplier, win and goal bonus, +30 XP, coach trust.
+    const league = leagueReward(report, flagged, contract.tier, config);
+    reward = { coin: league.coin, xp: league.xp, capped: false };
+    extra = { trustDelta: league.trustDelta };
+  } else if (match.kind === 'energy') {
+    // A club contract multiplies energy match coin and the daily cap; mahalle matches never.
+    const multiplier = contract?.active ? config.career.tiers[contract.tier]!.coinMultiplierX100 : 100;
+    reward = matchReward(report, flagged, Number(earnedToday), config, multiplier);
+  } else {
+    reward = matchReward(report, flagged, 0, config);
+    if (match.kind === 'trial') extra = { trialPassed: !flagged && rating >= config.career.trialMinRating };
+  }
 
   const { data, error } = await admin.rpc('finish_match', {
     p_match: match.id,
@@ -107,6 +125,7 @@ Deno.serve(handle(async (req) => {
     p_coin: reward.coin,
     p_xp: reward.xp,
     p_level: levelForXp(Number(player.xp) + reward.xp, config),
+    p_extra: extra,
   }).single<{ coin: number; xp: number; level: number; already_finished: boolean }>();
   if (error) throw error;
 
@@ -114,6 +133,7 @@ Deno.serve(handle(async (req) => {
     result: { ...sim, rating },
     reward: data.already_finished ? null : reward,
     flagged,
+    ...extra,
     player: { coin: Number(data.coin), xp: Number(data.xp), level: data.level },
   });
 }));

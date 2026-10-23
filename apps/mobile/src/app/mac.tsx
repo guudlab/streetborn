@@ -7,6 +7,7 @@ import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { duckMusic, preloadSfx, setAmbience, setMusic, sfx, type SfxId } from '../audio/audio.ts';
+import { crestCode } from '../game/career.ts';
 import { delta } from '../game/format.ts';
 import { clamp, MOMENT_TITLE } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
@@ -53,6 +54,8 @@ export default function Mac() {
   const match = useGame(s => s.match);
   const assisted = useGame(s => s.assisted);
   const tutorial = useGame(s => s.tutorial);
+  const career = useGame(s => s.career);
+  const mahalleName = useGame(s => s.mahalle?.name);
   const scene = useRef<ShotSceneHandle>(null);
   const duel = useRef<DefenseSceneHandle>(null);
   const bar = useRef<SkillBarHandle>(null);
@@ -206,6 +209,10 @@ export default function Mac() {
   const minute = moment ? moment.minute : 90;
   const score = m ? liveScore(m, minute) : { us: 0, them: 0 };
   const total = m?.plan.moments.length ?? 3;
+  // Fixture matches name the real sides: the club in the league, the mahalle in a mahalle match.
+  const homeName = m?.kind === 'league' ? career?.contract?.clubName : m?.kind === 'mahalle' ? mahalleName : undefined;
+  const homeCode = homeName ? crestCode(homeName) : t('club.home.code');
+  const awayCode = m?.opponentName ? crestCode(m.opponentName) : t('club.away.code');
   const sceneH = Math.min((width * 560) / 390, height - 270 - insets.bottom);
 
   return (
@@ -234,7 +241,7 @@ export default function Mac() {
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(13,13,13,.72)' }}>
-              <T w={600} size={15}>{t('club.home.code')} {score.us} – {score.them} {t('club.away.code')}</T>
+              <T w={600} size={15}>{homeCode} {score.us} – {score.them} {awayCode}</T>
               <View style={{ width: 1, height: 16, backgroundColor: colors.g400 }} />
               <T w={600} size={15} color={colors.l600}>{minute}'</T>
             </View>

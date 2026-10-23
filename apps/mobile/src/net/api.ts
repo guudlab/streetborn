@@ -29,6 +29,10 @@ export interface FinishResponse {
   result: MatchResult & { rating: number };
   reward: { coin: number; xp: number; capped: boolean } | null;
   flagged: boolean;
+  /** League matches: the coach trust change. */
+  trustDelta?: number;
+  /** Trial matches: whether the rating reached the trial bar. */
+  trialPassed?: boolean;
   player: { coin: number; xp: number; level: number };
 }
 
@@ -94,7 +98,8 @@ async function call<T>(name: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
-export const startMatch = (kind: 'energy' | 'mahalle' = 'energy') => call<Ticket>('match-start', { kind });
+export type MatchKind = 'energy' | 'mahalle' | 'league' | 'trial';
+export const startMatch = (kind: MatchKind = 'energy', offerId?: string) => call<Ticket>('match-start', { kind, offerId });
 export const finishMatch = (matchId: string, inputs: ChanceInput[], durationMs: number) =>
   call<FinishResponse>('match-finish', { matchId, inputs, durationMs });
 
@@ -184,4 +189,35 @@ export async function loadBlocked(): Promise<string[]> {
   const { data, error } = await supabase.rpc('engellenenler');
   if (error) throw new ApiError(error.message);
   return (data as string[] | null) ?? [];
+}
+
+export interface LeagueTeamInfo { key: string; name: string; goalkeeping: number; attack: number }
+export interface CareerOffer {
+  id: string; kind: 'direct' | 'trial' | 'better' | 'renew' | 'promote' | 'weaker'; tier: number;
+  clubKey: string; clubName: string; salaryWeekly: number; status: 'open' | 'trial_passed' | 'trial_failed';
+}
+export interface Career {
+  today: string;
+  /** Coach trust 0..100. */
+  trust: number;
+  progress: { level: number; matches: number; mahalleMatches: number };
+  contract: { tier: number; clubKey: string; clubName: string; salaryWeekly: number; seasonId: string | null; active: boolean } | null;
+  season: {
+    id: string; seed: string; tier: number; startDay: string; teams: LeagueTeamInfo[]; status: 'active' | 'done';
+    place: number | null; prize: number | null; days: { round: number; played: boolean; us: number; them: number }[];
+  } | null;
+  offers: CareerOffer[];
+}
+
+/** Runs the day's career work on the server (missed days, season end, salary, first offers). */
+export const careerStatus = () =>
+  call<{ salary: number; seasonEnded: { place: number; prize: number } | null }>('career', { action: 'status' });
+export const acceptOffer = (offerId: string) => call<{ ok: true }>('career', { action: 'accept', offerId });
+
+export async function loadCareer(): Promise<Career | null> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('kariyer');
+  if (error) throw new ApiError(error.message);
+  return (data as Career | null) ?? null;
 }

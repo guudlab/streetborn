@@ -161,3 +161,68 @@ do $$ begin
   raise notice 'block rls: ok';
 end $$;
 reset role;
+
+-- Club career: offers, trial, contract, salary, league match, missed days, season end.
+set role service_role;
+select create_offers('00000000-0000-0000-0000-000000000105',
+  '[{"kind":"direct","tier":0,"clubKey":"kartaltepe","clubName":"Kartaltepe SK","salaryWeekly":700},
+    {"kind":"trial","tier":0,"clubKey":"bogazici","clubName":"Boğaziçi Gençlik FK","salaryWeekly":770}]') as offers_made;
+select id as trial_offer from offers where kind = 'trial' \gset
+select id as direct_offer from offers where kind = 'direct' \gset
+do $$ begin
+  if create_offers('00000000-0000-0000-0000-000000000105', '[{"kind":"direct","tier":0,"clubKey":"x","clubName":"X","salaryWeekly":1}]') <> 0 then
+    raise exception 'offers duplicated while live ones exist';
+  end if;
+  begin perform accept_offer('00000000-0000-0000-0000-000000000105', (select id from offers where kind = 'trial'), '[]', 20, 50::smallint); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'needs_trial' then raise; end if; end;
+  raise notice 'offers: ok';
+end $$;
+select begin_fixture_match('00000000-0000-0000-0000-000000000105',0,4::smallint,now(),2::smallint,7,3::smallint,40::smallint,40::smallint,70::smallint,80::smallint,now()+interval '20 min','trial',null,null,:'trial_offer') as tm \gset
+select * from finish_match(:'tm','00000000-0000-0000-0000-000000000105',2::smallint,1::smallint,1::smallint,0::smallint,1::smallint,0::smallint,75::smallint,90000,'[]'::jsonb,'{}',50,60,1,'{"trialPassed":true}');
+do $$ begin
+  if (select status from offers where kind = 'trial') <> 'trial_passed' then raise exception 'trial result not stored'; end if;
+  if match_coin_today('00000000-0000-0000-0000-000000000105') <> 0 then raise exception 'trial match counted in the cap'; end if;
+  raise notice 'trial match: ok';
+end $$;
+select accept_offer('00000000-0000-0000-0000-000000000105', :'direct_offer', '[{"key":"kartaltepe","name":"Kartaltepe SK","goalkeeping":70,"attack":80}]', 20, 50::smallint) as season \gset
+do $$ begin
+  if not (select active from contracts where player_id = '00000000-0000-0000-0000-000000000105') then raise exception 'contract missing'; end if;
+  if (select status from offers where kind = 'trial') <> 'closed' then raise exception 'other offers not closed'; end if;
+  if (select gem from wallets where player_id = '00000000-0000-0000-0000-000000000105') <> 20 then raise exception 'first contract gem missing'; end if;
+  begin perform accept_offer('00000000-0000-0000-0000-000000000105', (select id from offers where kind = 'trial'), '[]', 20, 50::smallint); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_found' then raise; end if; end;
+  if not claim_salary('00000000-0000-0000-0000-000000000105', current_date, 100) then raise exception 'salary not paid'; end if;
+  if claim_salary('00000000-0000-0000-0000-000000000105', current_date, 100) then raise exception 'salary paid twice'; end if;
+  raise notice 'contract and salary: ok';
+end $$;
+select begin_fixture_match('00000000-0000-0000-0000-000000000105',1,3::smallint,now(),2::smallint,8,3::smallint,40::smallint,40::smallint,70::smallint,80::smallint,now()+interval '20 min','league',:'season',0::smallint,null) as lm \gset
+select * from finish_match(:'lm','00000000-0000-0000-0000-000000000105',2::smallint,1::smallint,1::smallint,0::smallint,2::smallint,1::smallint,80::smallint,90000,'[]'::jsonb,'{}',150,110,2,'{"trustDelta":4}');
+do $$ declare s uuid := (select season_id from contracts where player_id = '00000000-0000-0000-0000-000000000105'); begin
+  if (select us from league_days where season_id = s and round = 0) <> 2 then raise exception 'league result not stored'; end if;
+  if (select coach_trust from players where id = '00000000-0000-0000-0000-000000000105') <> 54 then raise exception 'trust not applied'; end if;
+  begin perform begin_fixture_match('00000000-0000-0000-0000-000000000105',2,2::smallint,now(),2::smallint,9,3::smallint,40::smallint,40::smallint,70::smallint,80::smallint,now()+interval '20 min','league',s,0::smallint,null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'already_played' then raise; end if; end;
+  if mark_missed_rounds('00000000-0000-0000-0000-000000000105', s, '[{"round":0,"us":0,"them":5},{"round":1,"us":1,"them":1},{"round":2,"us":0,"them":2}]', -6) <> 2 then
+    raise exception 'missed rounds should skip the played one';
+  end if;
+  if mark_missed_rounds('00000000-0000-0000-0000-000000000105', s, '[{"round":1,"us":1,"them":1}]', -6) <> 0 then raise exception 'missed round counted twice'; end if;
+  if (select coach_trust from players where id = '00000000-0000-0000-0000-000000000105') <> 42 then raise exception 'missed trust wrong'; end if;
+  raise notice 'league match: ok';
+  if not end_season('00000000-0000-0000-0000-000000000105', s, 1::smallint, 600,
+       '[{"kind":"renew","tier":0,"clubKey":"kartaltepe","clubName":"Kartaltepe SK","salaryWeekly":720}]') then
+    raise exception 'season should end';
+  end if;
+  if end_season('00000000-0000-0000-0000-000000000105', s, 1::smallint, 600, '[]') then raise exception 'season ended twice'; end if;
+  if (select active from contracts where player_id = '00000000-0000-0000-0000-000000000105') then raise exception 'contract still active'; end if;
+  if not exists (select 1 from ledger where idempotency_key = 'season:' || s::text and delta = 600) then raise exception 'season prize missing'; end if;
+  raise notice 'season end: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000105';
+do $$ declare k jsonb := kariyer(); begin
+  if jsonb_array_length(k->'offers') <> 1 or k->'offers'->0->>'kind' <> 'renew' then raise exception 'kariyer offers wrong: %', k->'offers'; end if;
+  if k->'season'->>'status' <> 'done' or jsonb_array_length(k->'season'->'days') <> 3 then raise exception 'kariyer season wrong'; end if;
+  if (select count(*) from contracts) <> 0 or (select count(*) from offers) <> 0 then raise exception 'RLS leak: career tables readable'; end if;
+  raise notice 'career rls: ok';
+end $$;
+reset role;

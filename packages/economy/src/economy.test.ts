@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkName,
+  dailySalary,
+  firstOffers,
+  leagueReward,
+  leagueSchedule,
+  leagueTable,
+  leagueTeams,
+  offerReady,
+  playerOpponent,
+  seasonEndOffers,
+  seasonPrize,
   computeRating,
   currentEnergy,
   DEFAULT_CONFIG as config,
@@ -182,5 +192,85 @@ describe('mahalle day', () => {
     }
     expect(wins / 4000).toBeGreaterThan(0.55);
     expect(wins / 4000).toBeLessThan(0.65);
+  });
+});
+
+describe('club career', () => {
+  const cc = config.career;
+
+  it('multiplies energy match coin and the daily cap under contract', () => {
+    const plain = matchReward({ goals: 1, assists: 0, rating: 75, result: 'W' }, false, 0, config);
+    const club = matchReward({ goals: 1, assists: 0, rating: 75, result: 'W' }, false, 0, config, 150);
+    expect(club.coin).toBe(Math.trunc(plain.coin * 1.5));
+    expect(matchReward({ goals: 1, assists: 0, rating: 75, result: 'W' }, false, 850, config, 150).coin).toBe(50);
+  });
+
+  it('needs level, matches and mahalle matches for the first offer', () => {
+    expect(offerReady({ level: 5, matches: 10, mahalleMatches: 3 }, config)).toBe(true);
+    expect(offerReady({ level: 5, matches: 10, mahalleMatches: 2 }, config)).toBe(false);
+    expect(offerReady({ level: 4, matches: 30, mahalleMatches: 9 }, config)).toBe(false);
+  });
+
+  it('offers a direct and a trial contract, and a better one at high respect', () => {
+    const low = firstOffers('p1', 10, config);
+    expect(low.map((o) => o.kind)).toEqual(['direct', 'trial']);
+    expect(new Set(low.map((o) => o.clubKey)).size).toBe(2);
+    const high = firstOffers('p1', cc.betterOfferRespect, config);
+    expect(high.map((o) => o.kind)).toEqual(['direct', 'trial', 'better']);
+    for (const o of high) {
+      expect(o.salaryWeekly).toBeGreaterThanOrEqual(cc.tiers[0]!.weeklySalary * 0.8);
+      expect(o.salaryWeekly).toBeLessThanOrEqual(cc.tiers[0]!.weeklySalary * 1.4);
+    }
+    expect(firstOffers('p1', 10, config)).toEqual(low);
+  });
+
+  it('renews, promotes or sends to a weaker club by coach trust', () => {
+    const cur = { tier: 0, clubKey: 'kartaltepe', clubName: 'Kartaltepe SK', level: 12 };
+    expect(seasonEndOffers('s', { ...cur, trust: 39 }, config).map((o) => o.kind)).toEqual(['weaker']);
+    expect(seasonEndOffers('s', { ...cur, trust: 39 }, config)[0]!.clubKey).not.toBe('kartaltepe');
+    expect(seasonEndOffers('s', { ...cur, trust: 55 }, config).map((o) => o.kind)).toEqual(['renew']);
+    const up = seasonEndOffers('s', { ...cur, trust: 75 }, config);
+    expect(up.map((o) => o.kind)).toEqual(['renew', 'promote']);
+    expect(up[1]!.tier).toBe(1);
+    expect(seasonEndOffers('s', { ...cur, trust: 75, level: 11 }, config).map((o) => o.kind)).toEqual(['renew']);
+  });
+
+  it('plays every team twice in 14 rounds, the player every round', () => {
+    const rounds = leagueSchedule(8);
+    expect(rounds).toHaveLength(14);
+    const pairs = new Map<string, number>();
+    for (const round of rounds) {
+      expect(new Set(round.flat()).size).toBe(8);
+      for (const [h, a] of round) pairs.set(`${h}-${a}`, (pairs.get(`${h}-${a}`) ?? 0) + 1);
+    }
+    expect(pairs.size).toBe(56); // every ordered pair once: home and away
+    expect(new Set(rounds.map((_, r) => playerOpponent(8, r))).size).toBe(7);
+  });
+
+  it('builds a consistent table from player results and seeded NPC games', () => {
+    const teams = leagueTeams('season1', 0, { key: 'kartaltepe', name: 'Kartaltepe SK' }, config);
+    expect(teams).toHaveLength(8);
+    expect(teams[0]!.key).toBe('kartaltepe');
+    expect(new Set(teams.map((t) => t.key)).size).toBe(8);
+    const results = Object.fromEntries(Array.from({ length: 14 }, (_, r) => [r, { us: 3, them: 0 }]));
+    const table = leagueTable('season1', teams, results, 14);
+    expect(table[0]!.index).toBe(0);
+    expect(table[0]!.points).toBe(42);
+    expect(table.reduce((a, r) => a + r.played, 0)).toBe(8 * 14);
+    expect(table.reduce((a, r) => a + r.goalsFor - r.goalsAgainst, 0)).toBe(0);
+    expect(leagueTable('season1', teams, results, 14)).toEqual(table);
+  });
+
+  it('pays league matches with multiplier, bonuses, XP and trust', () => {
+    const r = leagueReward({ goals: 2, assists: 0, rating: 80, result: 'W' }, false, 0, config);
+    const base = matchReward({ goals: 2, assists: 0, rating: 80, result: 'W' }, false, 0, config);
+    expect(r.coin).toBe(Math.trunc(base.coin * 1.5) + cc.tiers[0]!.winBonus + 2 * cc.tiers[0]!.goalBonus);
+    expect(r.xp).toBe(base.xp + cc.ligXpBonus);
+    expect(r.trustDelta).toBe(cc.trustRatingHigh);
+    expect(leagueReward({ goals: 0, assists: 0, rating: 50, result: 'L' }, false, 0, config).trustDelta).toBe(cc.trustRatingLow);
+    expect(seasonPrize(1, 0, config)).toBe(600);
+    expect(seasonPrize(3, 0, config)).toBe(210);
+    expect(seasonPrize(4, 0, config)).toBe(0);
+    expect(dailySalary(700)).toBe(100);
   });
 });

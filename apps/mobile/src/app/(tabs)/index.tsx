@@ -6,6 +6,7 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
+import { crestCode, leagueToday, multiplierLabel, tierName } from '../../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL } from '../../game/character.ts';
 import { num } from '../../game/format.ts';
 import { ovr } from '../../game/rules.ts';
@@ -25,21 +26,34 @@ export default function Hub() {
   const g = useGame();
   const ch = g.character ?? DEFAULT_CHARACTER;
   const empty = g.energy === 0;
-  const showOffers = g.scouted && !g.signed;
+  const online = g.mode === 'online';
+  const showOffers = online ? (g.career?.offers.some(o => o.status !== 'trial_failed') ?? false) : g.scouted && !g.signed;
+  const league = leagueToday(g.career);
+
+  useEffect(() => { if (online && g.auth === 'in') void useGame.getState().refreshCareer(); }, [online, g.auth]);
+  const news = g.careerNews;
+  useEffect(() => {
+    if (!news) return;
+    if (news.seasonEnded) toast(t('career.seasonEnded', { place: news.seasonEnded.place, prize: news.seasonEnded.prize }));
+    else if (news.salary > 0) toast(t('career.salaryPaid', { n: news.salary }));
+    useGame.setState({ careerNews: null });
+  }, [news]);
 
   const mahalleId = g.mahalle?.id;
   useEffect(() => { if (mahalleId) void useGame.getState().refreshMahalleToday(); }, [mahalleId]);
 
   const [starting, setStarting] = useState(false);
-  const play = async () => {
+  const play = async (kind: 'energy' | 'league' = 'energy') => {
     if (starting) return;
     setStarting(true);
-    const r = await useGame.getState().startMatch();
+    const r = await useGame.getState().startMatch(kind);
     setStarting(false);
     if (r === 'no_energy') return openEnergySheet();
+    if (r === 'already_played') return toast(t('league.alreadyPlayed'));
     if (r === 'error') return toast(t('hub.startFailed'));
     router.push('/mac');
   };
+  const leagueReady = league && !league.played;
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: TAB_BAR_SPACE + insets.bottom }}>
@@ -110,29 +124,38 @@ export default function Hub() {
             style={{ height: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2 }}
           >
             <Icon name="mail" color={colors.l600} />
-            <T w={600} size={15} style={{ flex: 1 }}>{t('hub.offersBanner')}</T>
+            <T w={600} size={15} style={{ flex: 1 }}>{online ? t('hub.offersBannerN', { n: g.career?.offers.length ?? 0 }) : t('hub.offersBanner')}</T>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.l600 }} />
             <Icon name="chev" color={colors.g200} />
           </Pressable>
         )}
 
         <View style={{ padding: 16, borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 14 }}>
-          <Caps>{t('hub.fixture')}</Caps>
+          <Caps>{league ? t('league.day', { n: league.round + 1, total: league.rounds, tier: tierName(league.tier) }) : online ? t('hub.friendly') : t('hub.fixture')}</Caps>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Crest text={t('club.home.code')} bg={colors.l600} fg={colors.ink} />
+            <Crest text={league ? crestCode(league.clubName) : t('club.home.code')} bg={colors.l600} fg={colors.ink} />
             <View style={{ flex: 1, minWidth: 0 }}>
-              <T w={600} size={16} numberOfLines={1}>{t('club.home')} – {t('club.kartaltepe')}</T>
-              <T size={13} color={colors.g200}>{t('hub.fixtureMeta')}</T>
+              <T w={600} size={16} numberOfLines={1}>
+                {league ? `${league.clubName} – ${league.opponent}` : online ? t('hub.friendlyTeams', { name: g.name }) : `${t('club.home')} – ${t('club.kartaltepe')}`}
+              </T>
+              <T size={13} color={colors.g200}>{league?.played ? t('league.playedToday') : t('hub.fixtureMeta')}</T>
             </View>
-            <Crest text={t('club.away.code')} bg={colors.awayCrest} fg={colors.awayCrestText} />
+            <Crest text={league ? crestCode(league.opponent) : t('club.away.code')} bg={colors.awayCrest} fg={colors.awayCrestText} />
           </View>
-          <Cta off={empty} onPress={play} accessibilityLabel={empty ? t('hub.waitEnergy') : t('hub.playA11y')}>
-            <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>{empty ? t('hub.waitEnergy') : starting ? t('hub.preparing') : t('hub.play')}</T>
+          <Cta off={empty} onPress={() => void play(leagueReady ? 'league' : 'energy')} accessibilityLabel={empty ? t('hub.waitEnergy') : t('hub.playA11y')}>
+            <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>
+              {empty ? t('hub.waitEnergy') : starting ? t('hub.preparing') : leagueReady ? t('league.play') : league ? t('league.training') : t('hub.play')}
+            </T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
               <Icon name="bolt" size={16} color={empty ? colors.g200 : colors.ink} />
               <T w={600} size={14} color={empty ? colors.g200 : colors.ink}>1</T>
             </View>
           </Cta>
+          {league && (
+            <T size={12} color={colors.g300} style={{ textAlign: 'center' }}>
+              {leagueReady ? t('league.trainingHint', { x: multiplierLabel(league.tier) }) : t('league.trainingMultiplier', { x: multiplierLabel(league.tier) })}
+            </T>
+          )}
         </View>
       </View>
     </View>

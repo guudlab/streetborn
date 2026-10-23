@@ -10,8 +10,8 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  loadBlocked, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type Profile, type ReportReason,
+  acceptOffer as apiAcceptOffer, careerStatus, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type Profile, type ReportReason, type Career,
 } from '../net/api.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
@@ -35,7 +35,11 @@ export type Auth = 'unknown' | 'none' | 'in';
 export interface LogEntry { minute: number; kind: MomentKind; outcome: ChanceOutcome['outcome'] }
 
 export interface PostMatch {
-  kind: 'energy' | 'mahalle';
+  kind: MatchKind;
+  /** League matches show coach trust instead of the local trust bar. */
+  coachTrust: boolean;
+  /** Trial matches: whether the club signs the player. */
+  trialPassed?: boolean;
   result: TeamResult; us: number; them: number; rating: number; goals: number; assists: number;
   coins: number; xp: number; trustDelta: number; ups: number; scout: boolean; flagged: boolean;
   log: LogEntry[];
@@ -46,7 +50,9 @@ export interface PostMatch {
 }
 
 export interface LiveMatch {
-  kind: 'energy' | 'mahalle';
+  kind: MatchKind;
+  /** NPC opponent of a fixture match (league, trial, mahalle). */
+  opponentName: string | null;
   matchId: string | null;
   setup: MatchSetup;
   plan: MatchPlan;
@@ -81,6 +87,10 @@ interface GameState {
   mahalleToday: MahalleToday | null;
   /** Ids of players this player blocked; their names and cheers are hidden. */
   blocked: string[];
+  /** Club career from the server (online only). */
+  career: Career | null;
+  /** Salary or season result from the last career refresh, shown once by the hub. */
+  careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null } | null;
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number; trust: number; form: number[];
@@ -103,7 +113,9 @@ interface GameState {
   leaveMahalle(): Promise<void>;
   setPendingInvite(code: string | null): void;
   syncEnergy(now?: number): void;
-  startMatch(kind?: 'energy' | 'mahalle'): Promise<'ok' | 'no_energy' | 'already_played' | 'error'>;
+  startMatch(kind?: MatchKind, offerId?: string): Promise<'ok' | 'no_energy' | 'already_played' | 'error'>;
+  refreshCareer(): Promise<void>;
+  acceptOffer(id: string): Promise<void>;
   play(input: ChanceInput): ChanceOutcome;
   /** Moves to the next moment; returns the opponent goals scored in between. */
   advance(): { done: boolean; events: { minute: number }[] };
@@ -223,6 +235,8 @@ export const useGame = create<GameState>()((set, get) => ({
   mahalleReady: false,
   mahalleToday: null,
   blocked: [],
+  career: null,
+  careerNews: null,
   pendingInvite: null,
   club: t('club.home'),
   level: 7,
@@ -313,6 +327,29 @@ export const useGame = create<GameState>()((set, get) => ({
     await get().refreshMahalleToday();
   },
 
+  async refreshCareer() {
+    if (get().mode !== 'online') return;
+    try {
+      const status = await careerStatus();
+      if (status.salary > 0 || status.seasonEnded) {
+        set({ careerNews: { salary: status.salary, seasonEnded: status.seasonEnded } });
+        const profile = await loadProfile().catch(() => null);
+        if (profile) set({ coins: profile.coin, gems: profile.gem });
+      }
+      set({ career: await loadCareer() });
+    } catch (e) {
+      console.warn('Could not load the career', e);
+    }
+  },
+
+  async acceptOffer(id) {
+    await apiAcceptOffer(id);
+    await get().refreshCareer();
+    // The first contract pays gems; reload the wallet.
+    const profile = await loadProfile().catch(() => null);
+    if (profile) set({ coins: profile.coin, gems: profile.gem });
+  },
+
   async report(to, reason) {
     await reportPlayer(to, reason);
   },
@@ -351,23 +388,28 @@ export const useGame = create<GameState>()((set, get) => ({
     if (next.energy !== s.energy || next.updatedAt !== s.energyUpdatedAt) set({ energy: next.energy, energyUpdatedAt: next.updatedAt });
   },
 
-  async startMatch(kind = 'energy') {
+  async startMatch(kind = 'energy', offerId) {
     const s = get();
     s.syncEnergy();
-    const cost = kind === 'mahalle' ? config.fixtureEnergyCost : config.matchEnergyCost;
+    const cost = kind === 'energy' ? config.matchEnergyCost : config.fixtureEnergyCost;
     if (get().energy < cost) return 'no_energy';
-    if (kind === 'mahalle' && s.mode !== 'online') return 'error';
+    if (kind !== 'energy' && s.mode !== 'online') return 'error';
     let matchId: string | null = null;
+    let opponentName: string | null = null;
     let setup: MatchSetup;
     if (s.mode === 'online') {
       try {
-        const t = await apiStart(kind);
+        const t = await apiStart(kind, offerId);
         matchId = t.matchId;
+        opponentName = t.opponentName ?? null;
         setup = t.setup;
         set({ energy: t.energy.energy, energyUpdatedAt: t.energy.updatedAt });
       } catch (e) {
         if (e instanceof ApiError && e.code === 'no_energy') { set({ energy: 0 }); return 'no_energy'; }
-        if (e instanceof ApiError && e.code === 'already_played') return 'already_played';
+        if (e instanceof ApiError && (e.code === 'already_played' || e.code === 'season_over')) {
+          void get().refreshCareer();
+          return 'already_played';
+        }
         console.warn('match-start failed', e);
         return 'error';
       }
@@ -383,7 +425,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const plan = planMatch(setup);
     set({
       match: {
-        kind, matchId, setup, plan, i: 0, inputs: [],
+        kind, opponentName, matchId, setup, plan, i: 0, inputs: [],
         outcomes: plan.moments.map(() => null), startedAt: Date.now(),
       },
     });
@@ -420,8 +462,13 @@ export const useGame = create<GameState>()((set, get) => ({
 
     let sim, rating: number, coins: number, xpGain: number, after: { level: number; xp: number }, flagged = false;
     let coinBalance = s.coins;
+    let server: { trustDelta?: number; trialPassed?: boolean; offersBefore: number; offersAfter: number } | null = null;
     if (s.mode === 'online' && m.matchId) {
       const r = await apiFinish(m.matchId, m.inputs, durationMs);
+      // The career may change after any match: league day, trial result, the first offers.
+      const offersBefore = s.career?.offers.length ?? 0;
+      await get().refreshCareer();
+      server = { trustDelta: r.trustDelta, trialPassed: r.trialPassed, offersBefore, offersAfter: get().career?.offers.length ?? 0 };
       sim = r.result;
       rating = r.result.rating;
       coins = r.reward?.coin ?? 0;
@@ -439,16 +486,19 @@ export const useGame = create<GameState>()((set, get) => ({
       coinBalance = s.coins + coins;
     }
 
-    const trustDelta = rating >= 70 ? 4 : rating >= 60 ? 1 : -3;
-    const trust = clamp(s.trust + trustDelta, 0, 100);
-    const scout = rating >= 65;
+    const coachTrust = m.kind === 'league' && server?.trustDelta !== undefined;
+    const trustDelta = coachTrust ? server!.trustDelta! : rating >= 70 ? 4 : rating >= 60 ? 1 : -3;
+    const trust = coachTrust ? (get().career?.trust ?? 50) : clamp(s.trust + trustDelta, 0, 100);
+    if (coachTrust) before.trust = clamp(trust - trustDelta, 0, 100);
+    // Online, the scout report means the server has just sent the first offers.
+    const scout = server ? server.offersBefore === 0 && server.offersAfter > 0 : rating >= 65;
     const post: PostMatch = {
-      kind: m.kind, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
+      kind: m.kind, coachTrust, trialPassed: server?.trialPassed, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
       coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial,
       before, after: { ...after, trust },
     };
     set({
-      coins: coinBalance, level: after.level, xp: after.xp, trust,
+      coins: coinBalance, level: after.level, xp: after.xp, trust: coachTrust ? s.trust : trust,
       form: [...s.form.slice(-2), rating / 10],
       scouted: s.scouted || scout,
       match: null, post, tutorial: false,
