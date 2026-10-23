@@ -83,6 +83,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.ink }, ...slide }}>
             <Stack.Protected guard={auth !== 'in'}>
               <Stack.Screen name="giris" options={fade} />
+              <Stack.Screen name="karakter" options={slide} />
             </Stack.Protected>
             <Stack.Protected guard={auth === 'in'}>
               <Stack.Screen name="(tabs)" options={fade} />

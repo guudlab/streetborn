@@ -10,6 +10,7 @@ import { create } from 'zustand';
 
 import { ApiError, finishMatch as apiFinish, loadProfile, startMatch as apiStart, storedPlayerId, type Profile } from '../net/api.ts';
 import { offline } from '../net/config.ts';
+import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
 import { t } from '../i18n/index.ts';
 
@@ -33,6 +34,8 @@ export interface PostMatch {
   result: TeamResult; us: number; them: number; rating: number; goals: number; assists: number;
   coins: number; xp: number; trustDelta: number; ups: number; scout: boolean; flagged: boolean;
   log: LogEntry[];
+  /** The player's very first match: the result screen also offers to link an account. */
+  first: boolean;
   before: { level: number; xp: number; trust: number };
   after: { level: number; xp: number; trust: number };
 }
@@ -60,6 +63,10 @@ interface GameState {
   offlineReason: string | null;
   name: string; club: string; level: number; xp: number; coins: number; gems: number;
   energy: number; energyMax: number; energyUpdatedAt: number;
+  /** Choices from the new-player flow. Null for a player who started before the flow existed. */
+  character: Character | null;
+  /** True until the first match is finished: the coach teaches the first moment. */
+  tutorial: boolean;
   stats: Stats; drillProgress: Stats; trainFree: number; trust: number; form: number[];
   scouted: boolean; signed: string | null; trialAccepted: boolean; adsLeft: number; assisted: boolean;
   match: LiveMatch | null;
@@ -68,6 +75,8 @@ interface GameState {
   init(): Promise<void>;
   /** Signs in anonymously and loads the player; falls back to local play when the server is out of reach. */
   startAnonymous(): Promise<void>;
+  /** Saves the new player's choices and nickname on the device, then signs in anonymously. */
+  createCharacter(c: Character, nick: string): Promise<void>;
   syncEnergy(now?: number): void;
   startMatch(): Promise<'ok' | 'no_energy' | 'error'>;
   play(input: ChanceInput): ChanceOutcome;
@@ -98,6 +107,24 @@ const CONNECT_TIMEOUT_MS = 8000;
 // The last profile the server sent, so a returning player sees the hub at once
 // while the fresh one loads. Display only: the server still decides every change.
 const PROFILE_KEY = 'streetborn.profile.v1';
+// The new-player choices. Kept on the device until the server stores them.
+const CHARACTER_KEY = 'streetborn.character.v1';
+
+interface SavedCharacter { name: string; character: Character; tutorial: boolean }
+
+function saveCharacter(s: Pick<GameState, 'name' | 'character' | 'tutorial'>) {
+  if (!s.character) return;
+  const v: SavedCharacter = { name: s.name, character: s.character, tutorial: s.tutorial };
+  void AsyncStorage.setItem(CHARACTER_KEY, JSON.stringify(v)).catch(() => {});
+}
+
+async function restoreCharacter() {
+  try {
+    const raw = await AsyncStorage.getItem(CHARACTER_KEY);
+    const v = raw ? (JSON.parse(raw) as SavedCharacter) : null;
+    if (v?.character && typeof v.name === 'string') useGame.setState({ name: v.name, character: { ...DEFAULT_CHARACTER, ...v.character }, tutorial: !!v.tutorial });
+  } catch { /* a missing or unreadable save keeps the sample player */ }
+}
 
 function showProfile(p: Profile) {
   useGame.setState({
@@ -145,6 +172,8 @@ export const useGame = create<GameState>()((set, get) => ({
   offlineReason: null,
   // Sample character from the prototype, used in local mode.
   name: 'Efe Yılmaz',
+  character: null,
+  tutorial: false,
   club: t('club.home'),
   level: 7,
   xp: 3100,
@@ -170,6 +199,7 @@ export const useGame = create<GameState>()((set, get) => ({
     if (offline) { set({ mode: 'local', offlineReason: t('offline.mode'), auth: 'none' }); return; }
     // A returning player goes straight to the hub; a new one sees the sign-in screen first.
     const playerId = await storedPlayerId().catch(() => null);
+    if (playerId) await restoreCharacter();
     if (!playerId) { set({ mode: 'online', auth: 'none' }); return; }
     // With a saved profile the hub shows at once and refreshes when the server answers.
     const cached = await cachedProfile(playerId);
@@ -186,6 +216,14 @@ export const useGame = create<GameState>()((set, get) => ({
   async startAnonymous() {
     if (get().mode !== 'local') await connect();
     set({ auth: 'in' });
+  },
+
+  async createCharacter(c, nick) {
+    const name = nick.trim().slice(0, 14);
+    if (name.length < NICK_MIN) return;
+    set({ name, character: c, tutorial: true });
+    saveCharacter(get());
+    await get().startAnonymous();
   },
 
   syncEnergy(now = Date.now()) {
@@ -284,15 +322,16 @@ export const useGame = create<GameState>()((set, get) => ({
     const scout = rating >= 65;
     const post: PostMatch = {
       result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
-      coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log,
+      coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial,
       before, after: { ...after, trust },
     };
     set({
       coins: coinBalance, level: after.level, xp: after.xp, trust,
       form: [...s.form.slice(-2), rating / 10],
       scouted: s.scouted || scout,
-      match: null, post,
+      match: null, post, tutorial: false,
     });
+    saveCharacter(get());
     return post;
   },
 

@@ -52,6 +52,7 @@ export default function Mac() {
   const { width, height } = useWindowDimensions();
   const match = useGame(s => s.match);
   const assisted = useGame(s => s.assisted);
+  const tutorial = useGame(s => s.tutorial);
   const scene = useRef<ShotSceneHandle>(null);
   const duel = useRef<DefenseSceneHandle>(null);
   const bar = useRef<SkillBarHandle>(null);
@@ -84,8 +85,9 @@ export default function Mac() {
       : moment.kind === 'defense' ? t('match.coach.defense')
         : moment.kind === 'freekick' ? t('match.coach.freekick')
           : assisted ? t('match.coach.assisted')
-            : t('match.coach.aim'));
-  }, [moment, assisted, card]);
+            : tutorial && match?.i === 0 ? t('match.coach.first')
+              : t('match.coach.aim'));
+  }, [moment, assisted, card, tutorial, match?.i]);
 
   if (leaving.current) return null;
   if (!match && !card && finishing === 'no') return <Redirect href="/" />;
