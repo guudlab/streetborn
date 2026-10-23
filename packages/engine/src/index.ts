@@ -13,10 +13,24 @@ export {
 } from './shot.ts';
 export {
   ENGINE_VERSION,
+  ENGINE_VERSIONS,
+  momentCount,
   planMatch,
   playChance,
   simulateMatch,
+} from './match.ts';
+export {
+  gradeTiming,
+  TIMING_TARGET,
+  PERFECT_WINDOW,
+  TIMED_WINDOW,
+  OPPONENT_ATTACKS,
+  DEFENSE_MOMENTS,
+  type TimingGrade,
+} from './v3.ts';
+export {
   EngineInputError,
+  type EngineVersion,
   type MatchSetup,
   type MatchPlan,
   type Moment,
@@ -24,6 +38,7 @@ export {
   type Side,
   type ChanceInput,
   type ChanceOutcome,
+  type DefenseOutcome,
   type MatchResult,
   type TeamResult,
-} from './match.ts';
+} from './types.ts';

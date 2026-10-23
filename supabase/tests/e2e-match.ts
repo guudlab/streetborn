@@ -31,10 +31,13 @@ check(token, 'anonymous sign-in');
 const ticket = await post('/functions/v1/match-start', {}, token);
 const setup: MatchSetup = ticket.setup;
 check(typeof ticket.matchId === 'string' && setup.chances > 0, 'match-start issued a ticket');
+check(setup.engineVersion === 3, 'the ticket uses the skill engine (3)');
 check(ticket.energy.energy === 4, 'match-start spent one energy');
 
-const inputs: ChanceInput[] = planMatch(setup).moments.map((m, chance) =>
-  m.kind === 'pass' ? { chance, pass: m.openSide! } : { chance, shot: { aim: 700, lift: 400, power: 750 } });
+const inputs: ChanceInput[] = planMatch(setup).moments.map((m, chance): ChanceInput =>
+  m.kind === 'pass' ? { chance, pass: m.openSide!, timing: 750 }
+    : m.kind === 'defense' ? { chance, defense: m.attackSide!, timing: 750 }
+      : { chance, shot: { aim: 700, lift: 400, power: 750 } });
 
 // Play at a human pace so the match is not flagged as too short.
 await new Promise((r) => setTimeout(r, setup.chances * 4_000 + 1_000));
