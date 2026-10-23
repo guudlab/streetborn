@@ -1,6 +1,8 @@
 import { Pressable, View } from 'react-native';
 
 import { useSound } from '../audio/audio.ts';
+import { useGame } from '../game/store.ts';
+import { AccountRow } from './account.tsx';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { H3, T, tap } from './kit.tsx';
@@ -18,14 +20,18 @@ export function SoundToggles() {
   );
 }
 
-export const openSoundSheet = () => openSheet(<><H3>{t('sound.title')}</H3><SoundToggles /></>);
+/** Hub settings: sound and the account (guest or linked). */
+export function openSettingsSheet() {
+  void useGame.getState().refreshAccount();
+  openSheet(<><H3>{t('settings.title')}</H3><SoundToggles /><AccountRow /></>);
+}
 
-/** Round button that opens the sound sheet; the icon shows whether anything is muted. */
+/** Round button that opens the settings sheet; the icon shows whether anything is muted. */
 export function SoundButton() {
   const muted = useSound(s => !s.music && !s.effects);
   return (
     <Pressable
-      accessibilityRole="button" accessibilityLabel={t('sound.settings')} onPress={() => { tap(); openSoundSheet(); }}
+      accessibilityRole="button" accessibilityLabel={t('sound.settings')} onPress={() => { tap(); openSettingsSheet(); }}
       style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}
     >
       <Icon name={muted ? 'mute' : 'sound'} size={20} color={colors.g200} />

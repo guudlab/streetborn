@@ -13,6 +13,7 @@ import {
   acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
   type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type GemGrant, type OwnedItem,
 } from '../net/api.ts';
+import { loadAccount, type Account } from '../net/auth.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
@@ -94,6 +95,8 @@ interface GameState {
   blocked: string[];
   /** Club career from the server (online only). */
   career: Career | null;
+  /** Whether the player linked an email, Google or Apple (online, loaded on demand). */
+  account: Account | null;
   /** Salary, season result or gems from the last career refresh, shown once by the hub. */
   careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null; gems: GemGrant | null } | null;
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
@@ -113,6 +116,9 @@ interface GameState {
   init(): Promise<void>;
   /** Signs in anonymously and loads the player; falls back to local play when the server is out of reach. */
   startAnonymous(): Promise<void>;
+  /** Loads the player after a sign-in to an existing account (the session changed). */
+  signedIn(): Promise<void>;
+  refreshAccount(): Promise<void>;
   /** Saves the new player's choices and nickname (on the device and on the server). Throws ApiError `nick_*` when the server refuses the name. */
   createCharacter(c: Character, nick: string): Promise<void>;
   refreshMahalle(): Promise<void>;
@@ -203,7 +209,12 @@ async function cachedMahalle(playerId: string): Promise<MahalleInfo | null> {
   }
 }
 
-function showProfile(p: Profile) {
+function showProfile(p: Profile, fromServer = false) {
+  // A player signing in on a new device gets the character saved on the server.
+  if (p.character && p.nick && (fromServer || !useGame.getState().character)) {
+    useGame.setState({ name: p.nick, character: { ...DEFAULT_CHARACTER, ...p.character }, tutorial: false });
+    saveCharacter(useGame.getState());
+  }
   useGame.setState({
     level: p.level, xp: p.xp, coins: p.coin, gems: p.gem,
     energy: p.energy, energyUpdatedAt: p.energyUpdatedAt,
@@ -227,13 +238,13 @@ async function cachedProfile(playerId: string): Promise<Profile | null> {
 }
 
 /** Loads the player from Supabase (signing in anonymously if needed), or switches to local mode. */
-async function connect() {
+async function connect(fromServer = false) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new ApiError('timeout')), CONNECT_TIMEOUT_MS); });
     const p = await Promise.race([loadProfile(), timeout]);
     useGame.setState({ mode: 'online', offlineReason: null });
-    showProfile(p);
+    showProfile(p, fromServer);
     void AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(p)).catch(() => {});
   } catch (e) {
     console.warn('Supabase unavailable, playing locally', e);
@@ -259,6 +270,7 @@ export const useGame = create<GameState>()((set, get) => ({
   mahalleToday: null,
   blocked: [],
   career: null,
+  account: null,
   careerNews: null,
   pendingInvite: null,
   club: t('club.home'),
@@ -311,6 +323,24 @@ export const useGame = create<GameState>()((set, get) => ({
     if (get().mode !== 'local') await connect();
     await get().refreshMahalle();
     set({ auth: 'in' });
+  },
+
+  async signedIn() {
+    // Whatever was cached belonged to the session before; the server has the truth.
+    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, account: null, owned: [], character: null });
+    await connect(true);
+    await get().refreshMahalle();
+    set({ auth: 'in' });
+    void get().refreshAccount();
+  },
+
+  async refreshAccount() {
+    if (get().mode !== 'online') return;
+    try {
+      set({ account: await loadAccount() });
+    } catch (e) {
+      console.warn('Could not load the account', e);
+    }
   },
 
   async createCharacter(c, nick) {

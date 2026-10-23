@@ -9,10 +9,10 @@ import { delta, num } from '../game/format.ts';
 import { levelProgress } from '../game/rules.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
+import { startLink } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { buzz, Caps, CoachFace, Cta, Ghost, H1, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
+import { buzz, Caps, CoachFace, Cta, Ghost, H1, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
 import { Pop } from '../ui/motion.tsx';
-import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
 
 const RES = { W: t('post.W'), D: t('post.D'), L: t('post.L') } as const;
@@ -173,20 +173,11 @@ function Gain({ show, first, children }: { show: boolean; first?: boolean; child
   );
 }
 
-/** Soft account-link offer after the very first match. Apple / Google stay placeholders until set up. */
+/** Soft account-link offer after the very first match. */
 function LinkStrip() {
   const [hidden, setHidden] = useState(false);
-  if (hidden) return null;
-  const soon = () => {
-    buzz();
-    openSheet(
-      <>
-        <H3>{t('post.link.soonTitle')}</H3>
-        <SheetText>{t('post.link.soonText')}</SheetText>
-        <Ghost onPress={closeSheet}>{t('common.close')}</Ghost>
-      </>,
-    );
-  };
+  const linked = useGame(s => s.account !== null && !s.account.anonymous);
+  if (hidden || linked) return null;
   return (
     <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l700, padding: 16, gap: 12 }}>
       <View style={{ gap: 4 }}>
@@ -194,16 +185,21 @@ function LinkStrip() {
         <T size={14} color={colors.g200} style={{ lineHeight: 20 }}>{t('post.link.text')}</T>
       </View>
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Pressable onPress={soon} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={() => startLink('apple')} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
           <T w={600} size={15} color={colors.ink}>{t('post.link.apple')}</T>
         </Pressable>
-        <Pressable onPress={soon} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={() => startLink('google')} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
           <T w={600} size={15}>{t('post.link.google')}</T>
         </Pressable>
       </View>
-      <Pressable onPress={() => setHidden(true)} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center', minHeight: 32, justifyContent: 'center' }}>
-        <T w={500} size={14} color={colors.g200}>{t('post.link.later')}</T>
-      </Pressable>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24 }}>
+        <Pressable onPress={() => startLink('email')} accessibilityRole="button" hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
+          <T w={600} size={14} color={colors.g100}>{t('account.email')}</T>
+        </Pressable>
+        <Pressable onPress={() => setHidden(true)} accessibilityRole="button" hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
+          <T w={500} size={14} color={colors.g200}>{t('post.link.later')}</T>
+        </Pressable>
+      </View>
     </View>
   );
 }
