@@ -1,4 +1,4 @@
-import type { ChanceOutcome, Side } from '@streetborn/engine';
+import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type Side } from '@streetborn/engine';
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -15,12 +15,13 @@ import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachLine, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
 import { useShake } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
-import { PowerBar, type PowerBarHandle } from '../ui/PowerBar.tsx';
+import { DefenseScene, type DefenseSceneHandle } from '../ui/DefenseScene.tsx';
+import { SkillBar, type SkillBarHandle } from '../ui/SkillBar.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
 import { t } from '../i18n/index.ts';
 
-const KIND = { shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick') } as const;
+const KIND = { shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick'), defense: t('kind.defense') } as const;
 const SHOT_TEXT = { gol: t('match.shot.goal'), kurtardi: t('match.shot.saved'), aut: t('match.shot.wide'), ust: t('match.shot.over') } as const;
 const OUT = { goal: 'gol', saved: 'kurtardi', wide: 'aut', over: 'ust' } as const;
 /** What the ball hits, and how the crowd reacts. */
@@ -29,11 +30,12 @@ const IMPACT: Record<ShotAnim['out'], [SfxId, SfxId]> = {
 };
 const SPOT: Record<Side, { x: number; y: number }> = { left: { x: 92, y: 330 }, right: { x: 300, y: 300 } };
 
-/** Can is always the open teammate; the plan decides which side he is on. */
+/** Can runs left, Mert right; the plan decides who is open. The player has to see the marker. */
+const NAME: Record<Side, string> = { left: 'Can', right: 'Mert' };
 function matesFor(openSide: Side): Mate[] {
-  const markedSide: Side = openSide === 'left' ? 'right' : 'left';
-  return [{ name: 'Can', open: true, ...SPOT[openSide] }, { name: 'Mert', open: false, ...SPOT[markedSide] }];
+  return (['left', 'right'] as const).map(side => ({ name: NAME[side], open: side === openSide, ...SPOT[side] }));
 }
+const otherSide = (s: Side): Side => (s === 'left' ? 'right' : 'left');
 
 /** Turns the engine's shot result (goal units ×1000) into the scene animation. */
 function toAnim(o: Extract<ChanceOutcome, { x: number }>): ShotAnim {
@@ -52,7 +54,8 @@ export default function Mac() {
   const assisted = useGame(s => s.assisted);
   const tutorial = useGame(s => s.tutorial);
   const scene = useRef<ShotSceneHandle>(null);
-  const power = useRef<PowerBarHandle>(null);
+  const duel = useRef<DefenseSceneHandle>(null);
+  const bar = useRef<SkillBarHandle>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [card, setCard] = useState<Card | null>(null);
   const [ticker, setTicker] = useState<string | null>(null);
@@ -73,62 +76,88 @@ export default function Mac() {
   }, []);
 
   const moment = match ? match.plan.moments[match.i] : undefined;
-  const forced = moment?.kind === 'freekick';
-  const assistedNow = forced || assisted;
+  const shooting = moment?.kind === 'shot' || moment?.kind === 'freekick';
 
   // Coach line at the start of each moment.
   useEffect(() => {
     if (!moment || card) return;
     setLine(moment.kind === 'pass' ? t('match.coach.pass')
-      : forced ? t('match.coach.freekick')
-        : assisted ? t('match.coach.assisted')
-          : tutorial && match?.i === 0 ? t('match.coach.first')
-            : t('match.coach.swipe'));
-  }, [moment, forced, assisted, card, tutorial, match?.i]);
+      : moment.kind === 'defense' ? t('match.coach.defense')
+        : moment.kind === 'freekick' ? t('match.coach.freekick')
+          : assisted ? t('match.coach.assisted')
+            : tutorial && match?.i === 0 ? t('match.coach.first')
+              : t('match.coach.aim'));
+  }, [moment, assisted, card, tutorial, match?.i]);
 
   if (leaving.current) return null;
   if (!match && !card && finishing === 'no') return <Redirect href="/" />;
 
-  const shoot = async (input: { tx: number; ty: number; power: number }) => {
+  const shoot = async (aim: Target) => {
     if (busy || !match) return;
+    const power = bar.current?.stop() ?? 0;
     setBusy(true);
     const o = useGame.getState().play({
       chance: match.i,
       shot: {
-        aim: Math.round(clamp(input.tx, -1, 1) * 1000),
-        lift: Math.round(clamp(input.ty, 0, 1) * 1000),
-        power: Math.round(clamp(input.power, 0, 1) * 1000),
+        aim: Math.round(clamp(aim.tx, -1, 1) * 1000),
+        lift: Math.round(clamp(aim.ty, 0, 1) * 1000),
+        ...(assisted ? { power: TIMING_TARGET, assisted: true } : { power }),
       },
     });
-    if (o.kind === 'pass') return;
+    if (o.kind !== 'shot' && o.kind !== 'freekick') return;
     const res = toAnim(o);
-    sfx(input.power > 0.7 ? 'kick_power' : 'kick');
+    sfx(o.perfect ? 'kick_power' : 'kick');
     await scene.current?.animateShot(res);
     const [hit, crowd] = IMPACT[res.out];
     sfx(hit);
     if (hit !== crowd) sfx(crowd);
     setTarget(null);
     const goal = o.outcome === 'goal';
-    setCard({ good: goal, title: SHOT_TEXT[res.out], desc: goal ? t('match.goalDesc', { delta: delta(1) }) : t('match.missDesc', { delta: delta(-0.5) }), icon: goal ? 'ball' : 'x' });
-    if (goal) { buzz('success'); impact.shake(); duckMusic(2400); setLine(t('match.coach.goal')); }
-    else if (moment?.kind === 'shot' && !assisted) { setLine(t('match.coach.missNudge')); setNudge(true); }
+    const rated = goal ? t('match.goalDesc', { delta: delta(1) }) : t('match.missDesc', { delta: delta(-0.5) });
+    setCard({ good: goal, title: SHOT_TEXT[res.out], desc: o.perfect ? t('match.perfectDesc', { rest: rated }) : rated, icon: goal ? 'ball' : 'x' });
+    if (goal) { buzz('success'); impact.shake(); duckMusic(2400); setLine(o.perfect ? t('match.coach.perfect') : t('match.coach.goal')); }
+    else if (o.outcome === 'saved' && Math.abs(o.x) < 400) setLine(t('match.coach.readByKeeper'));
+    else if (!assisted && !o.perfect) { setLine(t('match.coach.missNudge')); setNudge(true); }
     else setLine(t('match.coach.miss'));
   };
 
   const pass = async (mate: Mate) => {
     if (busy || !match || !moment?.openSide) return;
+    const timing = bar.current?.stop() ?? 0;
     setBusy(true);
-    const side: Side = mate.open ? moment.openSide : moment.openSide === 'left' ? 'right' : 'left';
-    const o = useGame.getState().play({ chance: match.i, pass: side });
+    const side: Side = mate.open ? moment.openSide : otherSide(moment.openSide);
+    const o = useGame.getState().play({ chance: match.i, pass: side, timing });
+    const late = Math.abs(timing - TIMING_TARGET) > TIMED;
     sfx('kick');
     await scene.current?.animatePass(mate.x, mate.y);
     const ok = o.outcome === 'assist';
     if (ok) { sfx('net'); sfx('crowd_cheer', 0.7); duckMusic(2000); } else sfx('crowd_groan');
     setCard({
       good: ok, title: ok ? t('match.assist') : t('match.lostBall'), icon: ok ? 'check' : 'x',
-      desc: ok ? t('match.assistDesc', { delta: delta(0.7) }) : mate.open ? t('match.cutDesc', { delta: delta(-0.3) }) : t('match.markedDesc', { delta: delta(-0.3) }),
+      desc: ok ? t('match.assistDesc', { name: NAME[side], delta: delta(0.7) })
+        : mate.open ? t('match.cutDesc', { delta: delta(-0.3) }) : t('match.markedDesc', { name: mate.name, delta: delta(-0.3) }),
     });
-    setLine(ok ? t('match.coach.assistOk') : mate.open ? t('match.coach.passUnlucky') : t('match.coach.passMarked'));
+    setLine(ok ? t('match.coach.assistOk') : !mate.open ? t('match.coach.passMarked', { name: mate.name })
+      : late ? t('match.coach.passLate') : t('match.coach.passUnlucky'));
+  };
+
+  const slide = async (dir: Side) => {
+    if (busy || !match || !moment?.attackSide) return;
+    const timing = bar.current?.stop() ?? 0;
+    setBusy(true);
+    const o = useGame.getState().play({ chance: match.i, defense: dir, timing });
+    if (o.kind !== 'defense') return;
+    sfx('kick');
+    await duel.current?.animate(o.outcome, moment.attackSide, dir);
+    const stopped = o.outcome === 'stopped';
+    if (stopped) { sfx('crowd_cheer', 0.7); buzz('success'); } else sfx(o.outcome === 'conceded' ? 'net' : 'crowd_groan');
+    setCard({
+      good: o.outcome !== 'conceded', icon: stopped ? 'check' : o.outcome === 'conceded' ? 'x' : 'check',
+      title: t(`match.defense.${o.outcome}`),
+      desc: stopped ? t('match.defense.stoppedDesc', { delta: delta(0.5) }) : t(`match.defense.${o.outcome}Desc`),
+    });
+    const late = Math.abs(timing - TIMING_TARGET) > TIMED;
+    setLine(stopped ? t('match.coach.stopped') : dir !== moment.attackSide ? t('match.coach.wrongSide') : late ? t('match.coach.slideLate') : t('match.coach.beaten'));
   };
 
   const finish = async () => {
@@ -182,17 +211,17 @@ export default function Mac() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <Reanimated.View style={[{ height: sceneH }, impact.style]}>
-        {moment && (
+        {moment?.kind === 'defense' && moment.attackSide ? (
+          <DefenseScene key={m?.i} ref={duel} attackSide={moment.attackSide} />
+        ) : moment && (
           <ShotScene
             key={m?.i}
             ref={scene}
-            mode={busy || card ? 'none' : moment.kind === 'pass' ? 'none' : assistedNow ? 'assisted' : 'swipe'}
-            wall={forced}
+            mode={busy || card || !shooting ? 'none' : 'aim'}
+            wall={moment.kind === 'freekick'}
             mates={moment.kind === 'pass' && moment.openSide && !card && !busy ? matesFor(moment.openSide) : undefined}
             onMate={pass}
             onTarget={setTarget}
-            onSwipe={shoot}
-            onShort={() => setLine(t('match.coach.short'))}
           />
         )}
 
@@ -241,15 +270,28 @@ export default function Mac() {
           </View>
         )}
 
-        {target && !card && !busy && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <PowerBar ref={power} key={`${target.tx},${target.ty}`} />
-            <Cta style={{ width: 104, height: 48 }} onPress={() => { const p = power.current?.stop() ?? 0.5; void shoot({ ...target, power: p }); }}>{t('match.shoot')}</Cta>
+        {/* One timing bar per moment, keyed so it restarts on the next one. */}
+        {shooting && target && !card && !busy && (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
+            <SkillBar key={`shot${m?.i}${assisted}`} ref={bar} locked={assisted} label={t('match.bar.power')} hint={assisted ? t('match.bar.assisted') : t('match.bar.perfectShot')} />
+            <Cta style={{ width: 104, height: 48 }} onPress={() => void shoot(target)}>{t('match.shoot')}</Cta>
+          </View>
+        )}
+        {moment?.kind === 'pass' && !card && !busy && finishing === 'no' && (
+          <SkillBar key={`pass${m?.i}`} ref={bar} label={t('match.bar.pass')} hint={t('match.bar.passHint')} />
+        )}
+        {moment?.kind === 'defense' && !card && !busy && finishing === 'no' && (
+          <View style={{ gap: 12 }}>
+            <SkillBar key={`def${m?.i}`} ref={bar} speed={1.1} label={t('match.bar.slide')} hint={t('match.bar.slideHint')} />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <SlideButton dir="left" onPress={() => void slide('left')} />
+              <SlideButton dir="right" onPress={() => void slide('right')} />
+            </View>
           </View>
         )}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 'auto' }}>
-          {moment?.kind === 'shot' && !card && finishing === 'no' ? (
+          {shooting && !card && finishing === 'no' ? (
             <AssistToggle on={assisted} nudge={nudge} onPress={() => { if (busy) return; setTarget(null); setNudge(false); useGame.getState().setAssisted(!assisted); }} />
           ) : <View />}
           {card && finishing === 'no' && <Cta style={{ width: 150, height: 48 }} onPress={next}>{t('common.continue')}</Cta>}
@@ -276,6 +318,26 @@ function ResultCard({ card }: { card: Card }) {
         <T w={600} size={15} color={card.good ? colors.l500 : colors.bad} style={{ marginTop: 6 }}>{card.desc}</T>
       </Animated.View>
     </View>
+  );
+}
+
+function SlideButton({ dir, onPress }: { dir: Side; onPress(): void }) {
+  return (
+    <Pressable
+      accessibilityRole="button" onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1, height: 56, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: pressed ? colors.l600 : colors.s2,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      })}
+    >
+      {({ pressed }) => (
+        <>
+          {dir === 'left' && <Icon name="back" size={20} color={pressed ? colors.ink : colors.g100} />}
+          <T w={600} size={17} color={pressed ? colors.ink : colors.g100}>{dir === 'left' ? t('match.slideLeft') : t('match.slideRight')}</T>
+          {dir === 'right' && <Icon name="chev" size={20} color={pressed ? colors.ink : colors.g100} />}
+        </>
+      )}
+    </Pressable>
   );
 }
 

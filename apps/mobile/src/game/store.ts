@@ -2,7 +2,7 @@ import {
   computeRating, currentEnergy, DEFAULT_CONFIG, levelForXp, matchReward,
 } from '@streetborn/economy';
 import {
-  planMatch, playChance, simulateMatch,
+  ENGINE_VERSION, planMatch, playChance, simulateMatch,
   type ChanceInput, type ChanceOutcome, type MatchPlan, type MatchSetup, type MomentKind, type TeamResult,
 } from '@streetborn/engine';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -48,7 +48,7 @@ export interface LiveMatch {
   matchId: string | null;
   setup: MatchSetup;
   plan: MatchPlan;
-  /** Index of the moment being played. */
+  /** Index of the moment being played (attacking chances and defense moments). */
   i: number;
   inputs: ChanceInput[];
   outcomes: (ChanceOutcome | null)[];
@@ -108,9 +108,13 @@ interface GameState {
 
 /** Team score so far: the player's goals and assists, and the opponent goals before `minute`. */
 export function liveScore(m: LiveMatch, minute: number) {
-  let us = 0;
-  for (const o of m.outcomes) if (o && (o.outcome === 'goal' || o.outcome === 'assist')) us++;
-  return { us, them: m.plan.opponentGoals.filter(g => g < minute).length };
+  let us = 0, conceded = 0;
+  for (const o of m.outcomes) {
+    if (!o) continue;
+    if (o.kind === 'defense') { if (o.outcome === 'conceded') conceded++; }
+    else if (o.outcome === 'goal' || o.outcome === 'assist') us++;
+  }
+  return { us, them: m.plan.opponentGoals.filter(g => g < minute).length + conceded };
 }
 
 const CONNECT_TIMEOUT_MS = 8000;
@@ -210,7 +214,7 @@ export const useGame = create<GameState>()((set, get) => ({
   pendingInvite: null,
   club: t('club.home'),
   level: 7,
-  xp: 2215,
+  xp: 3100,
   coins: 1240,
   gems: 30,
   energy: 4,
@@ -330,17 +334,18 @@ export const useGame = create<GameState>()((set, get) => ({
       }
     } else {
       setup = {
-        seed: randomSeed(), chances: config.matchChances,
+        engineVersion: ENGINE_VERSION, seed: randomSeed(), chances: config.matchChances,
         shooting: clamp(s.stats.sut, 1, 100), passing: clamp(s.stats.pas, 1, 100),
         opponentGoalkeeping: Math.min(95, 35 + s.level * 2), opponentAttack: Math.min(95, 30 + s.level * 2),
       };
       const wasFull = s.energy >= s.energyMax;
       set({ energy: s.energy - config.matchEnergyCost, energyUpdatedAt: wasFull ? Date.now() : s.energyUpdatedAt });
     }
+    const plan = planMatch(setup);
     set({
       match: {
-        matchId, setup, plan: planMatch(setup), i: 0, inputs: [],
-        outcomes: Array.from({ length: setup.chances }, () => null), startedAt: Date.now(),
+        matchId, setup, plan, i: 0, inputs: [],
+        outcomes: plan.moments.map(() => null), startedAt: Date.now(),
       },
     });
     return 'ok';

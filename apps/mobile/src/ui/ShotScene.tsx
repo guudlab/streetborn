@@ -4,7 +4,6 @@ import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Polygon, Pol
 
 import { clamp } from '../game/rules.ts';
 import { colors } from '../theme.ts';
-import { Icon } from './Icon.tsx';
 import { T } from './kit.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -32,13 +31,12 @@ export interface ShotSceneHandle {
 }
 
 interface Props {
-  mode: 'swipe' | 'assisted' | 'none';
+  /** `aim`: tap or drag on the goal to pick the target. */
+  mode: 'aim' | 'none';
   wall?: boolean;
   mates?: Mate[];
   onMate?(m: Mate): void;
   onTarget?(t: Target): void;
-  onSwipe?(shot: { tx: number; ty: number; power: number }): void;
-  onShort?(): void;
 }
 
 // Static crowd dots in the stands (same pseudo-random pattern as the prototype).
@@ -95,7 +93,7 @@ const Wall = () => (
   </G>
 );
 
-export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({ mode, wall, mates, onMate, onTarget, onSwipe, onShort }, ref) {
+export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({ mode, wall, mates, onMate, onTarget }, ref) {
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [ball, setBall] = useState({ x: GOAL.ballX, y: GOAL.ballY, s: 1 });
   const [keeper, setKeeper] = useState({ x: 0, y: 0, rot: 0 });
@@ -109,8 +107,8 @@ export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({
   const toSvg = (px: number, py: number) => ({ x: (px - ox) / k, y: (py - oy) / k });
   const kRef = useRef({ k, toSvg });
   kRef.current = { k, toSvg };
-  const props = useRef({ mode, onTarget, onSwipe, onShort });
-  props.current = { mode, onTarget, onSwipe, onShort };
+  const props = useRef({ mode, onTarget });
+  props.current = { mode, onTarget };
 
   const run = (dur: number, frame: (e: number, k: number) => void) => new Promise<void>(resolve => {
     cancelAnimationFrame(raf.current);
@@ -158,44 +156,22 @@ export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({
     },
   }));
 
+  // Tap or drag anywhere around the goal mouth; the target follows the finger.
   const pan = useMemo(() => {
-    let start: { x: number; y: number; t: number } | null = null;
-    const vec = (dx: number, dy: number) => ({ tx: clamp(dx / 70, -1.4, 1.4), ty: clamp((-dy - 60) / 260, 0, 1.3) });
+    const aimAt = (px: number, py: number) => {
+      const p = kRef.current.toSvg(px, py);
+      if (p.y > GOAL.ground + 60 || p.y < GOAL.top - 60) return;
+      const t = { tx: clamp((p.x - 195) / 100, -0.98, 0.98), ty: clamp((GOAL.ground - p.y) / (GOAL.ground - GOAL.top), 0.05, 0.95) };
+      setAimState(t);
+      props.current.onTarget?.(t);
+    };
     return PanResponder.create({
       onStartShouldSetPanResponder: (e) => {
-        const { mode } = props.current;
-        if (busy.current || mode === 'none') return false;
-        const p = kRef.current.toSvg(e.nativeEvent.locationX, e.nativeEvent.locationY);
-        if (mode === 'assisted') {
-          if (p.y < GOAL.ground + 30 && p.y > GOAL.top - 40) {
-            const t = { tx: clamp((p.x - 195) / 100, -0.98, 0.98), ty: clamp((GOAL.ground - p.y) / (GOAL.ground - GOAL.top), 0.05, 0.95) };
-            setAimState(t);
-            props.current.onTarget?.(t);
-          }
-          return false;
-        }
-        if (Math.hypot(p.x - GOAL.ballX, p.y - GOAL.ballY) > 90) return false;
-        start = { ...p, t: Date.now() };
+        if (busy.current || props.current.mode !== 'aim') return false;
+        aimAt(e.nativeEvent.locationX, e.nativeEvent.locationY);
         return true;
       },
-      onPanResponderMove: (_e, g) => {
-        if (!start) return;
-        const s = kRef.current.k;
-        const dy = -g.dy / s;
-        if (dy < 10) { setAimState(null); return; }
-        setAimState(vec(g.dx / s, g.dy / s));
-      },
-      onPanResponderRelease: (_e, g) => {
-        if (!start) return;
-        const s = kRef.current.k;
-        const dx = g.dx / s, dy = -g.dy / s;
-        const dt = Math.max(60, Date.now() - start.t);
-        start = null;
-        if (dy < 40) { setAimState(null); props.current.onShort?.(); return; }
-        const power = clamp(0.35 + (dy / dt) * 0.18, 0.2, 1);
-        props.current.onSwipe?.({ ...vec(dx, g.dy / s), power });
-      },
-      onPanResponderTerminate: () => { start = null; setAimState(null); },
+      onPanResponderMove: (e) => aimAt(e.nativeEvent.locationX, e.nativeEvent.locationY),
     });
   }, []);
 
@@ -236,21 +212,18 @@ export const ShotScene = forwardRef<ShotSceneHandle, Props>(function ShotScene({
 
       {mates?.map(m => (
         <Pressable
-          key={m.name} accessibilityRole="button" accessibilityLabel={t('match.mateA11y', { name: m.name, state: m.open ? t('match.openA11y') : t('match.markedA11y') })}
+          key={m.name} accessibilityRole="button" accessibilityLabel={m.open ? m.name : t('match.mateMarkedA11y', { name: m.name })}
           onPress={() => onMate?.(m)}
           style={{ position: 'absolute', left: ox + m.x * k - 50, top: oy + m.y * k - 40, width: 100, alignItems: 'center', gap: 6 }}
         >
-          <View style={{
-            width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: m.open ? 'rgba(207,253,92,.25)' : 'rgba(255,107,90,.25)',
-          }}>
-            <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: m.open ? colors.l600 : colors.g200 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(207,253,92,.18)' }}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.l600 }}>
               <T w={700} size={15} color={colors.ink}>{m.name}</T>
             </View>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 10, backgroundColor: 'rgba(13,13,13,.8)' }}>
-            <Icon name={m.open ? 'check' : 'x'} size={14} color={m.open ? colors.l600 : colors.bad} />
-            <T w={600} size={12}>{m.open ? t('match.open') : t('match.marked')}</T>
+            {/* The cue to read: an away shirt tight on the marked teammate. */}
+            {!m.open && (
+              <View style={{ position: 'absolute', right: m.x < GOAL.ballX ? -12 : undefined, left: m.x < GOAL.ballX ? undefined : -12, top: -6, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.awayCrest, borderWidth: 2, borderColor: colors.awayCrestText }} />
+            )}
           </View>
         </Pressable>
       ))}

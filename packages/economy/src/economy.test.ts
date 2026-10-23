@@ -70,14 +70,23 @@ describe('computeRating', () => {
     expect(computeRating({ goals: 9, assists: 0, missed: 0, lost: 0, result: 'W' })).toBe(100);
     expect(computeRating({ goals: 0, assists: 0, missed: 12, lost: 0, result: 'L' })).toBe(10);
   });
+
+  it('adds 0.5 per stopped attack and caps assisted matches at 7.0', () => {
+    expect(computeRating({ goals: 1, assists: 0, missed: 0, lost: 0, result: 'W', defenseStops: 2 })).toBe(83);
+    expect(computeRating({ goals: 2, assists: 0, missed: 0, lost: 0, result: 'W', assistedShots: 1 })).toBe(70);
+    expect(computeRating({ goals: 0, assists: 0, missed: 1, lost: 0, result: 'D', assistedShots: 1 })).toBe(55);
+  });
 });
 
 describe('levels', () => {
-  it('uses 100 · n^1.5', () => {
-    expect(xpNeed(8)).toBe(2263);
+  it('uses 60 · (n² − 1) up to the level cap', () => {
+    expect(xpNeed(1)).toBe(0);
+    expect(xpNeed(5)).toBe(1440);
     expect(levelForXp(0)).toBe(1);
-    expect(levelForXp(2262)).toBe(7);
-    expect(levelForXp(2263)).toBe(8);
+    expect(levelForXp(1439)).toBe(4);
+    expect(levelForXp(1440)).toBe(5);
+    expect(levelForXp(10_000_000)).toBe(config.levelCap);
+    expect(levelForXp(1440, { xpCurveA: 100, levelCap: 60 })).toBe(3);
   });
 });
 

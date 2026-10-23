@@ -21,11 +21,22 @@ export interface EconomyConfig {
   xpPerRatingPoint: number;
   /** Coin a player can earn from matches per day; the rest is cut. */
   dailyMatchCoinCap: number;
+  /** Total XP for level n is xpCurveA · (n² − 1). */
+  xpCurveA: number;
+  levelCap: number;
 
   energyMax: number;
   /** Seconds to regenerate one energy point. */
   energyRegenSeconds: number;
   matchEnergyCost: number;
+  /** Fixture matches (mahalle maçı, lig maçı): once a day each, outside the daily coin cap. */
+  fixtureEnergyCost: number;
+
+  /** The first amateur club offer needs this level and this many finished matches, some of them mahalle matches. */
+  offerMinLevel: number;
+  offerMinMatches: number;
+  offerMinMahalleMatches: number;
+  leagueSeasonDays: number;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -51,10 +62,19 @@ export const DEFAULT_CONFIG: EconomyConfig = {
   xpPerAssist: 6,
   xpPerRatingPoint: 8,
   dailyMatchCoinCap: 600,
+  // GDD v3.1 decisions (Kaan, 2026-10-23): 1A first offer, 2A season length, 3A XP curve, 4B fixture energy.
+  xpCurveA: 60,
+  levelCap: 60,
 
   energyMax: 5,
   energyRegenSeconds: 20 * 60,
   matchEnergyCost: 1,
+  fixtureEnergyCost: 1,
+
+  offerMinLevel: 5,
+  offerMinMatches: 10,
+  offerMinMahalleMatches: 3,
+  leagueSeasonDays: 14,
 
   matchChances: 3,
   ticketTtlSeconds: 20 * 60,

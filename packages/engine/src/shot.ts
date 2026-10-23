@@ -9,8 +9,10 @@ export interface ShotInput {
   aim: number;
   /** Vertical target, 0 (ground) .. 1000 (crossbar). */
   lift: number;
-  /** Shot power, 0 .. 1000. */
+  /** Shot power, 0 .. 1000. Engine 3 reads it as the power-bar timing. */
   power: number;
+  /** Engine 3: the assisted option set the power; the shot is never perfect and caps the match rating. */
+  assisted?: boolean;
 }
 
 export type ShotOutcome = 'goal' | 'saved' | 'wide' | 'over';
