@@ -1,4 +1,4 @@
-export { DEFAULT_CONFIG, type CareerConfig, type EconomyConfig, type LeagueTier, type MahalleConfig } from './config.ts';
+export { DEFAULT_CONFIG, type CareerConfig, type EconomyConfig, type LeagueTier, type MahalleConfig, type TrainingConfig } from './config.ts';
 export type { Currency, ItemSource, MatchStatus, MatchTicket, MatchStats } from './types.ts';
 export { computeRating, ASSISTED_RATING_CAP, RATING_PER_DEFENSE_STOP, type RatingInput } from './rating.ts';
 export { xpNeed, levelForXp } from './levels.ts';
@@ -43,3 +43,14 @@ export {
   type OfferKind,
   type OfferProgress,
 } from './career.ts';
+export {
+  STAT_NAMES,
+  apNeed,
+  applyAp,
+  drillGain,
+  drillGrade,
+  privateCost,
+  statCap,
+  type DrillGrade,
+  type StatName,
+} from './training.ts';

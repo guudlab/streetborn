@@ -23,7 +23,14 @@ export async function loadEconomyConfig(): Promise<EconomyConfig> {
   const { data, error } = await admin.from('config').select('value').eq('key', 'economy').maybeSingle();
   if (error) throw error;
   const live = data?.value ?? {};
-  return { ...DEFAULT_CONFIG, ...live, mahalle: { ...DEFAULT_CONFIG.mahalle, ...(live.mahalle ?? {}) } };
+  // Grouped blocks merge key by key, so a live override of one number keeps the rest.
+  return {
+    ...DEFAULT_CONFIG,
+    ...live,
+    mahalle: { ...DEFAULT_CONFIG.mahalle, ...(live.mahalle ?? {}) },
+    career: { ...DEFAULT_CONFIG.career, ...(live.career ?? {}) },
+    training: { ...DEFAULT_CONFIG.training, ...(live.training ?? {}) },
+  };
 }
 
 export function randomSeed(): number {

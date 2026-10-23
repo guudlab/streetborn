@@ -226,3 +226,24 @@ do $$ declare k jsonb := kariyer(); begin
   raise notice 'career rls: ok';
 end $$;
 reset role;
+
+-- Training: free drills limit, private session coin, stale-snapshot retry.
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000106'; w record; begin
+  select * into w from wallets where player_id = p;
+  perform apply_training(p, 'free', 'shooting', 'perfect', 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 30, 1, 0, 3, w.version, w.energy, w.energy_updated_at);
+  perform apply_training(p, 'free', 'shooting', 'good', 40::smallint, 2::smallint, 41::smallint, 0::smallint, 1::smallint, 20, 1, 0, 3, w.version, w.energy, w.energy_updated_at);
+  perform apply_training(p, 'free', 'passing', 'miss', 40::smallint, 0::smallint, 40::smallint, 0::smallint, 0::smallint, 8, 1, 0, 3, w.version, w.energy, w.energy_updated_at);
+  begin perform apply_training(p, 'free', 'passing', 'miss', 40::smallint, 0::smallint, 40::smallint, 0::smallint, 0::smallint, 8, 1, 0, 3, w.version, w.energy, w.energy_updated_at); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'limit' then raise; end if; end;
+  begin perform apply_training(p, 'free', 'shooting', 'good', 40::smallint, 0::smallint, 40::smallint, 1::smallint, 1::smallint, 20, 1, 0, null, w.version, w.energy, w.energy_updated_at); raise exception 'should have failed';
+  exception when serialization_failure then null; end;
+  if (select shooting from player_stats where player_id = p) <> 41 or (select xp from players where id = p) <> 58 then raise exception 'training not applied'; end if;
+  begin perform apply_training(p, 'private', 'pace', null, 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 15, 1, 100, 5, w.version, w.energy, w.energy_updated_at); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_coin' then raise; end if; end;
+  perform grant_currency(p, 'coin', 150, 'test', 'x', 'test:train');
+  perform apply_training(p, 'private', 'pace', null, 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 15, 1, 100, 5, w.version, w.energy, w.energy_updated_at);
+  if (select coin from wallets where player_id = p) <> 50 then raise exception 'private session cost wrong'; end if;
+  raise notice 'training: ok';
+end $$;
+reset role;

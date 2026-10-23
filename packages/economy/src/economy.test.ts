@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  apNeed,
+  applyAp,
+  drillGain,
+  drillGrade,
+  privateCost,
+  statCap,
   checkName,
   dailySalary,
   firstOffers,
@@ -272,5 +278,30 @@ describe('club career', () => {
     expect(seasonPrize(3, 0, config)).toBe(210);
     expect(seasonPrize(4, 0, config)).toBe(0);
     expect(dailySalary(700)).toBe(100);
+  });
+});
+
+describe('training', () => {
+  const tc = config.training;
+
+  it('follows the GDD tables', () => {
+    expect([45, 60, 70, 85].map((s) => apNeed(s, tc))).toEqual([3, 4, 5, 6]);
+    expect([5, 12, 20, 30, 60].map((l) => statCap(l, tc))).toEqual([57, 68, 80, 95, 99]);
+    expect([45, 55, 60, 65].map((s) => privateCost(s, tc))).toEqual([140, 220, 260, 300]);
+  });
+
+  it('grades drills and ignores implausibly fast ones', () => {
+    expect(drillGrade(90, 2000, tc)).toBe('perfect');
+    expect(drillGrade(60, 2000, tc)).toBe('good');
+    expect(drillGrade(20, 2000, tc)).toBe('miss');
+    expect(drillGrade(100, 100, tc)).toBe('miss');
+    expect(drillGain('perfect', tc)).toEqual({ ap: 2, xp: 30 });
+  });
+
+  it('turns AP into points and holds them at the cap', () => {
+    expect(applyAp(45, 2, 2, 5, config)).toEqual({ stat: 46, ap: 1, ups: 1 });
+    expect(applyAp(59, 2, 6, 10, config)).toEqual({ stat: 61, ap: 1, ups: 2 }); // 3 AP for 59→60, 4 for 60→61
+    expect(applyAp(57, 0, 20, 5, config)).toEqual({ stat: 57, ap: 3, ups: 0 }); // level 5 cap is 57
+    expect(applyAp(57, 3, 0, 6, config)).toEqual({ stat: 58, ap: 0, ups: 1 }); // the cap rose to 59
   });
 });
