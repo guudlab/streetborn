@@ -3,7 +3,7 @@ import { Asset } from 'expo-asset';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 // A rigged or static Meshy model, shown on a transparent GL surface.
 // Native draws through expo-gl; the browser has no expo-gl backend, so web
@@ -35,6 +35,7 @@ export function Model3D({ model, fallback, loop = false, spin = false, style, la
 
 function Web({ model, fallback, loop, spin, style, label }: Props) {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
   const host = useRef<React.ComponentRef<typeof View>>(null);
 
   useEffect(() => {
@@ -51,8 +52,10 @@ function Web({ model, fallback, loop, spin, style, label }: Props) {
         dispose = d.dispose;
         setReady(true);
       })
-      .catch(() => {
-        // No WebGL or a failed load: the PNG stays.
+      .catch((e: unknown) => {
+        // No WebGL or a failed load: the PNG stays. Add ?3ddebug to the URL to see why.
+        console.warn('Model3D failed', e);
+        if (/3ddebug/.test(window.location.search) && !cancelled) setError(String((e as Error)?.stack ?? e).slice(0, 300));
       });
     return () => {
       cancelled = true;
@@ -64,6 +67,7 @@ function Web({ model, fallback, loop, spin, style, label }: Props) {
   return (
     <View ref={host} style={style} accessibilityLabel={label} accessibilityRole="image">
       <Image source={fallback} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: ready ? 0 : 1 }} contentFit="contain" />
+      {error ? <Text style={{ position: 'absolute', left: 0, right: 0, bottom: 0, color: '#f66', fontSize: 9 }}>{error}</Text> : null}
     </View>
   );
 }
