@@ -1,13 +1,15 @@
 import { Image, type ImageSource } from 'expo-image';
 import { Asset } from 'expo-asset';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
+import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
 
 // A rigged or static Meshy model, shown on a transparent GL surface.
-// expo-gl has no web backend, so the browser preview shows the image instead.
-// three.js and the meshopt decoder (~700 KB) load with the first model, not
-// with the app, and never on the web.
+// Native draws through expo-gl; the browser has no expo-gl backend, so web
+// renders into a plain <canvas> with the same scene code. The PNG shows while
+// loading and stays if WebGL is unavailable. three.js and the meshopt decoder
+// (~700 KB) load with the first model, not with the app.
 
 const load3d = () => import('./three3d.ts');
 
@@ -26,9 +28,44 @@ interface Props {
 
 export function Model3D({ model, fallback, loop = false, spin = false, style, label }: Props) {
   if (Platform.OS === 'web') {
-    return <Image source={fallback} style={style as StyleProp<ImageStyle>} contentFit="contain" accessibilityLabel={label} />;
+    return <Web model={model} fallback={fallback} loop={loop} spin={spin} style={style} label={label} />;
   }
   return <Native model={model} fallback={fallback} loop={loop} spin={spin} style={style} label={label} />;
+}
+
+function Web({ model, fallback, loop, spin, style, label }: Props) {
+  const [ready, setReady] = useState(false);
+  const host = useRef<React.ComponentRef<typeof View>>(null);
+
+  useEffect(() => {
+    const el = host.current as unknown as HTMLElement | null;
+    if (!el) return;
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+    el.appendChild(canvas);
+    void setupWeb(canvas, el, model, { loop, spin })
+      .then((d) => {
+        if (cancelled) return d.dispose();
+        dispose = d.dispose;
+        setReady(true);
+      })
+      .catch(() => {
+        // No WebGL or a failed load: the PNG stays.
+      });
+    return () => {
+      cancelled = true;
+      dispose?.();
+      canvas.remove();
+    };
+  }, [model, loop, spin]);
+
+  return (
+    <View ref={host} style={style} accessibilityLabel={label} accessibilityRole="image">
+      <Image source={fallback} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: ready ? 0 : 1 }} contentFit="contain" />
+    </View>
+  );
 }
 
 function Native({ model, fallback, loop, spin, style, label }: Props) {
@@ -53,18 +90,50 @@ function Native({ model, fallback, loop, spin, style, label }: Props) {
   );
 }
 
-/** Loads the model, sets up a three.js scene on the GL context and starts the render loop. */
-async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?: boolean; spin?: boolean }) {
-  const { THREE, GLTFLoader, MeshoptDecoder } = await load3d();
-  const { width, height } = { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
+type Three = Awaited<ReturnType<typeof load3d>>;
 
-  const renderer = new THREE.WebGLRenderer({
+/** Native: three.js on the expo-gl context. */
+async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?: boolean; spin?: boolean }) {
+  const three = await load3d();
+  const { width, height } = { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
+  const renderer = new three.THREE.WebGLRenderer({
     canvas: { width, height, style: {}, addEventListener() {}, removeEventListener() {}, clientHeight: height, getContext: () => gl } as unknown as HTMLCanvasElement,
     context: gl,
     alpha: true,
   } as ConstructorParameters<typeof import('three').WebGLRenderer>[0]);
-  renderer.setClearColor(0x000000, 0);
   renderer.setSize(width, height);
+  const asset = Asset.fromModule(model);
+  await asset.downloadAsync();
+  return run(three, renderer, await fetchBytes(asset.localUri ?? asset.uri), width, height, opt, () => gl.endFrameEXP());
+}
+
+/** Web: three.js on a <canvas> that fills its host element. */
+async function setupWeb(canvas: HTMLCanvasElement, host: HTMLElement, model: number, opt: { loop?: boolean; spin?: boolean }) {
+  const three = await load3d();
+  const renderer = new three.THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const width = Math.max(host.clientWidth, 1);
+  const height = Math.max(host.clientHeight, 1);
+  renderer.setSize(width, height, false);
+  const bytes = await fetchBytes(Asset.fromModule(model).uri);
+  return run(three, renderer, bytes, width, height, opt);
+}
+
+async function fetchBytes(uri: string) {
+  return (await fetch(uri)).arrayBuffer();
+}
+
+/** Parses the model, frames it and starts the render loop on an existing renderer. */
+async function run(
+  { THREE, GLTFLoader, MeshoptDecoder }: Three,
+  renderer: import('three').WebGLRenderer,
+  bytes: ArrayBuffer,
+  width: number,
+  height: number,
+  opt: { loop?: boolean; spin?: boolean },
+  present?: () => void,
+) {
+  renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 100);
@@ -72,10 +141,6 @@ async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?:
   const key = new THREE.DirectionalLight(0xffffff, 1.6);
   key.position.set(2, 4, 3);
   scene.add(key);
-
-  const asset = Asset.fromModule(model);
-  await asset.downloadAsync();
-  const bytes = await (await fetch(asset.localUri ?? asset.uri)).arrayBuffer();
 
   await MeshoptDecoder.ready;
   const loader = new GLTFLoader();
@@ -87,13 +152,16 @@ async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?:
   const root = gltf.scene;
   scene.add(root);
 
-  // Centre the model and frame it from the front, whatever its origin.
+  // Centre the model and fit its bounding box, so wide models are not cropped.
+  // A spinning model sweeps a circle, so use its horizontal diagonal as the width.
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
   root.position.sub(centre);
-  const dist = (size.y / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.12;
-  camera.position.set(0, 0, dist);
+  const halfW = opt.spin ? Math.hypot(size.x, size.z) / 2 : size.x / 2;
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const fit = Math.max(size.y / 2 / tanV, halfW / (tanV * camera.aspect));
+  camera.position.set(0, 0, fit * 1.12 + (opt.spin ? 0 : size.z / 2));
   camera.lookAt(0, 0, 0);
 
   let mixer: import('three').AnimationMixer | null = null;
@@ -110,7 +178,7 @@ async function setup(gl: ExpoWebGLRenderingContext, model: number, opt: { loop?:
     mixer?.update(dt);
     if (opt.spin) root.rotation.y += dt * 0.5;
     renderer.render(scene, camera);
-    gl.endFrameEXP();
+    present?.();
   };
   tick();
 
