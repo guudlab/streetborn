@@ -64,7 +64,7 @@ function LocalOffers() {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ ...pad, paddingBottom: TAB_BAR_SPACE + insets.bottom + 90 }}>
         <View><Caps>{t('offers.scoutReport')}</Caps><H1 style={{ marginTop: 4 }}>{t('offers.count')}</H1></View>
-        <Model3D model={require('../../../assets/models/diorama-saha.glb')} fallback={require('../../../assets/meshy/diorama-saha.webp')} spin style={{ width: 140, height: 120, alignSelf: 'center' }} label={t('offers.pitch')} />
+        <Model3D model={require('../../../assets/models/diorama-saha.glb')} fallback={require('../../../assets/meshy/diorama-saha.webp')} poster={require('../../../assets/meshy/diorama-saha.webp')} spin style={{ width: 140, height: 120, alignSelf: 'center' }} label={t('offers.pitch')} />
         <View accessibilityRole="radiogroup" style={{ gap: 12 }}>
           {OFFERS.map(o => {
             const on = o.id === sel;

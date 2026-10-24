@@ -41,7 +41,7 @@ export default function MahalleKod() {
     <Shell
       label={t('mahalle.label')}
       footer={<>
-        <Cta off={!preview} disabled={!preview || busy} onPress={join}>{t('mahalle.code.cta')}</Cta>
+        <Cta off={!preview} disabled={!preview} busy={busy} onPress={join}>{t('mahalle.code.cta')}</Cta>
         <T w={500} size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('mahalle.code.note')}</T>
       </>}
     >

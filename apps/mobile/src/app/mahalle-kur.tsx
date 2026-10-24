@@ -39,7 +39,7 @@ export default function MahalleKur() {
     <Shell
       label={t('mahalle.label')}
       footer={<>
-        <Cta off={!ready} disabled={!ready || busy} onPress={submit}>{t('mahalle.create.cta')}</Cta>
+        <Cta off={!ready} disabled={!ready} busy={busy} onPress={submit}>{t('mahalle.create.cta')}</Cta>
         <T w={500} size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('mahalle.create.note')}</T>
       </>}
     >

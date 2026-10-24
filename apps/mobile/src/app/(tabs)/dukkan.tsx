@@ -80,7 +80,7 @@ export default function Dukkan() {
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <View><Caps>{t('shop.eyebrow')}</Caps><H1 style={{ marginTop: 4 }}>{t('shop.title')}</H1></View>
-        <Model3D model={require('../../../assets/models/canta.glb')} fallback={require('../../../assets/meshy/canta.webp')} spin style={{ width: 56, height: 56 }} label={t('shop.bag')} />
+        <Model3D model={require('../../../assets/models/canta.glb')} fallback={require('../../../assets/meshy/canta.webp')} poster={require('../../../assets/meshy/canta.webp')} spin style={{ width: 56, height: 56 }} label={t('shop.bag')} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingLeft: 8, paddingRight: 12, borderRadius: 18, backgroundColor: colors.s2 }}>
           <Image source={require('../../../assets/meshy/gem.webp')} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /><T w={600} size={15}>{gems}</T>
         </View>

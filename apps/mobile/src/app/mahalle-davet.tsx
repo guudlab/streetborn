@@ -44,7 +44,7 @@ export default function MahalleDavet() {
     <Shell
       back={false} label={t('mahalle.invite.label')}
       footer={<>
-        {usable && <Cta disabled={busy} onPress={join}>{t('mahalle.invite.cta')}</Cta>}
+        {usable && <Cta busy={busy} onPress={join}>{t('mahalle.invite.cta')}</Cta>}
         <Ghost onPress={other}>{t('mahalle.invite.other')}</Ghost>
       </>}
     >

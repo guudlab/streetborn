@@ -1,0 +1,32 @@
+{
+ "rig": "clips/ciliz4-yuruyus.glb",
+ "mesh": "out/ciliz4-mesh.glb",
+ "out": "out/ciliz4.glb",
+ "clips": [
+  {
+   "name": "idle",
+   "src": "clips/karakter-street-idle.glb",
+   "lock": "full"
+  },
+  {
+   "name": "cheer",
+   "src": "clips/karakter-street-sevinc.glb",
+   "lock": "full",
+   "trim": [
+    0,
+    3.4
+   ]
+  },
+  {
+   "name": "dribble",
+   "src": "clips/karakter-street-top-surme.glb",
+   "lock": "spine"
+  },
+  {
+   "name": "kick",
+   "src": "clips/karakter-street-sut-soccer.glb",
+   "lock": "spine"
+  }
+ ],
+ "rename": "walk"
+}

@@ -380,8 +380,17 @@ export const useGame = create<GameState>()((set, get) => ({
   },
 
   async cheer(to, phrase) {
-    await cheerMate(to, phrase);
-    await get().refreshMahalleToday();
+    // The star lights at once; a refused cheer puts the card back.
+    const before = get().mahalleToday;
+    if (before) {
+      set({ mahalleToday: {
+        ...before,
+        cheersLeft: Math.max(0, before.cheersLeft - 1),
+        contributions: before.contributions.map(c => (c.playerId === to ? { ...c, cheered: true, cheers: c.cheers + 1 } : c)),
+      } });
+    }
+    try { await cheerMate(to, phrase); } catch (e) { set({ mahalleToday: before }); throw e; }
+    void get().refreshMahalleToday();
   },
 
   async refreshCareer() {
@@ -643,11 +652,15 @@ export const useGame = create<GameState>()((set, get) => ({
       set({ gems: s.gems - sc.refillGem, energy: s.energyMax, energyUpdatedAt: Date.now(), refillsLeft: s.refillsLeft - 1 });
       return 'ok';
     }
+    // Fill the bar at once; the server confirms in the background and a refusal rolls it back.
+    const before = { gems: s.gems, energy: get().energy, energyUpdatedAt: get().energyUpdatedAt, refillsLeft: s.refillsLeft };
+    set({ gems: s.gems - sc.refillGem, energy: s.energyMax, energyUpdatedAt: Date.now(), refillsLeft: s.refillsLeft - 1 });
     try {
       const r = await refillEnergy();
-      set({ gems: r.gem, energy: r.energy.energy, energyUpdatedAt: r.energy.updatedAt, refillsLeft: get().refillsLeft - 1 });
+      set({ gems: r.gem, energy: r.energy.energy, energyUpdatedAt: r.energy.updatedAt });
       return 'ok';
     } catch (e) {
+      set(before);
       if (e instanceof ApiError && (e.code === 'no_gem' || e.code === 'limit' || e.code === 'full')) {
         void get().refreshShop();
         return e.code;
@@ -685,8 +698,11 @@ export const useGame = create<GameState>()((set, get) => ({
   },
 
   async equip(id, on) {
-    await equipItem(id, on);
-    await get().refreshShop();
+    // Shown at once; a failed save puts the old state back.
+    const before = get().owned;
+    set({ owned: before.map(o => (o.id === id ? { ...o, equipped: on } : o)) });
+    try { await equipItem(id, on); } catch (e) { set({ owned: before }); throw e; }
+    void get().refreshShop();
   },
 
   setAssisted(v) { set({ assisted: v }); },

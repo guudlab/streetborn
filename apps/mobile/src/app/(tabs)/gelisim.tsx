@@ -72,7 +72,7 @@ export default function Gelisim() {
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <View><Caps>{t('train.eyebrow')}</Caps><H1 style={{ marginTop: 4 }}>{t('train.title')}</H1></View>
-        <Model3D model={require('../../../assets/models/ball.glb')} fallback={require('../../../assets/meshy/ball.webp')} spin style={{ width: 56, height: 56 }} label={t('train.ball')} />
+        <Model3D model={require('../../../assets/models/ball.glb')} fallback={require('../../../assets/meshy/ball.webp')} poster={require('../../../assets/meshy/ball.webp')} spin style={{ width: 56, height: 56 }} label={t('train.ball')} />
         <View style={{ alignItems: 'flex-end' }}><Caps>{t('train.overall')}</Caps><H1 style={{ marginTop: 4 }}>{ovr(g.stats)}</H1></View>
       </View>
 

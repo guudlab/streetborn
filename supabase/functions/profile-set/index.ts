@@ -7,7 +7,7 @@ import { admin, requirePlayer } from '../_shared/supabase.ts';
 const POSITIONS = ['bitirici', 'oyunKurucu', 'kanat'];
 const TRAITS = ['hirsli', 'sakin', 'caliskan', 'sovmen', 'lider', 'sert'];
 const DREAMS = ['milli', 'avrupa', 'saha'];
-const HEROES = ['street', 'pro'];
+const HEROES = ['street', 'gercekci', 'ciliz3', 'ciliz4', 'pro'];
 const JERSEYS = ['lime', 'red', 'blue', 'orange', 'purple', 'white'];
 
 Deno.serve(handle(async (req) => {

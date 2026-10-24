@@ -115,8 +115,8 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
       {failed
         ? <T size={13} color={colors.g200}>{t('career.trialFailed')}</T>
         : needsTrial
-          ? <Cta off={busy} onPress={() => void playTrial()}>{t('career.playTrial')}</Cta>
-          : <Cta off={busy} onPress={confirm}>{t('offers.sign')}</Cta>}
+          ? <Cta busy={busy} onPress={() => void playTrial()}>{t('career.playTrial')}</Cta>
+          : <Cta busy={busy} onPress={confirm}>{t('offers.sign')}</Cta>}
     </View>
   );
 }

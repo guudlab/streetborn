@@ -1,0 +1,35 @@
+{
+ "rig": "clips/street-gercekci-yuruyus.glb",
+ "mesh": "p/models/street.glb",
+ "out": "out/street2.glb",
+ "clips": [
+  {
+   "name": "walk",
+   "src": "clips/street-gercekci-yuruyus.glb"
+  },
+  {
+   "name": "idle",
+   "src": "clips/karakter-street-idle.glb",
+   "lock": "full"
+  },
+  {
+   "name": "cheer",
+   "src": "clips/karakter-street-sevinc.glb",
+   "lock": "full",
+   "trim": [
+    0,
+    3.4
+   ]
+  },
+  {
+   "name": "dribble",
+   "src": "clips/karakter-street-top-surme.glb",
+   "lock": "spine"
+  },
+  {
+   "name": "kick",
+   "src": "clips/karakter-street-sut-soccer.glb",
+   "lock": "spine"
+  }
+ ]
+}
