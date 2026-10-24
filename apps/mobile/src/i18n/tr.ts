@@ -227,6 +227,12 @@ export const tr = {
 
   'post.title': 'Maç sonu · Hafta 10',
   'post.headline': 'Yıldırımspor {us} – {them} Kartaltepe',
+  'post.title.energy': 'Maç sonu · Dostluk maçı',
+  'post.title.mahalle': 'Maç sonu · Mahalle maçı',
+  'post.title.league': 'Maç sonu · Lig maçı',
+  'post.title.trial': 'Maç sonu · Deneme maçı',
+  'post.headline.teams': '{home} {us} – {them} {away}',
+  'post.friendly.away': 'Mahalle karması',
   'post.W': 'Galibiyet',
   'post.D': 'Beraberlik',
   'post.L': 'Mağlubiyet',

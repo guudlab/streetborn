@@ -228,6 +228,12 @@ export const en: Record<Key, string> = {
 
   'post.title': 'Full time · Week 10',
   'post.headline': 'Block United {us} – {them} North FC',
+  'post.title.energy': 'Full time · Friendly',
+  'post.title.mahalle': 'Full time · Mahalle match',
+  'post.title.league': 'Full time · League match',
+  'post.title.trial': 'Full time · Trial match',
+  'post.headline.teams': '{home} {us} – {them} {away}',
+  'post.friendly.away': 'Mahalle select',
   'post.W': 'Win',
   'post.D': 'Draw',
   'post.L': 'Loss',

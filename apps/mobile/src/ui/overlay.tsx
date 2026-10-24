@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { create } from 'zustand';
 
@@ -42,7 +42,7 @@ export const Spinner = () => <ActivityIndicator size="large" color={colors.l600}
 function Sheet({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(a, { toValue: 1, duration: 320, useNativeDriver: true }).start(); }, [a]);
+  useEffect(() => { Animated.timing(a, { toValue: 1, duration: 320, useNativeDriver: Platform.OS !== 'web' }).start(); }, [a]);
   return (
     <>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,.55)', opacity: a }]}>
@@ -53,6 +53,8 @@ function Sheet({ children }: { children: ReactNode }) {
         style={{
           position: 'absolute', left: 8, right: 8, bottom: 8 + insets.bottom, borderRadius: 32, overflow: 'hidden',
           borderWidth: 1, borderColor: 'rgba(255,255,255,.08)', opacity: a,
+          // expo-blur on the web replaces its own backgroundColor with a faint tint, so the screen showed through the sheet.
+          ...(Platform.OS === 'web' ? { backgroundColor: 'rgba(30,30,30,.94)' } : null),
           transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
         }}
       >
