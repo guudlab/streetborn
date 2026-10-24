@@ -37,6 +37,8 @@ export interface LogEntry { minute: number; kind: MomentKind; outcome: ChanceOut
 
 export interface PostMatch {
   kind: MatchKind;
+  /** Team names for the headline; null in local play, which keeps the demo teams. */
+  teams: { home: string; away: string } | null;
   /** League matches show coach trust instead of the local trust bar. */
   coachTrust: boolean;
   /** Trial matches: whether the club signs the player. */
@@ -559,8 +561,11 @@ export const useGame = create<GameState>()((set, get) => ({
     if (coachTrust) before.trust = clamp(trust - trustDelta, 0, 100);
     // Online, the scout report means the server has just sent the first offers.
     const scout = server ? server.offersBefore === 0 && server.offersAfter > 0 : rating >= 65;
+    const online = s.mode === 'online' && !!m.matchId;
+    const away = m.opponentName ?? t('post.friendly.away');
+    const home = m.kind === 'league' ? (s.career?.contract?.clubName ?? s.name) : m.kind === 'mahalle' ? (s.mahalle?.name ?? s.name) : s.name;
     const post: PostMatch = {
-      kind: m.kind, coachTrust, trialPassed: server?.trialPassed, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
+      kind: m.kind, teams: online ? { home, away } : null, coachTrust, trialPassed: server?.trialPassed, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
       coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial,
       before, after: { ...after, trust },
     };

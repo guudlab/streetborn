@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setMusic, sfx } from '../audio/audio.ts';
@@ -64,8 +64,10 @@ export default function MacSonu() {
         <Pop delay={150} style={{ alignSelf: 'center' }}>
           <Image source={require('../../assets/meshy/cup-gold.webp')} style={{ width: 88, height: 88 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
         </Pop>
-        <Caps>{t('post.title')}</Caps>
-        <H1 style={{ marginTop: 6 }}>{t('post.headline', { us: r.us, them: r.them })}</H1>
+        <Caps>{r.teams ? t(`post.title.${r.kind}`) : t('post.title')}</Caps>
+        <H1 style={{ marginTop: 6 }}>
+          {r.teams ? t('post.headline.teams', { home: r.teams.home, away: r.teams.away, us: r.us, them: r.them }) : t('post.headline', { us: r.us, them: r.them })}
+        </H1>
       </View>
       <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: badgeBg }}>
         <T w={600} size={13} color={badgeFg}>{RES[r.result]}</T>
@@ -161,7 +163,7 @@ function Row({ v, c, label, muted }: { v: string; c: string; label: string; mute
 
 function Gain({ show, first, children }: { show: boolean; first?: boolean; children: React.ReactNode }) {
   const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => { if (show) Animated.timing(a, { toValue: 1, duration: 350, useNativeDriver: true }).start(); }, [show, a]);
+  useEffect(() => { if (show) Animated.timing(a, { toValue: 1, duration: 350, useNativeDriver: Platform.OS !== 'web' }).start(); }, [show, a]);
   return (
     <Animated.View style={{
       flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16,

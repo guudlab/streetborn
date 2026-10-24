@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { checkName } from '@streetborn/economy';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, ScrollView, TextInput, View } from 'react-native';
+import { BackHandler, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 
@@ -45,6 +45,7 @@ export default function Karakter() {
   useEffect(() => { setMusic('menu'); preloadModels(STARTERS.map(h => HERO_MODEL[h])); }, []);
   // Android back goes one step back instead of leaving the flow.
   useEffect(() => {
+    if (Platform.OS !== 'android') return; // BackHandler logs an error on the web and has no iOS back button
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (step === 0) return false;
       setStep(step - 1);

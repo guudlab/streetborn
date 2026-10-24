@@ -167,7 +167,7 @@ export function CoachFace({ size = 40 }: { size?: number }) {
 /** One contextual coach line; fades in whenever the text changes. */
 export function CoachLine({ text }: { text: string }) {
   const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => { a.setValue(0); Animated.timing(a, { toValue: 1, duration: 300, useNativeDriver: true }).start(); }, [text, a]);
+  useEffect(() => { a.setValue(0); Animated.timing(a, { toValue: 1, duration: 300, useNativeDriver: Platform.OS !== 'web' }).start(); }, [text, a]);
   return (
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <CoachFace />

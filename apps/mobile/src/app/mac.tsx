@@ -2,7 +2,7 @@ import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type Side } f
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -311,7 +311,7 @@ export default function Mac() {
 
 function ResultCard({ card }: { card: Card }) {
   const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.spring(a, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start(); }, [a]);
+  useEffect(() => { Animated.spring(a, { toValue: 1, friction: 5, tension: 120, useNativeDriver: Platform.OS !== 'web' }).start(); }, [a]);
   return (
     <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View
