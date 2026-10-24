@@ -1,0 +1,5 @@
+{ "rig": "clips/burak-yuruyus.glb", "mesh": "app/burak-yuruyus.glb", "rename": "walk", "out": "out/burak.glb",
+  "clips": [
+    { "name": "idle", "src": "clips/burak-idle.glb", "lock": "full" },
+    { "name": "wave", "wave": true, "base": "idle", "duration": 2.6 }
+  ] }

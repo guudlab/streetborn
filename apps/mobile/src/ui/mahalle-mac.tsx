@@ -42,13 +42,9 @@ export function TodayCard() {
     router.push('/mac');
   }
 
-  async function cheer(to: string, i: number) {
-    try {
-      await useGame.getState().cheer(to, i % PHRASES.length);
-      toast(t(PHRASES[i % PHRASES.length]!));
-    } catch {
-      toast(t('mahalle.cheer.failed'));
-    }
+  function cheer(to: string, i: number) {
+    toast(t(PHRASES[i % PHRASES.length]!));
+    useGame.getState().cheer(to, i % PHRASES.length).catch(() => toast(t('mahalle.cheer.failed')));
   }
 
   const last = today.last;
@@ -76,7 +72,7 @@ export function TodayCard() {
                 {c.playerId !== today.me && (
                   <Pressable
                     accessibilityRole="button" accessibilityLabel={t('mahalle.cheer.a11y', { name: c.nick ?? '' })}
-                    disabled={c.cheered || today.cheersLeft === 0 || blocked.includes(c.playerId)} onPress={() => void cheer(c.playerId, i)}
+                    disabled={c.cheered || today.cheersLeft === 0 || blocked.includes(c.playerId)} onPress={() => cheer(c.playerId, i)}
                     hitSlop={8}
                     style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.s3, opacity: c.cheered || today.cheersLeft === 0 ? 0.4 : 1 }}
                   >
@@ -92,7 +88,7 @@ export function TodayCard() {
           <T w={500} size={14} color={colors.g200}>{t('mahalle.today.done')}</T>
         ) : (
           <>
-            <Cta onPress={() => void play()} off={starting}>{t('mahalle.today.play')}</Cta>
+            <Cta onPress={() => void play()} busy={starting}>{t('mahalle.today.play')}</Cta>
             <T w={500} size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('mahalle.today.cost', { energy })}</T>
           </>
         )}

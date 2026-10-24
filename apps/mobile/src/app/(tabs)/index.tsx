@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 import { crestCode, leagueToday, multiplierLabel, tierName } from '../../game/career.ts';
-import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL } from '../../game/character.ts';
+import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../../game/character.ts';
 import { num } from '../../game/format.ts';
 import { ovr } from '../../game/rules.ts';
 import { useGame } from '../../game/store.ts';
@@ -77,7 +77,10 @@ export default function Hub() {
           </Defs>
           <Ellipse cx={130} cy={23} rx={130} ry={23} fill="url(#glow)" />
         </Svg>
-        <Model3D model={HERO_MODEL[ch.hero]} fallback={HERO_IMAGE[ch.hero][ch.jersey]} loop style={{ flex: 1 }} label={t('hub.heroLabel', { name: g.name })} />
+        <Model3D
+          model={HERO_MODEL[ch.hero]} fallback={HERO_IMAGE[ch.hero][ch.jersey]} clip="walk" tint={jerseyTint(ch.jersey)} rotatable
+          style={{ flex: 1 }} label={t('hub.heroLabel', { name: g.name })}
+        />
 
         <View style={{ position: 'absolute', left: 20, top: 26, gap: 10 }}>
           <View>
@@ -144,7 +147,7 @@ export default function Hub() {
             </View>
             <Crest text={league ? crestCode(league.opponent) : t('club.away.code')} bg={colors.awayCrest} fg={colors.awayCrestText} />
           </View>
-          <Cta off={empty} onPress={() => void play(leagueReady ? 'league' : 'energy')} accessibilityLabel={empty ? t('hub.waitEnergy') : t('hub.playA11y')}>
+          <Cta off={empty} busy={starting} onPress={() => void play(leagueReady ? 'league' : 'energy')} accessibilityLabel={empty ? t('hub.waitEnergy') : t('hub.playA11y')}>
             <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>
               {empty ? t('hub.waitEnergy') : starting ? t('hub.preparing') : leagueReady ? t('league.play') : league ? t('league.training') : t('hub.play')}
             </T>

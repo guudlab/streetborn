@@ -2,20 +2,32 @@ import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, Line, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { setMusic, sfx } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { openSignInSheet } from '../ui/account.tsx';
 import { buzz, T } from '../ui/kit.tsx';
+import { Model3D, preloadModels } from '../ui/Model3D.tsx';
 import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design C "Dokun ve başla"): the whole screen is the
 // button. Tapping anywhere starts an anonymous career, then the mahalle and character steps follow; "Hesabım var" signs
 // in to an account linked before (Apple, Google or an email code).
+// The 3D player idles on a chalk-lined pitch and dribbles or celebrates now and then;
+// the ball, cup, coin and gem float around him.
 
 const HERO = require('../../assets/meshy/hero-street.webp');
+const HERO_3D = require('../../assets/models/karakter-street.glb');
+const BURAK_3D = require('../../assets/models/burak.glb');
+const FIDGET = { clips: ['dribble', 'cheer', 'kick'], seconds: 5 };
+const PROPS = [
+  { src: require('../../assets/meshy/cup-gold.webp'), size: 74, left: '4%', top: 0.18, delay: 0 },
+  { src: require('../../assets/meshy/coin.webp'), size: 54, right: '6%', top: 0.14, delay: 500 },
+  { src: require('../../assets/meshy/ball.webp'), size: 62, left: '8%', top: 0.5, delay: 900 },
+  { src: require('../../assets/meshy/gem.webp'), size: 48, right: '5%', top: 0.44, delay: 300 },
+] as const;
 const LOGO = require('../../assets/brand/logo.png');
 const ease = Easing.bezier(0.2, 0.8, 0.2, 1);
 const native = Platform.OS !== 'web';
@@ -25,7 +37,7 @@ export default function Giris() {
   const startAnonymous = useGame(s => s.startAnonymous);
   const [busy, setBusy] = useState(false);
   const intro = useIntro();
-  useEffect(() => { setMusic('menu'); }, []);
+  useEffect(() => { setMusic('menu'); preloadModels([BURAK_3D]); }, []);
   const blink = useBlink(!busy);
 
   async function start() {
@@ -45,8 +57,11 @@ export default function Giris() {
         style={StyleSheet.absoluteFill}
       />
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Animated.View style={[styles.heroWrap, { top: insets.top + 150, opacity: intro.hero, transform: [{ translateY: intro.heroY }] }]}>
-          <Image source={HERO} style={styles.hero} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+        <Pitch />
+        {PROPS.map((p, i) => <Float key={i} {...p} top={insets.top + 90 + p.top * 520} show={intro.logo} />)}
+        <Animated.View style={[styles.heroWrap, { top: insets.top + 96, opacity: intro.hero, transform: [{ translateY: intro.heroY }] }]}>
+          <FloorGlow />
+          <Model3D model={HERO_3D} fallback={HERO} clip="idle" fidget={FIDGET} headroom={0.14} style={styles.hero} />
         </Animated.View>
         <View style={styles.fade} />
       </View>
@@ -69,6 +84,10 @@ export default function Giris() {
       </Pressable>
 
       <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 16) + 56, alignItems: 'center', gap: 22 }}>
+        <Animated.View style={{ opacity: intro.logo, alignItems: 'center', gap: 4 }}>
+          <T w={700} size={24} style={{ letterSpacing: -0.4 }}>{t('login.slogan1')}</T>
+          <T w={700} size={24} color={colors.l600} style={{ letterSpacing: -0.4 }}>{t('login.slogan2')}</T>
+        </Animated.View>
         {busy ? (
           <T w={600} size={13} color={colors.l600} style={{ letterSpacing: 1.8 }} accessibilityLiveRegion="polite">{t('login.entering')}</T>
         ) : (
@@ -87,10 +106,10 @@ export default function Giris() {
 
 const styles = StyleSheet.create({
   heroWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  hero: { width: 400, height: 400 },
+  hero: { width: 320, height: 470 },
   fade: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, height: '42%',
-    backgroundColor: colors.ink, opacity: 0.82,
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: '30%',
+    backgroundColor: colors.ink, opacity: 0.85,
   },
   account: {
     position: 'absolute', right: 12, height: 44, paddingHorizontal: 14, borderRadius: 22,
@@ -134,4 +153,55 @@ function useBlink(on: boolean) {
     return () => loop.stop();
   }, [a, on]);
   return a;
+}
+
+/** Faint chalk lines of a pitch behind the player: halfway line, centre circle and spot. */
+function Pitch() {
+  return (
+    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+      <Line x1={0} y1={560} x2={390} y2={560} stroke="#fff" strokeOpacity={0.06} strokeWidth={2} />
+      <Ellipse cx={195} cy={560} rx={150} ry={46} stroke="#fff" strokeOpacity={0.06} strokeWidth={2} fill="none" />
+      <Circle cx={195} cy={560} r={3} fill="#fff" fillOpacity={0.1} />
+      <Path d="M-20 820 L120 640 L270 640 L410 820" stroke="#fff" strokeOpacity={0.04} strokeWidth={2} fill="none" />
+    </Svg>
+  );
+}
+
+function FloorGlow() {
+  return (
+    <Svg width={300} height={60} style={{ position: 'absolute', bottom: 0, alignSelf: 'center' }}>
+      <Defs>
+        <RadialGradient id="floor" cx="50%" cy="50%" rx="50%" ry="50%">
+          <Stop offset="0" stopColor={colors.l600} stopOpacity={0.35} />
+          <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Ellipse cx={150} cy={30} rx={150} ry={30} fill="url(#floor)" />
+    </Svg>
+  );
+}
+
+/** A 3D-rendered prop that drifts up and down beside the player. */
+function Float({ src, size, left, right, top, delay, show }: {
+  src: number; size: number; left?: string; right?: string; top: number; delay: number; show: Animated.Value;
+}) {
+  const y = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | undefined;
+    let alive = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (reduce || !alive) return;
+      loop = Animated.loop(Animated.sequence([
+        Animated.timing(y, { toValue: -10, duration: 1800, delay, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
+        Animated.timing(y, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
+      ]));
+      loop.start();
+    });
+    return () => { alive = false; loop?.stop(); };
+  }, [y, delay]);
+  return (
+    <Animated.View style={{ position: 'absolute', top, left, right, opacity: show, transform: [{ translateY: y }] } as object}>
+      <Image source={src} style={{ width: size, height: size }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+    </Animated.View>
+  );
 }

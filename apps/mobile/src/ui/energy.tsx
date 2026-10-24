@@ -38,12 +38,14 @@ export function EnergyOptions({ onDone }: { onDone?: () => void }) {
         icon="gem" title={t('energy.refill')}
         sub={refillsLeft > 0 ? t('energy.refillSub', { n: refillsLeft, g: gems }) : t('energy.refillLimit')}
         disabled={busy || gems < cost || energy >= energyMax || refillsLeft <= 0} right={<Price gem>{cost}</Price>}
-        onPress={async () => {
+        onPress={() => {
+          // The bar fills at once (see gemRefill); only a refusal from the server comes back.
           setBusy(true);
-          const r = await useGame.getState().gemRefill();
-          setBusy(false);
-          if (r === 'ok') { toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock'); }
-          else toast(t(REFILL_ERROR[r]));
+          void useGame.getState().gemRefill().then((r) => {
+            setBusy(false);
+            if (r !== 'ok') toast(t(REFILL_ERROR[r]));
+          });
+          toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock');
           closeSheet(); onDone?.();
         }}
       />

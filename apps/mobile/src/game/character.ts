@@ -3,16 +3,19 @@ import type { ImageSource } from 'expo-image';
 // Choices of the new-player flow (app/karakter.tsx). Stored on the device only for now:
 // the server still decides stats, so none of these change a number yet.
 
-export const HEROES = ['street', 'pro'] as const;
+export const HEROES = ['street', 'gercekci', 'ciliz3', 'ciliz4', 'pro'] as const;
 export type Hero = (typeof HEROES)[number];
+/** The starters offered on the look step: all skinny kids. 'pro' stays for players who picked it before. */
+export const STARTERS: Hero[] = ['street', 'gercekci', 'ciliz3', 'ciliz4'];
 
+/** `tint` recolours the 3D kit (hue in degrees, see Model3D); lime is the kit as modelled. */
 export const JERSEYS = [
-  { key: 'lime', color: '#CFFD5C' },
-  { key: 'red', color: '#E5483B' },
-  { key: 'blue', color: '#3B82F6' },
-  { key: 'orange', color: '#FF9A2E' },
-  { key: 'purple', color: '#8B5CF6' },
-  { key: 'white', color: '#F2F2F2' },
+  { key: 'lime', color: '#CFFD5C', tint: null },
+  { key: 'red', color: '#E5483B', tint: 5 },
+  { key: 'blue', color: '#3B82F6', tint: 215 },
+  { key: 'orange', color: '#FF9A2E', tint: 28 },
+  { key: 'purple', color: '#8B5CF6', tint: 265 },
+  { key: 'white', color: '#F2F2F2', tint: 'white' },
 ] as const;
 export type Jersey = (typeof JERSEYS)[number]['key'];
 
@@ -27,9 +30,35 @@ export interface Character { hero: Hero; jersey: Jersey; position: Position; tra
 
 export const DEFAULT_CHARACTER: Character = { hero: 'street', jersey: 'lime', position: 'bitirici', trait: 'hirsli', dream: 'avrupa' };
 
-/** Render of each hero in each jersey colour (built by scripts/recolor-heroes.py). */
+export const jerseyTint = (j: Jersey) => JERSEYS.find(x => x.key === j)?.tint ?? null;
+
+/** Render of each hero in each jersey colour (built by scripts/recolor-heroes.py); shown only without WebGL. */
 export const HERO_IMAGE: Record<Hero, Record<Jersey, ImageSource>> = {
   street: {
+    lime: require('../../assets/meshy/hero-street.webp'),
+    red: require('../../assets/meshy/hero-street-red.webp'),
+    blue: require('../../assets/meshy/hero-street-blue.webp'),
+    orange: require('../../assets/meshy/hero-street-orange.webp'),
+    purple: require('../../assets/meshy/hero-street-purple.webp'),
+    white: require('../../assets/meshy/hero-street-white.webp'),
+  },
+  gercekci: {
+    lime: require('../../assets/meshy/hero-street.webp'),
+    red: require('../../assets/meshy/hero-street-red.webp'),
+    blue: require('../../assets/meshy/hero-street-blue.webp'),
+    orange: require('../../assets/meshy/hero-street-orange.webp'),
+    purple: require('../../assets/meshy/hero-street-purple.webp'),
+    white: require('../../assets/meshy/hero-street-white.webp'),
+  },
+  ciliz3: {
+    lime: require('../../assets/meshy/hero-street.webp'),
+    red: require('../../assets/meshy/hero-street-red.webp'),
+    blue: require('../../assets/meshy/hero-street-blue.webp'),
+    orange: require('../../assets/meshy/hero-street-orange.webp'),
+    purple: require('../../assets/meshy/hero-street-purple.webp'),
+    white: require('../../assets/meshy/hero-street-white.webp'),
+  },
+  ciliz4: {
     lime: require('../../assets/meshy/hero-street.webp'),
     red: require('../../assets/meshy/hero-street-red.webp'),
     blue: require('../../assets/meshy/hero-street-blue.webp'),
@@ -47,10 +76,21 @@ export const HERO_IMAGE: Record<Hero, Record<Jersey, ImageSource>> = {
   },
 };
 
-/** Walking model for the hub. The 3D model keeps its lime kit; only the image fallback follows the jersey. */
+/** 3D model of each hero, with walk, idle, cheer, dribble and kick clips (pro has walk only). */
 export const HERO_MODEL: Record<Hero, number> = {
-  street: require('../../assets/models/karakter-street-yuruyus.glb'),
+  street: require('../../assets/models/karakter-street.glb'),
+  gercekci: require('../../assets/models/karakter-gercekci.glb'),
+  ciliz3: require('../../assets/models/karakter-ciliz3.glb'),
+  ciliz4: require('../../assets/models/karakter-ciliz4.glb'),
   pro: require('../../assets/models/karakter-pro-yuruyus.glb'),
+};
+
+/** Head-and-shoulders render of each starter, for the picker. */
+export const HERO_PORTRAIT: Partial<Record<Hero, ImageSource>> = {
+  street: require('../../assets/meshy/portre-street.webp'),
+  gercekci: require('../../assets/meshy/portre-gercekci.webp'),
+  ciliz3: require('../../assets/meshy/portre-ciliz3.webp'),
+  ciliz4: require('../../assets/meshy/portre-ciliz4.webp'),
 };
 
 export const NICK_MAX = 14;

@@ -2,7 +2,7 @@ import { Image, type ImageSource } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  Animated, Platform, Text, View, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle,
+  ActivityIndicator, Animated, Platform, Text, View, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -29,21 +29,26 @@ export const H3 = (p: TProps) => <T w={600} size={20} {...p} style={[{ lineHeigh
 
 /* ---------- Buttons ---------- */
 
-type BtnProps = Omit<PressableProps, 'style' | 'children'> & { children: ReactNode; style?: StyleProp<ViewStyle>; off?: boolean };
+type BtnProps = Omit<PressableProps, 'style' | 'children'> & { children: ReactNode; style?: StyleProp<ViewStyle>; off?: boolean; busy?: boolean };
 
-/** The one primary action of a screen: lime, full width, 56 high. */
-export function Cta({ children, style, off, disabled, onPress, ...rest }: BtnProps) {
-  const dim = off || disabled;
+/**
+ * The one primary action of a screen: lime, full width, 56 high. `busy` keeps it lime
+ * with a spinner while the server answers, so a tap never looks ignored.
+ */
+export function Cta({ children, style, off, disabled, busy, onPress, ...rest }: BtnProps) {
+  const dim = (off || disabled) && !busy;
   return (
     <PressableScale
-      accessibilityRole="button" disabled={disabled} onPress={(e) => { tap(); onPress?.(e); }} {...rest}
+      accessibilityRole="button" disabled={disabled || busy} accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
+      onPress={(e) => { tap(); onPress?.(e); }} {...rest}
       style={[{
         height: 56, borderRadius: 28, backgroundColor: dim ? colors.s3 : colors.l600, flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center', gap: 10,
         ...(dim ? {} : { shadowColor: colors.l600, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } }),
       }, style]}
     >
-      {typeof children === 'string' ? <T w={600} size={17} color={dim ? colors.g200 : colors.ink}>{children}</T> : children}
+      {busy ? <ActivityIndicator color={colors.ink} />
+        : typeof children === 'string' ? <T w={600} size={17} color={dim ? colors.g200 : colors.ink}>{children}</T> : children}
     </PressableScale>
   );
 }

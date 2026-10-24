@@ -1,13 +1,14 @@
 import { Image } from 'expo-image';
 import { checkName } from '@streetborn/economy';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { setMusic } from '../audio/audio.ts';
 import {
-  cleanNick, DEFAULT_CHARACTER, DREAMS, HERO_IMAGE, JERSEYS, NICK_MAX, NICK_MIN, POSITIONS, TRAITS,
+  cleanNick, DEFAULT_CHARACTER, DREAMS, HERO_IMAGE, HERO_MODEL, HERO_PORTRAIT, JERSEYS, jerseyTint, NICK_MAX, NICK_MIN, POSITIONS,
+  STARTERS, TRAITS,
   type Character, type Dream, type Hero, type Jersey, type Position, type Trait,
 } from '../game/character.ts';
 import { useGame } from '../game/store.ts';
@@ -16,7 +17,7 @@ import { colors } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, CoachLine, Cta, H1, T, tap } from '../ui/kit.tsx';
 import { Enter, PressableScale } from '../ui/motion.tsx';
-import { Model3D } from '../ui/Model3D.tsx';
+import { Model3D, preloadModels } from '../ui/Model3D.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // New-player flow, shown after the first tap on the sign-in screen:
@@ -24,7 +25,8 @@ import { t, type Key } from '../i18n/index.ts';
 // The choices stay on the device for now; the server still decides every number.
 
 const BURAK = require('../../assets/meshy/burak.webp');
-const BURAK_MODEL = require('../../assets/models/burak-yuruyus.glb');
+const BURAK_MODEL = require('../../assets/models/burak.glb');
+const BURAK_FIDGET = { clips: ['wave'], seconds: 9 };
 const LAST = 5;
 
 const POS_ICON: Record<Position, IconName> = { bitirici: 'ball', oyunKurucu: 'train', kanat: 'bolt' };
@@ -40,7 +42,7 @@ export default function Karakter() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { setMusic('menu'); }, []);
+  useEffect(() => { setMusic('menu'); preloadModels(STARTERS.map(h => HERO_MODEL[h])); }, []);
   // Android back goes one step back instead of leaving the flow.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -77,7 +79,7 @@ export default function Karakter() {
         </Enter>
         <View style={{ flex: 1, minHeight: 260 }}>
           <Glow width={260} />
-          <Model3D model={BURAK_MODEL} fallback={BURAK} loop style={{ flex: 1 }} label={t('coach.name')} />
+          <Model3D model={BURAK_MODEL} fallback={BURAK} clip="idle" intro="wave" fidget={BURAK_FIDGET} headroom={0.12} style={{ flex: 1 }} label={t('coach.name')} />
         </View>
         <Enter i={2}><Panel><CoachLine text={t('char.welcome.line')} /></Panel></Enter>
         <Cta onPress={() => { buzz(); next(); }}>{t('char.welcome.cta')}</Cta>
@@ -236,14 +238,22 @@ function Chip({ children, selected, onPress }: { children: string; selected: boo
 /* ---------- Look (hero + jersey colour) ---------- */
 
 function Look({ c, onChange }: { c: Character; onChange: (c: Character) => void }) {
-  const pickHero = (hero: Hero) => onChange({ ...c, hero });
-  const pickJersey = (jersey: Jersey) => onChange({ ...c, jersey });
+  // Every new pick gets a little celebration from the 3D player.
+  const [cheer, setCheer] = useState<{ name: string; key: number } | null>(null);
+  const n = useRef(0);
+  const celebrate = () => setCheer({ name: 'cheer', key: ++n.current });
+  const pickHero = (hero: Hero) => { if (hero !== c.hero) { onChange({ ...c, hero }); celebrate(); } };
+  const pickJersey = (jersey: Jersey) => { if (jersey !== c.jersey) { onChange({ ...c, jersey }); celebrate(); } };
+  const name = (h: Hero) => t('char.look.hero', { n: STARTERS.indexOf(h) + 1 });
   return (
     <View style={{ flex: 1, minHeight: 300 }}>
       <Glow width={260} />
-      <Image source={HERO_IMAGE[c.hero][c.jersey]} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} contentFit="contain" accessibilityLabel={t(c.hero === 'street' ? 'char.look.hero1' : 'char.look.hero2')} />
+      <Model3D
+        model={HERO_MODEL[c.hero]} fallback={HERO_IMAGE[c.hero][c.jersey]} clip="idle" action={cheer} tint={jerseyTint(c.jersey)}
+        rotatable headroom={0.16} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 92 }} label={name(c.hero)}
+      />
 
-      <View style={{ position: 'absolute', left: 0, top: 4, gap: 2 }}>
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 4, gap: 2 }}>
         <Caps>{t('char.look.pos')}</Caps>
         <T w={700} size={30} style={{ lineHeight: 34 }}>{t(`char.pos.${c.position}.role`)}</T>
       </View>
@@ -261,32 +271,28 @@ function Look({ c, onChange }: { c: Character; onChange: (c: Character) => void 
         ))}
       </View>
 
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
-        <Mini hero="street" selected={c.hero === 'street'} jersey={c.jersey} onPress={() => pickHero('street')} label={t('char.look.hero1')} />
-        <Mini hero="pro" selected={c.hero === 'pro'} jersey={c.jersey} onPress={() => pickHero('pro')} label={t('char.look.hero2')} />
-        <Mini hero="street" locked />
-        <Mini hero="pro" locked />
+      <T pointerEvents="none" w={500} size={12} color={colors.g300} style={{ position: 'absolute', left: 0, right: 0, bottom: 98, textAlign: 'center' }}>{t('char.look.turn')}</T>
+      <View accessibilityRole="radiogroup" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
+        {STARTERS.map(h => <Mini key={h} hero={h} selected={c.hero === h} onPress={() => pickHero(h)} label={name(h)} />)}
       </View>
     </View>
   );
 }
 
-function Mini({ hero, jersey = 'lime', selected, locked, onPress, label }: { hero: Hero; jersey?: Jersey; selected?: boolean; locked?: boolean; onPress?: () => void; label?: string }) {
+function Mini({ hero, selected, onPress, label }: { hero: Hero; selected: boolean; onPress: () => void; label: string }) {
   return (
     <PressableScale
-      disabled={locked} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: !!selected, disabled: !!locked }}
-      onPress={() => { tap(); onPress?.(); }} to={0.94}
+      accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected }}
+      onPress={() => { tap(); onPress(); }} to={0.94}
       style={{
-        width: 70, height: 84, borderRadius: 20, overflow: 'hidden', opacity: locked ? 0.5 : 1,
+        width: 70, height: 84, borderRadius: 20, overflow: 'hidden',
         backgroundColor: selected ? 'rgba(63,77,24,.4)' : colors.s1, borderWidth: 1.5, borderColor: selected ? colors.l600 : colors.line,
       }}
     >
       <Image
-        source={HERO_IMAGE[hero][locked ? 'lime' : jersey]} contentFit="contain" tintColor={locked ? '#000000' : undefined}
-        style={{ position: 'absolute', left: -20, right: -20, top: -4, height: 100, opacity: locked ? 0.55 : 1 }}
+        source={HERO_PORTRAIT[hero]} contentFit="cover" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
         accessibilityElementsHidden importantForAccessibility="no"
       />
-      {locked && <T w={600} size={10} color={colors.g300} style={{ position: 'absolute', bottom: 5, left: 0, right: 0, textAlign: 'center' }}>{t('char.look.soon')}</T>}
     </PressableScale>
   );
 }
@@ -323,7 +329,7 @@ function Nick({ nick, onChange, busy, onDone, error }: { nick: string; onChange:
         </View>
       </View>
       <View style={{ flex: 1 }} />
-      <Cta off={!ok} disabled={!ok || busy} onPress={onDone}>{t('char.nick.cta')}</Cta>
+      <Cta off={!ok} disabled={!ok} busy={busy} onPress={onDone}>{t('char.nick.cta')}</Cta>
     </>
   );
 }
