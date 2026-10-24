@@ -9,8 +9,8 @@ import { Icon } from './Icon.tsx';
 import { buzz, T } from './kit.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
-/** Screen frame of the mahalle steps: back button and label on top, scrolling content, pinned footer. */
-export function Shell({ label, back = true, children, footer }: { label?: string; back?: boolean; children: ReactNode; footer?: ReactNode }) {
+/** Screen frame of the mahalle steps: back button and a short title on top, scrolling content, pinned footer. */
+export function Shell({ label, title, right, back = true, children, footer }: { label?: string; title?: string; right?: ReactNode; back?: boolean; children: ReactNode; footer?: ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
@@ -18,7 +18,7 @@ export function Shell({ label, back = true, children, footer }: { label?: string
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 16, gap: 18 }}
       >
-        {(back || label) && (
+        {(back || label || title) && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
             {back && (
               <Pressable
@@ -30,6 +30,8 @@ export function Shell({ label, back = true, children, footer }: { label?: string
               </Pressable>
             )}
             {label && <T w={600} size={11} color={colors.g200} style={{ letterSpacing: 1 }}>{label}</T>}
+            {title && <T w={700} size={20} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{title}</T>}
+            {right}
           </View>
         )}
         {children}

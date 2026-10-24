@@ -127,6 +127,7 @@ export default function RootLayout() {
               <Stack.Screen name="mac" options={fade} />
               <Stack.Screen name="mac-sonu" options={fade} />
               <Stack.Screen name="mahalle" options={slide} />
+              <Stack.Screen name="teklifler" options={slide} />
             </Stack.Protected>
             <Stack.Screen name="hesap" options={fade} />
           </Stack>

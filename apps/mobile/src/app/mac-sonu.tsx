@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, View } from 'react-native';
@@ -11,8 +10,10 @@ import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { startLink } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { buzz, Caps, CoachFace, Cta, Ghost, H1, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
+import { buzz, Cta, Ghost, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
 import { Pop } from '../ui/motion.tsx';
+import { closeSheet, openSheet } from '../ui/overlay.tsx';
+import { Bubble, Ico } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
 
 const RES = { W: t('post.W'), D: t('post.D'), L: t('post.L') } as const;
@@ -58,76 +59,71 @@ export default function MacSonu() {
   const [badgeBg, badgeFg] = BADGE[r.result];
   const color = (k: string) => (k === 'plus' ? colors.l500 : k === 'minus' ? colors.bad : colors.g100);
 
+  // The full rating breakdown is one tap away; the screen itself shows the score and the rewards.
+  const details = () => openSheet(
+    <>
+      <H3>{t('post.ratingA11y')}</H3>
+      <View style={{ gap: 6 }}>
+        <Row v={num(6, 1)} c={colors.g100} label={t('post.start')} muted />
+        {lines.length ? lines.map(([label, v, k], i) => <Row key={i} v={v!} c={color(k!)} label={`${r.log[i]!.minute}' ${label}`} />)
+          : <T size={14} color={colors.g200}>{t('post.noMoments')}</T>}
+        <Row v={teamDelta[0]!} c={color(teamDelta[1]!)} label={t('post.team')} />
+      </View>
+      <Cta onPress={closeSheet}>{t('common.ok')}</Cta>
+    </>,
+  );
+
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
-      <View>
-        <Pop delay={150} style={{ alignSelf: 'center' }}>
-          <Image source={require('../../assets/meshy/cup-gold.webp')} style={{ width: 88, height: 88 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
+    <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
+      <View style={{ alignItems: 'center', gap: 6 }}>
+        <Pop delay={150}>
+          {r.result === 'L' ? <Ico name="ball" size={96} /> : <Ico name="cup" size={r.result === 'W' ? 128 : 96} dim={r.result === 'D'} />}
         </Pop>
-        <Caps>{t('post.title')}</Caps>
-        <H1 style={{ marginTop: 6 }}>{t('post.headline', { us: r.us, them: r.them })}</H1>
-      </View>
-      <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: badgeBg }}>
-        <T w={600} size={13} color={badgeFg}>{RES[r.result]}</T>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: colors.s1, borderRadius: 22, paddingVertical: 12, paddingHorizontal: 14 }}>
-        <CoachFace size={44} />
-        <View style={{ flex: 1 }}>
-          <T w={600} size={17} style={{ lineHeight: 22 }}>“{quote}”</T>
-          <Caps style={{ fontSize: 12, marginTop: 2 }}>{t('coach.name')}</Caps>
+        <T w={700} size={52} style={{ lineHeight: 58, letterSpacing: -1 }} accessibilityLabel={t('post.headline', { us: r.us, them: r.them })}>{r.us} – {r.them}</T>
+        <View style={{ height: 30, paddingHorizontal: 14, borderRadius: 15, justifyContent: 'center', backgroundColor: badgeBg }}>
+          <T w={700} size={14} color={badgeFg}>{RES[r.result]}</T>
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-        <Ring size={112} stroke={7} value={(step >= 1 ? rating : 6) / 10}>
-          <T w={700} size={44} style={{ letterSpacing: -0.8 }}>{num(rating, 1)}</T>
-        </Ring>
-        <View style={{ gap: 6, flex: 1 }} accessibilityLabel={t('post.ratingA11y')}>
-          <Row v={num(6, 1)} c={colors.g100} label={t('post.start')} muted />
-          {lines.length ? lines.map(([label, v, k], i) => <Row key={i} v={v!} c={color(k!)} label={`${r.log[i]!.minute}' ${label}`} />)
-            : <T size={14} color={colors.g200}>{t('post.noMoments')}</T>}
-          <Row v={teamDelta[0]!} c={color(teamDelta[1]!)} label={t('post.team')} />
+      <Bubble text={quote} style={{ alignSelf: 'center' }} />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${t('post.ratingA11y')}: ${num(r.rating / 10, 1)}`} onPress={details}>
+          <Ring size={96} stroke={6} value={(step >= 1 ? rating : 6) / 10}>
+            <T w={700} size={34} style={{ letterSpacing: -0.6 }}>{num(rating, 1)}</T>
+          </Ring>
+          <View style={{ position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="info" size={16} color={colors.g200} />
+          </View>
+        </Pressable>
+        <View style={{ flex: 1, gap: 10 }}>
+          <Gain show={step >= 2}>
+            <Ico name="coin" size={30} />
+            <T w={700} size={22} color={colors.l500}>+{num(coins)}</T>
+          </Gain>
+          <Gain show={step >= 3}>
+            <Icon name="star" size={24} color={colors.l600} />
+            <T w={700} size={18}>+{r.xp}</T>
+            <View style={{ flex: 1 }}><Track value={xpBar} reset={step === 4 ? 0 : undefined} /></View>
+            {step >= 4 && (
+              <Pop style={{ paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: colors.l600 }}>
+                <T w={700} size={12} color={colors.ink}>{t('post.level', { n: r.after.level })}</T>
+              </Pop>
+            )}
+          </Gain>
+          <Gain show={step >= 5}>
+            <Icon name="whistle" size={24} color={colors.g200} />
+            <T w={700} size={18} color={r.trustDelta >= 0 ? colors.l500 : colors.bad} accessibilityLabel={`${r.coachTrust ? t('career.trust') : t('post.trust')} ${r.trustDelta}`}>
+              {r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}
+            </T>
+            <T w={600} size={13} color={colors.g200} numberOfLines={1} style={{ flex: 1 }}>{r.coachTrust ? t('career.trust') : t('post.trust')}</T>
+          </Gain>
         </View>
       </View>
 
-      <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
-        <Gain show={step >= 2} first>
-          <Icon name="coin" size={22} color={colors.l500} />
-          <View style={{ flex: 1 }}>
-            <T w={500} size={15}>{t('post.coin')}</T>
-            <T size={12} color={colors.g200}>{t('post.coinSub')}</T>
-          </View>
-          <T w={600} size={17} color={colors.l500}>+{num(coins)}</T>
-        </Gain>
-        <Gain show={step >= 3}>
-          <Icon name="star" size={22} color={colors.l600} />
-          <View style={{ flex: 1, gap: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <T w={500} size={15}>{t('post.xp')}</T>
-              {step >= 4 && (
-                <Pop style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.l600 }}>
-                  <Icon name="star" size={14} color={colors.ink} /><T w={700} size={13} color={colors.ink}>{t('post.level', { n: r.after.level })}</T>
-                </Pop>
-              )}
-            </View>
-            <Track value={xpBar} reset={step === 4 ? 0 : undefined} />
-          </View>
-          <T w={600} size={17}>+{r.xp} XP</T>
-        </Gain>
-        <Gain show={step >= 5}>
-          <Icon name="whistle" size={22} color={colors.g200} />
-          <View style={{ flex: 1, gap: 8 }}>
-            <T w={500} size={15}>{r.coachTrust ? t('career.trust') : t('post.trust')}</T>
-            <Track value={(step >= 5 ? r.after.trust : r.before.trust) / 100} />
-          </View>
-          <T w={600} size={17} color={r.trustDelta >= 0 ? colors.l500 : colors.bad}>{r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}</T>
-        </Gain>
-      </View>
-
-      {r.kind === 'mahalle' && <T w={500} size={14} color={colors.g200}>{t('post.mahalle')}</T>}
+      {r.kind === 'mahalle' && <T w={500} size={13} color={colors.g200} style={{ textAlign: 'center' }}>{t('post.mahalleShort')}</T>}
       {r.kind === 'trial' && (
-        <T w={600} size={15} color={r.trialPassed ? colors.l500 : colors.g200}>{r.trialPassed ? t('post.trialPassed') : t('post.trialFailed')}</T>
+        <T w={700} size={15} color={r.trialPassed ? colors.l500 : colors.g200} style={{ textAlign: 'center' }}>{r.trialPassed ? t('post.trialPassed') : t('post.trialFailed')}</T>
       )}
 
       {r.first && <LinkStrip />}
@@ -139,12 +135,12 @@ export default function MacSonu() {
       <View style={{ gap: 10, marginTop: 'auto' }}>
         {r.scout && (
           <Cta onPress={() => router.replace('/teklifler')}>
-            <Icon name="mail" color={colors.ink} /><T w={600} size={17} color={colors.ink}>{t('post.scoutReport')}</T>
+            <Ico name="kulup" size={30} /><T w={700} size={17} color={colors.ink}>{t('post.scoutReport')}</T>
           </Cta>
         )}
         {r.scout
           ? <Ghost onPress={() => router.replace('/')}>{t('post.home')}</Ghost>
-          : <Cta onPress={() => router.replace('/')}>{t('post.home')}</Cta>}
+          : <Cta onPress={() => router.replace('/')}>{t('common.continue')}</Cta>}
       </View>
     </ScrollView>
   );
@@ -159,13 +155,12 @@ function Row({ v, c, label, muted }: { v: string; c: string; label: string; mute
   );
 }
 
-function Gain({ show, first, children }: { show: boolean; first?: boolean; children: React.ReactNode }) {
+function Gain({ show, children }: { show: boolean; children: React.ReactNode }) {
   const a = useRef(new Animated.Value(0)).current;
   useEffect(() => { if (show) Animated.timing(a, { toValue: 1, duration: 350, useNativeDriver: true }).start(); }, [show, a]);
   return (
     <Animated.View style={{
-      flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16,
-      borderTopWidth: first ? 0 : 1, borderTopColor: colors.line,
+      flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36,
       opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
     }}>
       {children}

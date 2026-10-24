@@ -6,8 +6,9 @@ import { useGame } from '../game/store.ts';
 import { previewMahalle, type MahallePreview } from '../net/api.ts';
 import { colors } from '../theme.ts';
 import { Emblem } from '../ui/emblem.tsx';
-import { CoachFace, Cta, Ghost, H1, T } from '../ui/kit.tsx';
+import { Cta, Ghost, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
+import { Amount, Bubble } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
 
 // Shown when the player opened an invite link: who invited, how many are in, one button.
@@ -44,7 +45,7 @@ export default function MahalleDavet() {
     <Shell
       back={false} label={t('mahalle.invite.label')}
       footer={<>
-        {usable && <Cta busy={busy} onPress={join}>{t('mahalle.invite.cta')}</Cta>}
+        {usable && <Cta busy={busy} onPress={join}>{t('mahalle.invite.join')}</Cta>}
         <Ghost onPress={other}>{t('mahalle.invite.other')}</Ghost>
       </>}
     >
@@ -52,23 +53,18 @@ export default function MahalleDavet() {
       {preview === null && <T color={colors.g200} style={{ textAlign: 'center', marginTop: 80 }}>{t('mahalle.invite.bad')}</T>}
       {preview && (
         <>
-          <View style={{ alignItems: 'center', gap: 14, paddingTop: 24 }}>
-            <Emblem shape={preview.emblem} color={preview.color} name={preview.name} size={112} />
-            <H1 style={{ textAlign: 'center', fontSize: 26, lineHeight: 31 }}>{t('mahalle.invite.title', { name: preview.name })}</H1>
-            <T size={15} color={colors.g200} style={{ textAlign: 'center', lineHeight: 22 }}>
-              {usable ? t('mahalle.invite.sub', { n: preview.memberCount, free }) : t('mahalle.invite.bad')}
-            </T>
-          </View>
-          {usable && (
-            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', padding: 12, borderRadius: 16, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}>
-              <CoachFace size={40} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T w={600} size={12} color={colors.g200} style={{ letterSpacing: 0.6 }}>{t('coach.name').toLocaleUpperCase('tr')}</T>
-                <T w={500} size={15} style={{ lineHeight: 20 }}>{t('mahalle.invite.line')}</T>
+          <View style={{ alignItems: 'center', gap: 12, paddingTop: 32 }}>
+            <Emblem shape={preview.emblem} color={preview.color} name={preview.name} size={128} />
+            <T w={700} size={28} style={{ textAlign: 'center', letterSpacing: -0.4 }} accessibilityRole="header">{preview.name}</T>
+            {usable ? (
+              <View style={{ flexDirection: 'row', gap: 20 }} accessible accessibilityLabel={t('mahalle.invite.sub', { n: preview.memberCount, free })}>
+                <Amount icon="oyuncu" size={28} textSize={17}>{preview.memberCount}</Amount>
+                <Amount icon="davet" size={28} textSize={17}>{t('mahalle.invite.free', { n: free })}</Amount>
               </View>
-            </View>
-          )}
-          {error && <T w={500} size={14} color={colors.bad} accessibilityLiveRegion="polite">{error}</T>}
+            ) : <T size={15} color={colors.g200} style={{ textAlign: 'center' }}>{t('mahalle.invite.bad')}</T>}
+          </View>
+          {usable && <Bubble text={t('mahalle.invite.short')} style={{ alignSelf: 'center', marginTop: 12 }} />}
+          {error && <T w={500} size={14} color={colors.bad} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{error}</T>}
         </>
       )}
     </Shell>

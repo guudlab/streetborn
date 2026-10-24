@@ -1,22 +1,21 @@
 import { Model3D } from '../../ui/Model3D.tsx';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
-import { crestCode, leagueToday, multiplierLabel, tierName } from '../../game/career.ts';
+import { leagueToday, multiplierLabel } from '../../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../../game/character.ts';
-import { num } from '../../game/format.ts';
 import { ovr } from '../../game/rules.ts';
 import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Emblem } from '../../ui/emblem.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
-import { Crest, Hud } from '../../ui/hud.tsx';
+import { Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T } from '../../ui/kit.tsx';
+import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { SoundButton } from '../../ui/settings.tsx';
 import { t } from '../../i18n/index.ts';
@@ -45,17 +44,29 @@ export default function Hub() {
   useEffect(() => { if (mahalleId) void useGame.getState().refreshMahalleToday(); }, [mahalleId]);
 
   const [starting, setStarting] = useState(false);
-  const play = async (kind: 'energy' | 'league' = 'energy') => {
+  // One big button (sade UI): today's mahalle match first, then the league match, then a friendly.
+  const mahalleReady = online && !!g.mahalle && !!g.mahalleToday && !g.mahalleToday.played;
+  const leagueReady = !!league && !league.played;
+  const kind = mahalleReady ? 'mahalle' : leagueReady ? 'league' : 'energy';
+  const play = async () => {
     if (starting) return;
     setStarting(true);
     const r = await useGame.getState().startMatch(kind);
     setStarting(false);
     if (r === 'no_energy') return openEnergySheet();
-    if (r === 'already_played') return toast(t('league.alreadyPlayed'));
+    if (r === 'already_played') {
+      if (kind === 'mahalle') void useGame.getState().refreshMahalleToday();
+      return toast(t(kind === 'mahalle' ? 'mahalle.today.done' : 'league.alreadyPlayed'));
+    }
     if (r === 'error') return toast(t('hub.startFailed'));
     router.push('/mac');
   };
-  const leagueReady = league && !league.played;
+  const label = empty ? t('hub.waitEnergy') : starting ? t('hub.preparing')
+    : kind === 'mahalle' ? t('hub.playMahalle') : kind === 'league' ? t('league.play') : league ? t('league.training') : t('hub.play');
+  const line = empty ? t('hub.line.rest') : kind === 'mahalle' ? t('hub.line.mahalle') : kind === 'league' ? t('hub.line.league') : t('hub.line.play');
+
+  const contract = online && g.career?.contract?.active ? g.career.contract : null;
+  const offers = online ? (g.career?.offers.filter(o => o.status !== 'trial_failed').length ?? 0) : showOffers ? 2 : 0;
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: TAB_BAR_SPACE + insets.bottom }}>
@@ -82,87 +93,54 @@ export default function Hub() {
           style={{ flex: 1 }} label={t('hub.heroLabel', { name: g.name })}
         />
 
-        <View style={{ position: 'absolute', left: 20, top: 26, gap: 10 }}>
-          <View>
-            <T w={600} size={48} style={{ lineHeight: 50, letterSpacing: -1 }}>{ovr(g.stats)}</T>
-            <Caps>{t('hub.ovr')}</Caps>
-          </View>
-          {([[t('stat.sut'), 'sut'], [t('stat.pas'), 'pas'], [t('stat.hiz'), 'hiz'], [t('stat.fizik'), 'fizik']] as const).map(([l, k]) => (
-            <View key={k} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-              <T w={600} size={11} color={colors.g200} style={{ width: 28, letterSpacing: 0.6 }}>{l}</T>
-              <T w={600} size={13}>{g.stats[k]}</T>
-            </View>
-          ))}
+        <View pointerEvents="none" style={{ position: 'absolute', left: 16, right: 76, top: 14 }}>
+          <Bubble text={line} size={36} />
         </View>
-
-        {g.form.length > 0 && <View style={{ position: 'absolute', right: 20, top: 26, gap: 6, alignItems: 'flex-end' }}>
-          <Caps>{t('hub.form')}</Caps>
-          {g.form.map((r, i) => (
-            <View key={i} style={{ minWidth: 40, height: 26, paddingHorizontal: 8, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: r >= 7 ? colors.l900 : colors.s2 }}>
-              <T w={600} size={13} color={r >= 7 ? colors.l500 : colors.g100}>{num(r, 1)}</T>
-            </View>
-          ))}
-        </View>}
-
-        <View style={{ position: 'absolute', right: 16, bottom: 8 }}><SoundButton /></View>
+        <View style={{ position: 'absolute', right: 16, top: 14 }}><SoundButton /></View>
+        <Pressable
+          accessibilityRole="button" accessibilityLabel={t('hub.ovrA11y', { n: ovr(g.stats) })} onPress={() => router.navigate('/gelisim')}
+          style={{ position: 'absolute', right: 20, bottom: 24, alignItems: 'flex-end' }}
+        >
+          <T w={700} size={44} style={{ lineHeight: 46, letterSpacing: -1 }}>{ovr(g.stats)}</T>
+          <Caps>{t('hub.ovr')}</Caps>
+        </Pressable>
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>
-        {g.mahalle && (
-          <Pressable
-            accessibilityRole="button" accessibilityLabel={t('mahalle.card.a11y', { name: g.mahalle.name })} onPress={() => router.push('/mahalle')}
-            style={{ height: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.s2 }}
-          >
-            <Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={36} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <T w={600} size={15} numberOfLines={1}>{g.mahalle.name}</T>
-              <T w={500} size={12} color={g.mahalleToday && !g.mahalleToday.played ? colors.l500 : colors.g200}>
-                {g.mahalleToday && !g.mahalleToday.played ? t('mahalle.card.ready') : t('mahalle.card.members', { n: g.mahalle.members.length })}
-              </T>
-            </View>
-            <Icon name="chev" color={colors.g200} />
-          </Pressable>
-        )}
-        {showOffers && (
-          <Pressable
-            accessibilityRole="button" onPress={() => router.navigate('/teklifler')}
-            style={{ height: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2 }}
-          >
-            <Icon name="mail" color={colors.l600} />
-            <T w={600} size={15} style={{ flex: 1 }}>{online ? t('hub.offersBannerN', { n: g.career?.offers.length ?? 0 }) : t('hub.offersBanner')}</T>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.l600 }} />
-            <Icon name="chev" color={colors.g200} />
-          </Pressable>
-        )}
-
-        <View style={{ padding: 16, borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 14 }}>
-          <Caps>{league ? t('league.day', { n: league.round + 1, total: league.rounds, tier: tierName(league.tier) }) : online ? t('hub.friendly') : t('hub.fixture')}</Caps>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Crest text={league ? crestCode(league.clubName) : t('club.home.code')} bg={colors.l600} fg={colors.ink} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <T w={600} size={16} numberOfLines={1}>
-                {league ? `${league.clubName} – ${league.opponent}` : online ? t('hub.friendlyTeams', { name: g.name }) : `${t('club.home')} – ${t('club.kartaltepe')}`}
-              </T>
-              <T size={13} color={colors.g200}>{league?.played ? t('league.playedToday') : t('hub.fixtureMeta')}</T>
-            </View>
-            <Crest text={league ? crestCode(league.opponent) : t('club.away.code')} bg={colors.awayCrest} fg={colors.awayCrestText} />
-          </View>
-          <Cta off={empty} busy={starting} onPress={() => void play(leagueReady ? 'league' : 'energy')} accessibilityLabel={empty ? t('hub.waitEnergy') : t('hub.playA11y')}>
-            <T w={600} size={17} color={empty ? colors.g200 : colors.ink}>
-              {empty ? t('hub.waitEnergy') : starting ? t('hub.preparing') : leagueReady ? t('league.play') : league ? t('league.training') : t('hub.play')}
-            </T>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
-              <Icon name="bolt" size={16} color={empty ? colors.g200 : colors.ink} />
-              <T w={600} size={14} color={empty ? colors.g200 : colors.ink}>1</T>
-            </View>
-          </Cta>
-          {league && (
-            <T size={12} color={colors.g300} style={{ textAlign: 'center' }}>
-              {leagueReady ? t('league.trainingHint', { x: multiplierLabel(league.tier) }) : t('league.trainingMultiplier', { x: multiplierLabel(league.tier) })}
-            </T>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {g.mahalle && (
+            <Chip
+              label={t('mahalle.card.a11y', { name: g.mahalle.name })} onPress={() => router.push('/mahalle')} dot={mahalleReady}
+              icon={<Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={34} />}
+            >
+              <Amount icon="oyuncu" size={22}>{g.mahalle.members.length}</Amount>
+            </Chip>
           )}
+          <Chip label={offers ? t('hub.offersBannerN', { n: offers }) : t('offers.title')} onPress={() => router.push('/teklifler')} dot={offers > 0} icon={<Ico name="kulup" size={38} />}>
+            {contract ? <T w={700} size={15}>{multiplierLabel(contract.tier)}</T> : <T w={700} size={15}>{offers}</T>}
+          </Chip>
         </View>
+
+        <Cta off={empty} busy={starting} onPress={() => void play()} accessibilityLabel={label}>
+          <Ico name="ball" size={28} dim={empty} />
+          <T w={700} size={17} color={empty ? colors.g200 : colors.ink}>{label}</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
+            <Icon name="bolt" size={16} color={empty ? colors.g200 : colors.ink} />
+            <T w={700} size={14} color={empty ? colors.g200 : colors.ink}>1</T>
+          </View>
+        </Cta>
       </View>
     </View>
+  );
+}
+
+/** Small icon card above the play button: an icon, a number and a lime dot when something waits. */
+function Chip({ icon, children, dot, label, onPress }: { icon: React.ReactNode; children: React.ReactNode; dot?: boolean; label: string; onPress: () => void }) {
+  return (
+    <Tile row label={label} onPress={onPress} style={{ flex: 1, minHeight: 58, paddingVertical: 6, gap: 10, borderRadius: 18 }}>
+      {icon}
+      <View style={{ flex: 1 }}>{children}</View>
+      {dot && <Dot />}
+    </Tile>
   );
 }

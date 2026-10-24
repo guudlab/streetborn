@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import { checkName } from '@streetborn/economy';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BackHandler, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 import { setMusic } from '../audio/audio.ts';
 import {
@@ -14,9 +14,9 @@ import {
 import { useGame } from '../game/store.ts';
 import { ApiError } from '../net/api.ts';
 import { colors } from '../theme.ts';
-import { Icon, type IconName } from '../ui/Icon.tsx';
-import { buzz, Caps, CoachLine, Cta, H1, T, tap } from '../ui/kit.tsx';
+import { buzz, Cta, T, tap } from '../ui/kit.tsx';
 import { Enter, PressableScale } from '../ui/motion.tsx';
+import { Bubble, Ico, Segments, Tile, type IconAsset } from '../ui/sade.tsx';
 import { Model3D, preloadModels } from '../ui/Model3D.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
@@ -29,8 +29,9 @@ const BURAK_MODEL = require('../../assets/models/burak.glb');
 const BURAK_FIDGET = { clips: ['wave'], seconds: 9 };
 const LAST = 5;
 
-const POS_ICON: Record<Position, IconName> = { bitirici: 'ball', oyunKurucu: 'train', kanat: 'bolt' };
-const DREAM_ICON: Record<Dream, IconName> = { milli: 'trophy', avrupa: 'star', saha: 'home' };
+const POS_ICON: Record<Position, IconAsset> = { bitirici: 'sut', oyunKurucu: 'pas', kanat: 'calim' };
+const DREAM_ICON: Record<Dream, IconAsset> = { milli: 'milliForma', avrupa: 'cup', saha: 'halisaha' };
+const TRAIT_EMOJI: Record<Trait, string> = { hirsli: '🔥', sakin: '🧊', caliskan: '🛠️', sovmen: '✨', lider: '👑', sert: '💥' };
 const SUGGEST: Key[] = ['char.nick.s1', 'char.nick.s2', 'char.nick.s3', 'char.nick.s4', 'char.nick.s5', 'char.nick.s6'];
 
 export default function Karakter() {
@@ -73,15 +74,11 @@ export default function Karakter() {
   if (step === 0) {
     return (
       <View style={[{ flex: 1, paddingHorizontal: 20, gap: 18 }, pad]}>
-        <Enter>
-          <Caps>{t('char.welcome.caps')}</Caps>
-          <H1 style={{ marginTop: 6 }}>{t('char.welcome.title')}</H1>
-        </Enter>
         <View style={{ flex: 1, minHeight: 260 }}>
           <Glow width={260} />
           <Model3D model={BURAK_MODEL} fallback={BURAK} clip="idle" intro="wave" fidget={BURAK_FIDGET} headroom={0.12} style={{ flex: 1 }} label={t('coach.name')} />
         </View>
-        <Enter i={2}><Panel><CoachLine text={t('char.welcome.line')} /></Panel></Enter>
+        <Enter i={2}><Bubble text={t('char.welcome.short')} size={48} /></Enter>
         <Cta onPress={() => { buzz(); next(); }}>{t('char.welcome.cta')}</Cta>
       </View>
     );
@@ -91,7 +88,6 @@ export default function Karakter() {
     return (
       <View style={[{ flex: 1, paddingHorizontal: 20, gap: 14 }, pad]}>
         <Steps n={step} />
-        <View><Caps>{t('char.step', { n: step })}</Caps><H1 style={{ marginTop: 6 }}>{t('char.look.title')}</H1></View>
         <Look c={c} onChange={setC} />
         <Cta onPress={() => { buzz(); next(); }}>{t('common.continue')}</Cta>
       </View>
@@ -113,18 +109,8 @@ export default function Karakter() {
 /* ---------- Steps ---------- */
 
 function Steps({ n }: { n: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 6 }} accessibilityLabel={t('char.step', { n })}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= n ? colors.l600 : colors.s3 }} />
-      ))}
-    </View>
-  );
+  return <View accessible accessibilityLabel={t('char.step', { n })}><Segments n={n} of={LAST} /></View>;
 }
-
-const Panel = ({ children }: { children: ReactNode }) => (
-  <View style={{ borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, padding: 16 }}>{children}</View>
-);
 
 function Glow({ width }: { width: number }) {
   return (
@@ -144,34 +130,36 @@ function Glow({ width }: { width: number }) {
 
 function Question({ step, c, onChange, onNext }: { step: number; c: Character; onChange: (c: Character) => void; onNext: () => void }) {
   const title = step === 1 ? t('char.q1.title') : step === 2 ? t('char.q2.title') : t('char.q3.title');
-  const line = step === 1 ? t('char.q1.line') : step === 2 ? t('char.q2.line') : t('char.q3.line');
   return (
     <>
-      <Enter key={step}>
-        <Caps>{t('char.step', { n: step })}</Caps>
-        <H1 style={{ marginTop: 6 }}>{title}</H1>
-      </Enter>
-      <Enter key={`c${step}`} i={1}><CoachLine text={line} /></Enter>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
+      <Enter key={step}><Bubble text={title} size={48} /></Enter>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
         {step === 1 && POSITIONS.map((p, i) => (
-          <Enter key={p} i={i + 2}>
-            <Big
-              icon={POS_ICON[p]} selected={c.position === p}
-              title={t(`char.pos.${p}`)} sub={t(`char.pos.${p}.sub`)} tag={t(`char.pos.${p}.role`)}
-              onPress={() => onChange({ ...c, position: p })}
-            />
+          <Enter key={p} i={i + 1}>
+            <Tile row role="radio" selected={c.position === p} label={`${t(`char.pos.${p}`)}, ${t(`char.pos.${p}.role`)}`} onPress={() => onChange({ ...c, position: p })} style={{ minHeight: 88 }}>
+              <Ico name={POS_ICON[p]} size={60} />
+              <T w={700} size={18} style={{ flex: 1 }}>{t(`char.pos.${p}`)}</T>
+            </Tile>
           </Enter>
         ))}
         {step === 2 && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {TRAITS.map((k: Trait) => (
-              <Chip key={k} selected={c.trait === k} onPress={() => onChange({ ...c, trait: k })}>{t(`char.trait.${k}`)}</Chip>
+          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {TRAITS.map((k: Trait, i) => (
+              <Enter key={k} i={i + 1} style={{ width: '48%', flexGrow: 1 }}>
+                <Tile role="radio" selected={c.trait === k} label={t(`char.trait.${k}`)} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 92 }}>
+                  <T size={28} accessibilityElementsHidden importantForAccessibility="no">{TRAIT_EMOJI[k]}</T>
+                  <T w={700} size={16}>{t(`char.trait.${k}`)}</T>
+                </Tile>
+              </Enter>
             ))}
           </View>
         )}
         {step === 3 && DREAMS.map((d, i) => (
-          <Enter key={d} i={i + 2}>
-            <Row icon={DREAM_ICON[d]} title={t(`char.dream.${d}`)} sub={t(`char.dream.${d}.sub`)} selected={c.dream === d} onPress={() => onChange({ ...c, dream: d })} />
+          <Enter key={d} i={i + 1}>
+            <Tile row role="radio" selected={c.dream === d} label={t(`char.dream.${d}`)} onPress={() => onChange({ ...c, dream: d })} style={{ minHeight: 88 }}>
+              <Ico name={DREAM_ICON[d]} size={60} />
+              <T w={700} size={18} style={{ flex: 1 }}>{t(`char.dream.${d}`)}</T>
+            </Tile>
           </Enter>
         ))}
       </ScrollView>
@@ -180,58 +168,11 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
   );
 }
 
-function Big({ icon, title, sub, tag, selected, onPress }: { icon: IconName; title: string; sub: string; tag: string; selected: boolean; onPress: () => void }) {
-  return (
-    <PressableScale
-      accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => { tap(); onPress(); }} to={0.98}
-      style={{
-        flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 22,
-        backgroundColor: selected ? 'rgba(63,77,24,.4)' : colors.s1, borderWidth: 1.5, borderColor: selected ? colors.l600 : colors.line,
-      }}
-    >
-      <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name={icon} color={colors.l600} size={26} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <T w={600} size={17}>{title}</T>
-        <T w={500} size={13} color={colors.g200}>{sub}</T>
-        <View style={{ alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(63,77,24,.55)' }}>
-          <T w={600} size={12} color={colors.l500}>{tag}</T>
-        </View>
-      </View>
-    </PressableScale>
-  );
-}
-
-function Row({ icon, title, sub, selected, onPress }: { icon: IconName; title: string; sub: string; selected: boolean; onPress: () => void }) {
-  return (
-    <PressableScale
-      accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => { tap(); onPress(); }} to={0.98}
-      style={{
-        flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16,
-        backgroundColor: selected ? 'rgba(63,77,24,.4)' : colors.s2, borderWidth: 1.5, borderColor: selected ? colors.l600 : 'transparent',
-      }}
-    >
-      <Icon name={icon} color={colors.l600} />
-      <View style={{ flex: 1, paddingVertical: 8 }}>
-        <T w={600} size={15}>{title}</T>
-        <T w={500} size={13} color={colors.g200}>{sub}</T>
-      </View>
-    </PressableScale>
-  );
-}
-
 function Chip({ children, selected, onPress }: { children: string; selected: boolean; onPress: () => void }) {
   return (
-    <PressableScale
-      accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => { tap(); onPress(); }}
-      style={{
-        height: 44, paddingHorizontal: 18, borderRadius: 22, justifyContent: 'center',
-        backgroundColor: selected ? 'rgba(63,77,24,.4)' : colors.s2, borderWidth: 1.5, borderColor: selected ? colors.l600 : 'transparent',
-      }}
-    >
-      <T w={600} size={15} color={selected ? colors.l500 : colors.g100}>{children}</T>
-    </PressableScale>
+    <Tile role="radio" selected={selected} label={children} onPress={onPress} style={{ width: '31%', flexGrow: 1, height: 48, paddingVertical: 0, borderRadius: 16 }}>
+      <T w={700} size={15} color={selected ? colors.l500 : colors.g100}>{children}</T>
+    </Tile>
   );
 }
 
@@ -246,32 +187,25 @@ function Look({ c, onChange }: { c: Character; onChange: (c: Character) => void 
   const pickJersey = (jersey: Jersey) => { if (jersey !== c.jersey) { onChange({ ...c, jersey }); celebrate(); } };
   const name = (h: Hero) => t('char.look.hero', { n: STARTERS.indexOf(h) + 1 });
   return (
-    <View style={{ flex: 1, minHeight: 300 }}>
-      <Glow width={260} />
+    <View style={{ flex: 1, minHeight: 360 }}>
       <Model3D
         model={HERO_MODEL[c.hero]} fallback={HERO_IMAGE[c.hero][c.jersey]} clip="idle" action={cheer} tint={jerseyTint(c.jersey)}
-        rotatable headroom={0.16} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 92 }} label={name(c.hero)}
+        rotatable headroom={0.16} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 148 }} label={name(c.hero)}
       />
-
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 4, gap: 2 }}>
-        <Caps>{t('char.look.pos')}</Caps>
-        <T w={700} size={30} style={{ lineHeight: 34 }}>{t(`char.pos.${c.position}.role`)}</T>
-      </View>
 
       <View
         accessibilityRole="radiogroup"
-        style={{ position: 'absolute', right: 0, top: 0, gap: 12, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 30, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 98, flexDirection: 'row', justifyContent: 'center', gap: 12 }}
       >
         {JERSEYS.map(j => (
           <PressableScale
             key={j.key} accessibilityRole="radio" accessibilityLabel={t(`char.jersey.${j.key}`)} accessibilityState={{ selected: c.jersey === j.key }}
             onPress={() => { tap(); pickJersey(j.key); }} hitSlop={4}
-            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: j.color, borderWidth: 2.5, borderColor: c.jersey === j.key ? colors.g100 : colors.line }}
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: j.color, borderWidth: 3, borderColor: c.jersey === j.key ? colors.g100 : colors.line }}
           />
         ))}
       </View>
 
-      <T pointerEvents="none" w={500} size={12} color={colors.g300} style={{ position: 'absolute', left: 0, right: 0, bottom: 98, textAlign: 'center' }}>{t('char.look.turn')}</T>
       <View accessibilityRole="radiogroup" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
         {STARTERS.map(h => <Mini key={h} hero={h} selected={c.hero === h} onPress={() => pickHero(h)} label={name(h)} />)}
       </View>
@@ -303,30 +237,21 @@ function Nick({ nick, onChange, busy, onDone, error }: { nick: string; onChange:
   const ok = nick.trim().length >= NICK_MIN;
   return (
     <>
-      <Enter>
-        <Caps>{t('char.step', { n: LAST })}</Caps>
-        <H1 style={{ marginTop: 6 }}>{t('char.nick.title')}</H1>
-      </Enter>
-      <CoachLine text={t('char.nick.line')} />
+      <Enter><Bubble text={t('char.nick.title')} size={48} /></Enter>
       <View style={{ gap: 8 }}>
         <TextInput
           value={nick} onChangeText={s => onChange(cleanNick(s))} maxLength={NICK_MAX} autoCorrect={false} autoCapitalize="words"
           returnKeyType="done" onSubmitEditing={onDone} placeholder={t('char.nick.s1')} placeholderTextColor={colors.g400}
           accessibilityLabel={t('char.nick.a11y')} selectionColor={colors.l600}
           style={{
-            height: 60, borderRadius: 18, backgroundColor: colors.s1, borderWidth: 1.5, borderColor: colors.l600,
-            paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_600SemiBold', fontSize: 22,
+            height: 68, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1.5, borderColor: error ? colors.bad : colors.l600,
+            paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_700Bold', fontSize: 26, textAlign: 'center',
           }}
         />
-        {error
-          ? <T w={500} size={13} color={colors.bad} style={{ paddingHorizontal: 4 }} accessibilityLiveRegion="polite">{error}</T>
-          : <T w={500} size={13} color={colors.g300} style={{ paddingHorizontal: 4 }}>{t('char.nick.hint')}</T>}
+        {error && <T w={500} size={13} color={colors.bad} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{error}</T>}
       </View>
-      <View style={{ gap: 8 }}>
-        <Caps>{t('char.nick.suggest')}</Caps>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {SUGGEST.map(k => <Chip key={k} selected={nick === t(k)} onPress={() => onChange(t(k))}>{t(k)}</Chip>)}
-        </View>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t('char.nick.suggest')} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {SUGGEST.map(k => <Chip key={k} selected={nick === t(k)} onPress={() => onChange(t(k))}>{t(k)}</Chip>)}
       </View>
       <View style={{ flex: 1 }} />
       <Cta off={!ok} disabled={!ok} busy={busy} onPress={onDone}>{t('char.nick.cta')}</Cta>

@@ -5,9 +5,10 @@ import { View } from 'react-native';
 import { setMusic } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
-import { CoachFace, H1, Opt, T } from '../ui/kit.tsx';
+import { T } from '../ui/kit.tsx';
 import { Enter } from '../ui/motion.tsx';
 import { Shell } from '../ui/mahalle.tsx';
+import { Bubble, Ico, Tile } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
 
 // First step after the sign-in tap: Burak abi asks which mahalle the player is from.
@@ -22,17 +23,32 @@ export default function MahalleSecim() {
   }, [invite]);
 
   return (
-    <Shell back={false} label={t('mahalle.label')}>
-      <Enter style={{ alignItems: 'center', gap: 12, paddingTop: 8 }}>
-        <CoachFace size={96} />
-        <T w={600} size={12} color={colors.g200} style={{ letterSpacing: 0.8 }}>{t('coach.name').toLocaleUpperCase('tr')}</T>
-        <H1 style={{ textAlign: 'center' }}>{t('mahalle.pick.title')}</H1>
-        <T color={colors.g200} style={{ textAlign: 'center', lineHeight: 21 }}>{t('mahalle.pick.sub')}</T>
+    <Shell back={false}>
+      <Enter style={{ gap: 18, paddingTop: 8 }}>
+        <Bubble text={t('mahalle.pick.title')} size={56} />
       </Enter>
-      <View style={{ gap: 10 }}>
-        <Opt icon="home" title={t('mahalle.pick.create')} sub={t('mahalle.pick.createSub')} onPress={() => router.push('/mahalle-kur')} />
-        <Opt icon="mail" title={t('mahalle.pick.code')} sub={t('mahalle.pick.codeSub')} onPress={() => router.push('/mahalle-kod')} />
-        <Opt icon="whistle" title={t('mahalle.pick.open')} sub={t('mahalle.pick.openSub')} onPress={() => router.push('/mahalle-acik')} />
+      <View style={{ gap: 12 }}>
+        <Enter i={1}>
+          <Tile row selected onPress={() => router.push('/mahalle-kur')} label={`${t('mahalle.pick.create')}. ${t('mahalle.pick.createSub')}`} style={{ minHeight: 92 }}>
+            <Ico name="mahalle" size={64} />
+            <View style={{ flex: 1 }}>
+              <T w={700} size={19}>{t('mahalle.pick.create')}</T>
+              <T w={500} size={13} color={colors.g200}>{t('mahalle.pick.founder')}</T>
+            </View>
+          </Tile>
+        </Enter>
+        <Enter i={2}>
+          <Tile row onPress={() => router.push('/mahalle-kod')} label={`${t('mahalle.pick.code')}. ${t('mahalle.pick.codeSub')}`} style={{ minHeight: 92 }}>
+            <Ico name="anahtar" size={64} />
+            <T w={700} size={19} style={{ flex: 1 }}>{t('mahalle.pick.code')}</T>
+          </Tile>
+        </Enter>
+        <Enter i={3}>
+          <Tile row onPress={() => router.push('/mahalle-acik')} label={`${t('mahalle.pick.open')}. ${t('mahalle.pick.openSub')}`} style={{ minHeight: 92 }}>
+            <Ico name="mahalleBul" size={64} />
+            <T w={700} size={19} style={{ flex: 1 }}>{t('mahalle.pick.open')}</T>
+          </Tile>
+        </Enter>
       </View>
       <T w={500} size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('mahalle.pick.later')}</T>
     </Shell>

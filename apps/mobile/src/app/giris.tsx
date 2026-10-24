@@ -8,7 +8,7 @@ import { setMusic, sfx } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { openSignInSheet } from '../ui/account.tsx';
-import { buzz, T } from '../ui/kit.tsx';
+import { buzz, Cta, T } from '../ui/kit.tsx';
 import { Model3D, preloadModels } from '../ui/Model3D.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -38,7 +38,6 @@ export default function Giris() {
   const [busy, setBusy] = useState(false);
   const intro = useIntro();
   useEffect(() => { setMusic('menu'); preloadModels([BURAK_3D]); }, []);
-  const blink = useBlink(!busy);
 
   async function start() {
     if (busy) return;
@@ -83,18 +82,15 @@ export default function Giris() {
         <T w={600} size={13} color={colors.g200}>{t('login.haveAccount')}</T>
       </Pressable>
 
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 16) + 56, alignItems: 'center', gap: 22 }}>
-        <Animated.View style={{ opacity: intro.logo, alignItems: 'center', gap: 4 }}>
-          <T w={700} size={24} style={{ letterSpacing: -0.4 }}>{t('login.slogan1')}</T>
-          <T w={700} size={24} color={colors.l600} style={{ letterSpacing: -0.4 }}>{t('login.slogan2')}</T>
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(insets.bottom, 16) + 34, gap: 20 }}>
+        <Animated.View pointerEvents="none" style={{ opacity: intro.logo, alignItems: 'center', gap: 4 }}>
+          <T w={700} size={26} style={{ letterSpacing: -0.4 }}>{t('login.slogan1')}</T>
+          <T w={700} size={26} color={colors.l600} style={{ letterSpacing: -0.4 }}>{t('login.slogan2')}</T>
         </Animated.View>
-        {busy ? (
-          <T w={600} size={13} color={colors.l600} style={{ letterSpacing: 1.8 }} accessibilityLiveRegion="polite">{t('login.entering')}</T>
-        ) : (
-          <Animated.View style={{ opacity: blink }}>
-            <T w={600} size={13} style={{ letterSpacing: 1.8 }} accessibilityElementsHidden importantForAccessibility="no">{t('login.tap')}</T>
-          </Animated.View>
-        )}
+        {/* The whole screen still starts the game; the button makes that obvious. */}
+        <Animated.View style={{ opacity: intro.logo }}>
+          <Cta busy={busy} onPress={() => void start()} accessibilityLabel={t('login.tapA11y')}>{t('common.start')}</Cta>
+        </Animated.View>
       </View>
 
       <T pointerEvents="none" w={500} size={11} color={colors.g300} style={{ position: 'absolute', left: 24, right: 24, bottom: Math.max(insets.bottom, 16), textAlign: 'center', lineHeight: 16 }}>
@@ -138,21 +134,6 @@ function useIntro() {
     return () => { alive = false; };
   }, [v, heroY]);
   return { ...v, heroY };
-}
-
-/** Slow pulse on the tap prompt, so the player knows the whole screen is a button. */
-function useBlink(on: boolean) {
-  const a = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (!on) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(a, { toValue: 0.45, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
-      Animated.timing(a, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [a, on]);
-  return a;
 }
 
 /** Faint chalk lines of a pitch behind the player: halfway line, centre circle and spot. */

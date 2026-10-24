@@ -121,6 +121,23 @@ export interface ShopConfig {
   adDoubleWindowMinutes: number;
 }
 
+/** Lifestyle items (ev, ulaşım, arsa): status only, no match or stat effect (GDD v3.1 section 8.1). */
+export interface LifestyleItem {
+  id: string;
+  group: 'ev' | 'ulasim' | 'arsa';
+  price: number;
+  unlockLevel: number;
+  /** Another item that has to be owned first (halısaha needs the arsa). */
+  requires?: string;
+}
+
+export interface LifestyleConfig {
+  items: LifestyleItem[];
+  /** Only the halısaha pays coin, granted by the server once a day. */
+  halisahaIncomePerDay: number;
+  halisahaMaxAccrualDays: number;
+}
+
 export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
@@ -159,6 +176,7 @@ export interface EconomyConfig {
   career: CareerConfig;
   training: TrainingConfig;
   shop: ShopConfig;
+  lifestyle: LifestyleConfig;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -287,6 +305,22 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     adEnergyPerDay: 3,
     adDoublePerDay: 2,
     adDoubleWindowMinutes: 30,
+  },
+
+  // GDD v3.1 section 8.1 (Kaan, 2026-10-23): status only; prices are assumptions.
+  lifestyle: {
+    items: [
+      { id: 'ev_oda', group: 'ev', price: 0, unlockLevel: 1 },
+      { id: 'bisiklet', group: 'ulasim', price: 400, unlockLevel: 3 },
+      { id: 'ev_daire', group: 'ev', price: 4000, unlockLevel: 10 },
+      { id: 'araba', group: 'ulasim', price: 7000, unlockLevel: 12 },
+      { id: 'arsa', group: 'arsa', price: 6000, unlockLevel: 15 },
+      { id: 'halisaha', group: 'arsa', price: 15000, unlockLevel: 18, requires: 'arsa' },
+      { id: 'ev_villa', group: 'ev', price: 40000, unlockLevel: 25 },
+      { id: 'spor_araba', group: 'ulasim', price: 30000, unlockLevel: 28 },
+    ],
+    halisahaIncomePerDay: 200,
+    halisahaMaxAccrualDays: 3,
   },
 
   matchChances: 3,

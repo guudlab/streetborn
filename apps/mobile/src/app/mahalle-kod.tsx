@@ -5,8 +5,9 @@ import { useGame } from '../game/store.ts';
 import { previewMahalle, type MahallePreview } from '../net/api.ts';
 import { colors } from '../theme.ts';
 import { Emblem } from '../ui/emblem.tsx';
-import { Cta, H1, T } from '../ui/kit.tsx';
+import { Cta, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
+import { Amount, Ico } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
 
 const LEN = 6;
@@ -38,22 +39,13 @@ export default function MahalleKod() {
   }
 
   return (
-    <Shell
-      label={t('mahalle.label')}
-      footer={<>
-        <Cta off={!preview} disabled={!preview} busy={busy} onPress={join}>{t('mahalle.code.cta')}</Cta>
-        <T w={500} size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('mahalle.code.note')}</T>
-      </>}
-    >
-      <View style={{ gap: 6 }}>
-        <H1>{t('mahalle.code.title')}</H1>
-        <T color={colors.g200} style={{ lineHeight: 21 }}>{t('mahalle.code.sub')}</T>
-      </View>
+    <Shell title={t('mahalle.code.title')} footer={<Cta off={!preview} disabled={!preview} busy={busy} onPress={join}>{t('mahalle.code.cta')}</Cta>}>
+      <Ico name="anahtar" size={96} style={{ alignSelf: 'center', marginTop: 12 }} />
 
       <Pressable accessibilityRole="none" onPress={() => input.current?.focus()} style={{ flexDirection: 'row', gap: 8 }}>
         {Array.from({ length: LEN }, (_, i) => (
-          <View key={i} style={{ flex: 1, height: 56, borderRadius: 12, backgroundColor: colors.s2, borderWidth: 1, borderColor: code[i] ? colors.l600 : colors.line, alignItems: 'center', justifyContent: 'center' }}>
-            <T w={700} size={24}>{code[i] ?? ''}</T>
+          <View key={i} style={{ flex: 1, height: 60, borderRadius: 14, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: code[i] ? colors.l600 : colors.line, alignItems: 'center', justifyContent: 'center' }}>
+            <T w={700} size={26}>{code[i] ?? ''}</T>
           </View>
         ))}
         {/* The real input sits invisibly on top of the boxes. */}
@@ -65,18 +57,19 @@ export default function MahalleKod() {
       </Pressable>
 
       {preview && (
-        <View accessibilityLiveRegion="polite" style={{ gap: 12 }}>
-          <T w={600} size={13} color={colors.l600}>{t('mahalle.code.found')}</T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}>
-            <Emblem shape={preview.emblem} color={preview.color} name={preview.name} size={60} />
-            <View style={{ flex: 1, gap: 3 }}>
-              <T w={600} size={20} numberOfLines={1}>{preview.name}</T>
-              <T w={500} size={13} color={colors.g200}>{t('mahalle.code.founder', { nick: preview.captainNick ?? t('mahalle.home.newPlayer'), n: preview.memberCount })}</T>
+        <View accessibilityLiveRegion="polite" accessibilityLabel={`${t('mahalle.code.found')}: ${preview.name}`}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 22, backgroundColor: 'rgba(63,77,24,.38)', borderWidth: 1.5, borderColor: colors.l600 }}>
+          <Emblem shape={preview.emblem} color={preview.color} name={preview.name} size={56} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <T w={700} size={19} numberOfLines={1}>{preview.name}</T>
+            <View style={{ flexDirection: 'row', gap: 14 }}>
+              <Amount icon="oyuncu" size={20} textSize={14} color={colors.g200}>{preview.memberCount} / 12</Amount>
+              {preview.captainNick && <T w={600} size={14} color={colors.g200} numberOfLines={1} style={{ flexShrink: 1 }}>★ {preview.captainNick}</T>}
             </View>
           </View>
         </View>
       )}
-      {looked && !preview && <T w={500} size={14} color={colors.bad} accessibilityLiveRegion="polite">{error ?? t('mahalle.code.none')}</T>}
+      {looked && !preview && <T w={500} size={14} color={colors.bad} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{error ?? t('mahalle.code.none')}</T>}
       {preview && error && <T w={500} size={14} color={colors.bad} accessibilityLiveRegion="polite">{error}</T>}
     </Shell>
   );
