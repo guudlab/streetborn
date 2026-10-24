@@ -54,7 +54,7 @@ export const en: Record<Key, string> = {
   'account.signInEmailText': 'Type the email linked to your account and we will send you a sign-in code.',
   'account.sendCode': 'Send code',
   'account.codeTitle': 'Sign-in code',
-  'account.codeText': 'Type the code we sent to {email}.',
+  'account.codeText': 'Type the code we sent to {email}, or tap the link in the email.',
   'account.signIn': 'Sign in',
   'account.otherEmail': 'Another email',
   'account.err.taken': 'That account belongs to another player. Use I have an account to play as them.',

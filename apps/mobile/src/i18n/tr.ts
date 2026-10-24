@@ -53,7 +53,7 @@ export const tr = {
   'account.signInEmailText': 'Hesabına bağlı e-postayı yaz, sana bir giriş kodu gönderelim.',
   'account.sendCode': 'Kod gönder',
   'account.codeTitle': 'Giriş kodu',
-  'account.codeText': '{email} adresine gelen kodu yaz.',
+  'account.codeText': '{email} adresine gelen kodu yaz ya da e-postadaki bağlantıya dokun.',
   'account.signIn': 'Gir',
   'account.otherEmail': 'Başka e-posta',
   'account.err.taken': 'Bu hesap başka bir oyuncuya bağlı. O oyuncuyla girmek için Hesabım var’ı kullan.',
