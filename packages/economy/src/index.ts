@@ -1,4 +1,4 @@
-export { DEFAULT_CONFIG, type CareerConfig, type EconomyConfig, type LeagueTier, type MahalleConfig, type ShopConfig, type TrainingConfig } from './config.ts';
+export { DEFAULT_CONFIG, type CareerConfig, type EconomyConfig, type LeagueTier, type LifestyleConfig, type LifestyleItem, type MahalleConfig, type ShopConfig, type TrainingConfig } from './config.ts';
 export type { Currency, ItemSource, MatchStatus, MatchTicket, MatchStats } from './types.ts';
 export { computeRating, ASSISTED_RATING_CAP, RATING_PER_DEFENSE_STOP, type RatingInput } from './rating.ts';
 export { xpNeed, levelForXp } from './levels.ts';

@@ -7,7 +7,7 @@ import { colors } from '../theme.ts';
 export type IconName =
   | 'home' | 'train' | 'bag' | 'mail' | 'bolt' | 'coin' | 'gem' | 'pause' | 'clock' | 'lock'
   | 'info' | 'check' | 'x' | 'chev' | 'back' | 'play' | 'trophy' | 'ad' | 'whistle' | 'ball' | 'star'
-  | 'sound' | 'mute' | 'music';
+  | 'sound' | 'mute' | 'music' | 'city' | 'share' | 'plus';
 
 const SHADE = 'rgba(0,0,0,.45)';
 
@@ -36,6 +36,9 @@ function paths(name: IconName, c: string) {
     case 'sound': return <><Path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><Path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>;
     case 'mute': return <><Path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><Path d="M16 9.5l5 5M21 9.5l-5 5" /></>;
     case 'music': return <><Path d="M9 18V6l11-2v12" /><Circle cx={6.5} cy={18} r={2.5} /><Circle cx={17.5} cy={16} r={2.5} /></>;
+    case 'city': return <><Path d="M3 21V11l5-3v13M8 21V4l8 3v14M16 21v-9l5 2v7M2 21h20" /><Path d="M11 9.5h2M11 13h2M11 16.5h2" /></>;
+    case 'share': return <><Path d="M12 15V3M7.5 7.5L12 3l4.5 4.5" /><Path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></>;
+    case 'plus': return <Path d="M12 5v14M5 12h14" />;
     case 'star': return <Path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />;
   }
 }

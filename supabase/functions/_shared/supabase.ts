@@ -31,6 +31,7 @@ export async function loadEconomyConfig(): Promise<EconomyConfig> {
     career: { ...DEFAULT_CONFIG.career, ...(live.career ?? {}) },
     training: { ...DEFAULT_CONFIG.training, ...(live.training ?? {}) },
     shop: { ...DEFAULT_CONFIG.shop, ...(live.shop ?? {}) },
+    lifestyle: { ...DEFAULT_CONFIG.lifestyle, ...(live.lifestyle ?? {}) },
   };
 }
 

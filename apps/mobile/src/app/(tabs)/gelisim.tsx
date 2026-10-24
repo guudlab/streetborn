@@ -1,7 +1,6 @@
-import { Model3D } from '../../ui/Model3D.tsx';
 import { apNeed, DEFAULT_CONFIG, privateCost } from '@streetborn/economy';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DRILLS, ovr, type StatKey } from '../../game/rules.ts';
@@ -11,7 +10,9 @@ import { openEnergySheet } from '../../ui/energy.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { sfx } from '../../audio/audio.ts';
-import { buzz, Caps, Cta, Ghost, H1, H3, T } from '../../ui/kit.tsx';
+import { buzz, Caps, CoachFace, Cta, H1, T, Track } from '../../ui/kit.tsx';
+import { PressableScale } from '../../ui/motion.tsx';
+import { Amount, Ico, Segments, Tile, type IconAsset } from '../../ui/sade.tsx';
 import { TimingBar, type TimingBarHandle } from '../../ui/TimingBar.tsx';
 import { t } from '../../i18n/index.ts';
 
@@ -23,6 +24,7 @@ const GRADES = {
   ozel: { color: colors.l600, icon: 'whistle', label: t('train.grade.ozel') },
 } as const;
 const tc = DEFAULT_CONFIG.training;
+const STAT_ICON: Record<StatKey, IconAsset> = { sut: 'sut', pas: 'pas', hiz: 'hiz', fizik: 'fizik' };
 
 export default function Gelisim() {
   const insets = useSafeAreaInsets();
@@ -69,91 +71,101 @@ export default function Gelisim() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <View><Caps>{t('train.eyebrow')}</Caps><H1 style={{ marginTop: 4 }}>{t('train.title')}</H1></View>
-        <Model3D model={require('../../../assets/models/ball.glb')} fallback={require('../../../assets/meshy/ball.webp')} poster={require('../../../assets/meshy/ball.webp')} spin style={{ width: 56, height: 56 }} label={t('train.ball')} />
-        <View style={{ alignItems: 'flex-end' }}><Caps>{t('train.overall')}</Caps><H1 style={{ marginTop: 4 }}>{ovr(g.stats)}</H1></View>
-      </View>
-
-      <View style={{ gap: 8 }}>
-        {KEYS.map(k => {
-          const on = k === sel;
-          const flash = last?.statUp && last.key === k;
-          return (
-            <Pressable
-              key={k} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => pick(k)}
-              style={{ padding: 14, paddingHorizontal: 16, borderRadius: 18, backgroundColor: colors.s1, borderWidth: 1, borderColor: on ? colors.l600 : colors.line, gap: 8 }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <T w={600} size={16}>{DRILLS[k].stat}  <T w={500} size={13} color={colors.g200}>{DRILLS[k].name}</T></T>
-                <T w={600} size={22} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.s3, overflow: 'hidden' }}>
-                  <View style={{ width: `${g.stats[k]}%`, height: '100%', borderRadius: 3, backgroundColor: on ? colors.l600 : colors.g200 }} />
-                </View>
-                <View style={{ flexDirection: 'row', gap: 4 }} accessibilityLabel={t('train.progressA11y', { n: g.drillProgress[k] })}>
-                  {Array.from({ length: need(k) }, (_, i) => <View key={i} style={{ width: 14, height: 6, borderRadius: 3, backgroundColor: i < g.drillProgress[k] ? colors.l600 : colors.s3 }} />)}
-                </View>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View style={{ borderRadius: 22, backgroundColor: colors.s2, padding: 16, gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <View><Caps>{d.place}</Caps><H3 style={{ marginTop: 2 }}>{d.name}</H3></View>
-          {g.trainFree > 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name="check" size={16} color={colors.l500} /><T w={600} size={13} color={colors.l500}>{t('train.freeLeft', { n: g.trainFree })}</T>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name="bolt" size={16} color={colors.g200} /><T w={600} size={13} color={colors.g200}>{t('train.oneEnergy', { n: g.energy })}</T>
-            </View>
-          )}
+    <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
+        <H1>{t('tab.train')}</H1>
+        <View accessible accessibilityLabel={`${t('train.overall')} ${ovr(g.stats)}`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+          <Caps>{t('hub.ovr')}</Caps>
+          <T w={700} size={30}>{ovr(g.stats)}</T>
         </View>
+      </View>
 
-        {running ? (
-          <>
-            <TimingBar ref={bar} />
-            <Cta onPress={() => void tapBar()}>{t('train.tap')}</Cta>
-          </>
-        ) : (
-          <>
-            {last ? <DrillResult r={last} stat={DRILLS[last.key].stat} level={g.level} need={need(last.key)} /> : (
-              <T size={14} color={colors.g200}>{t('train.hint', { stat: d.stat })}</T>
-            )}
-            <Cta disabled={!can || busy} off={busy} onPress={() => { setLast(null); startedAt.current = Date.now(); setRunning(true); }}>
-              {can ? (last ? t('train.again') : t('common.start')) : t('train.noEnergy')}
+      {running ? (
+        <View style={{ flex: 1, minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Ico name={STAT_ICON[sel]} size={170} />
+          <T w={700} size={22}>{d.stat}</T>
+          <T w={500} size={14} color={colors.g200}>{t('train.hintShort')}</T>
+        </View>
+      ) : (
+        <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          {KEYS.map(k => {
+            const on = k === sel;
+            const flash = last?.statUp && last.key === k;
+            return (
+              <Tile
+                key={k} role="radio" selected={on} onPress={() => pick(k)} style={{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }}
+                label={`${DRILLS[k].stat} ${g.stats[k]}, ${t('train.progressA11y', { n: g.drillProgress[k] })}`}
+              >
+                <Ico name={STAT_ICON[k]} size={56} />
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                  <T w={600} size={13} color={colors.g200}>{DRILLS[k].stat}</T>
+                  <T w={700} size={26} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
+                </View>
+                <View style={{ alignSelf: 'stretch', paddingHorizontal: 12, gap: 6 }}>
+                  <Track value={g.stats[k] / 100} height={6} color={on ? colors.l600 : colors.g200} />
+                  <Segments n={g.drillProgress[k]} of={need(k)} height={5} gap={4} style={{ paddingHorizontal: 14 }} />
+                </View>
+              </Tile>
+            );
+          })}
+        </View>
+      )}
+
+      {!running && <View style={{ flex: 1 }} />}
+      {running ? (
+        <>
+          <TimingBar ref={bar} />
+          <Cta onPress={() => void tapBar()}>{t('train.tap')}</Cta>
+        </>
+      ) : (
+        <>
+          {last && <DrillResult r={last} stat={DRILLS[last.key].stat} level={g.level} need={need(last.key)} />}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Cta
+              style={{ flex: 1 }} disabled={!can || busy} off={busy}
+              onPress={() => { setLast(null); startedAt.current = Date.now(); setRunning(true); }}
+              accessibilityLabel={`${d.stat}: ${can ? t('common.start') : t('train.noEnergy')}`}
+            >
+              <T w={700} size={17} color={can ? colors.ink : colors.g200}>{can ? (last ? t('train.again') : t('train.cta')) : t('train.noEnergy')}</T>
+              {can && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
+                  {g.trainFree > 0
+                    ? <T w={700} size={13} color={colors.ink}>{t('train.freeShort', { n: g.trainFree })}</T>
+                    : <><Icon name="bolt" size={15} color={colors.ink} /><T w={700} size={14} color={colors.ink}>1</T></>}
+                </View>
+              )}
             </Cta>
             {online && (
-              <Ghost disabled={busy || g.privateLeft === 0} onPress={() => void privateSession()}>
-                {g.privateLeft === 0
-                  ? t('train.private.limit')
-                  : t('train.private.cta', { coach, n: cost, left: g.privateLeft })}
-              </Ghost>
+              <PressableScale
+                accessibilityRole="button" disabled={busy || g.privateLeft === 0} onPress={() => void privateSession()}
+                accessibilityLabel={g.privateLeft === 0 ? t('train.private.limit') : t('train.private.cta', { coach, n: cost, left: g.privateLeft })}
+                style={{ width: 76, height: 56, borderRadius: 28, backgroundColor: colors.s2, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: g.privateLeft === 0 ? 0.4 : 1 }}
+              >
+                <CoachFace size={34} />
+                <View style={{ alignItems: 'center' }}>
+                  <Ico name="coin" size={18} />
+                  <T w={700} size={11}>{cost}</T>
+                </View>
+              </PressableScale>
             )}
-          </>
-        )}
-      </View>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
 
 function DrillResult({ r, stat, level, need }: { r: TrainResult; stat: string; level: number; need: number }) {
   const G = GRADES[r.grade];
-  const sub = r.statUp ? `${stat} ${r.before} → ${r.after}` : r.grade === 'kacti' ? t('train.noProgress') : t('train.progress', { n: r.progress, need });
-  const paid = r.coin ? ` · −${r.coin} coin` : '';
+  const sub = r.statUp ? `${stat} ${r.before} → ${r.after}` : r.grade === 'kacti' ? '' : t('train.progress', { n: r.progress, need });
   return (
-    <View accessibilityLiveRegion="polite" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Icon name={G.icon} size={22} color={G.color} />
-      <View>
-        <T w={600} size={15} color={G.color}>{G.label} · +{r.xp} XP{paid}</T>
-        <T w={500} size={13} color={colors.g200}>{sub}{r.ups ? t('train.levelUp', { n: level }) : ''}</T>
-      </View>
+    <View accessibilityLiveRegion="polite" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <Icon name={G.icon} size={24} color={G.color} />
+      <T w={700} size={17} color={G.color}>{G.label}</T>
+      <T w={700} size={15}>+{r.xp} XP</T>
+      {r.coin ? <Amount icon="coin" size={18} textSize={14}>−{r.coin}</Amount> : null}
+      {sub !== '' && <T w={600} size={13} color={colors.g200}>{sub}</T>}
+      {r.ups ? <T w={700} size={13} color={colors.l600}>{t('post.level', { n: level })}</T> : null}
     </View>
   );
 }

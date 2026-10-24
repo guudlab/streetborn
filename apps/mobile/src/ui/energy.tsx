@@ -1,12 +1,15 @@
 import { DEFAULT_CONFIG } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 
 import { mmss } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { sfx } from '../audio/audio.ts';
+import { Icon } from './Icon.tsx';
 import { buzz, Ghost, H3, Opt, Price, T } from './kit.tsx';
+import { Amount, Ico, Tile } from './sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from './overlay.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -16,40 +19,79 @@ export function energyLeft(now: number) {
   return s.energy >= s.energyMax ? null : mmss(Math.max(0, next - now));
 }
 
-/** Ad (+1) and gem refill rows; used in the shop and in the "out of energy" sheet. */
-export function EnergyOptions({ onDone }: { onDone?: () => void }) {
+/** The two ways to get energy now: a rewarded ad (+1) and a gem refill. Shared by the rows and the tiles. */
+function useEnergyActions(onDone?: () => void) {
   const { adsLeft, energy, energyMax, gems, mode, refillsLeft } = useGame();
   // Rewarded ads need the AdMob SDK in the native app; until then they work offline only.
   const adSoon = mode === 'online';
   const cost = DEFAULT_CONFIG.shop.refillGem;
   const [busy, setBusy] = useState(false);
   useEffect(() => { void useGame.getState().refreshShop(); }, []);
+  return {
+    adSoon, adsLeft, cost, gems, refillsLeft,
+    adOff: adSoon || !adsLeft || energy >= energyMax,
+    refillOff: busy || gems < cost || energy >= energyMax || refillsLeft <= 0,
+    watchAd() {
+      openSheet(<><H3>{t('energy.adPlaying')}</H3><Spinner /><SheetText>{t('energy.adPlaceholder')}</SheetText></>);
+      setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) { toast(t('energy.plusOne')); sfx('unlock'); } onDone?.(); }, 2000);
+    },
+    refill() {
+      // The bar fills at once (see gemRefill); only a refusal from the server comes back.
+      setBusy(true);
+      void useGame.getState().gemRefill().then((r) => {
+        setBusy(false);
+        if (r !== 'ok') toast(t(REFILL_ERROR[r]));
+      });
+      toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock');
+      closeSheet(); onDone?.();
+    },
+  };
+}
+
+/** Ad (+1) and gem refill rows; used in the "out of energy" sheet. */
+export function EnergyOptions({ onDone }: { onDone?: () => void }) {
+  const a = useEnergyActions(onDone);
   return (
     <>
       <Opt
-        icon="ad" title={t('energy.ad')} sub={adSoon ? t('energy.soon') : t('energy.adSub', { n: adsLeft })}
-        disabled={adSoon || !adsLeft || energy >= energyMax}
-        onPress={() => {
-          openSheet(<><H3>{t('energy.adPlaying')}</H3><Spinner /><SheetText>{t('energy.adPlaceholder')}</SheetText></>);
-          setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) { toast(t('energy.plusOne')); sfx('unlock'); } onDone?.(); }, 2000);
-        }}
+        icon="ad" title={t('energy.ad')} sub={a.adSoon ? t('energy.soon') : t('energy.adSub', { n: a.adsLeft })}
+        disabled={a.adOff} onPress={a.watchAd}
       />
       <Opt
         icon="gem" title={t('energy.refill')}
-        sub={refillsLeft > 0 ? t('energy.refillSub', { n: refillsLeft, g: gems }) : t('energy.refillLimit')}
-        disabled={busy || gems < cost || energy >= energyMax || refillsLeft <= 0} right={<Price gem>{cost}</Price>}
-        onPress={() => {
-          // The bar fills at once (see gemRefill); only a refusal from the server comes back.
-          setBusy(true);
-          void useGame.getState().gemRefill().then((r) => {
-            setBusy(false);
-            if (r !== 'ok') toast(t(REFILL_ERROR[r]));
-          });
-          toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock');
-          closeSheet(); onDone?.();
-        }}
+        sub={a.refillsLeft > 0 ? t('energy.refillSub', { n: a.refillsLeft, g: a.gems }) : t('energy.refillLimit')}
+        disabled={a.refillOff} right={<Price gem>{a.cost}</Price>} onPress={a.refill}
       />
     </>
+  );
+}
+
+/** The same two actions as big icon tiles (shop). */
+export function EnergyTiles() {
+  const a = useEnergyActions();
+  return (
+    <View style={{ flexDirection: 'row', gap: 10 }}>
+      <Tile
+        onPress={a.watchAd} disabled={a.adOff} style={{ flex: 1, opacity: a.adOff ? 0.5 : 1 }}
+        label={`${t('energy.ad')}, ${a.adSoon ? t('energy.soon') : t('energy.adSub', { n: a.adsLeft })}`}
+      >
+        <Ico name="enerji" size={48} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Icon name="ad" size={18} color={colors.g100} />
+          <T w={700} size={15}>{a.adSoon ? t('energy.soon') : '+1'}</T>
+        </View>
+      </Tile>
+      <Tile
+        onPress={a.refill} disabled={a.refillOff} style={{ flex: 1, opacity: a.refillOff ? 0.5 : 1 }}
+        label={`${t('energy.refill')}, ${a.cost} ${t('shop.gems')}`}
+      >
+        <Ico name="enerji" size={48} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <T w={700} size={15}>{t('energy.fillShort')}</T>
+          <Amount icon="gem" size={18} textSize={15}>{a.cost}</Amount>
+        </View>
+      </Tile>
+    </View>
   );
 }
 

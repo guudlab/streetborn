@@ -13,7 +13,8 @@ import { clamp, MOMENT_TITLE } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
-import { buzz, Caps, CoachLine, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
+import { buzz, Caps, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
+import { Bubble, Ico, type IconAsset } from '../ui/sade.tsx';
 import { useShake } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { DefenseScene, type DefenseSceneHandle } from '../ui/DefenseScene.tsx';
@@ -22,6 +23,7 @@ import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
 import { t } from '../i18n/index.ts';
 
+const MOMENT_ICON: Record<'shot' | 'pass' | 'freekick' | 'defense', IconAsset> = { shot: 'sut', pass: 'pas', freekick: 'sut', defense: 'oyuncuKosu' };
 const KIND = { shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick'), defense: t('kind.defense') } as const;
 const SHOT_TEXT = { gol: t('match.shot.goal'), kurtardi: t('match.shot.saved'), aut: t('match.shot.wide'), ust: t('match.shot.over') } as const;
 const OUT = { goal: 'gol', saved: 'kurtardi', wide: 'aut', over: 'ust' } as const;
@@ -265,12 +267,12 @@ export default function Mac() {
       {/* Panel */}
       <View style={{ flex: 1, paddingTop: 18, paddingHorizontal: 20, paddingBottom: insets.bottom + 20, gap: 14 }}>
         {moment && finishing === 'no' && (
-          <View>
-            <Caps>{t('match.moment', { i: (m?.i ?? 0) + 1, kind: KIND[moment.kind] })}</Caps>
-            <H3 style={{ marginTop: 4 }}>{MOMENT_TITLE[moment.kind]}</H3>
+          <View accessible accessibilityLabel={t('match.moment', { i: (m?.i ?? 0) + 1, kind: KIND[moment.kind] })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Ico name={MOMENT_ICON[moment.kind]} size={40} />
+            <H3>{MOMENT_TITLE[moment.kind]}</H3>
           </View>
         )}
-        {finishing === 'no' ? <CoachLine text={line} /> : (
+        {finishing === 'no' ? (line ? <Bubble text={line} size={36} /> : null) : (
           <View style={{ gap: 6 }}>
             <Caps>{t('match.end')}</Caps>
             <H3>{finishing === 'sending' ? t('match.calculating') : t('match.notSent')}</H3>

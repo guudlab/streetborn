@@ -6,7 +6,6 @@ import { Easing, Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { setAmbience, setMusic, sfx } from '../../audio/audio.ts';
-import { useGame } from '../../game/store.ts';
 import { colors, motion } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
 import { buzz, T } from '../../ui/kit.tsx';
@@ -14,11 +13,12 @@ import { t } from '../../i18n/index.ts';
 
 // Kaan's tab bar decision (2026-10-22, option B): a compact centred glass pill
 // that hugs its content; the selected tab opens into a lime pill with its
-// label, the others stay icon only.
+// label, the others stay icon only. Sade UI (2026-10-24): Ana, Gelişim, Yaşam, Dükkân;
+// offers open from a card on the home screen.
 const TABS: Record<string, { icon: IconName; label: string }> = {
   index: { icon: 'home', label: t('tab.career') },
   gelisim: { icon: 'train', label: t('tab.train') },
-  teklifler: { icon: 'mail', label: t('tab.offers') },
+  yasam: { icon: 'city', label: t('tab.life') },
   dukkan: { icon: 'bag', label: t('tab.shop') },
 };
 
@@ -29,7 +29,6 @@ const resize = LinearTransition.springify().damping(motion.snappy.damping).stiff
 const APressable = Animated.createAnimatedComponent(Pressable);
 
 function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
-  const offersBadge = useGame(s => s.scouted && !s.signed);
   return (
     <View
       pointerEvents="box-none"
@@ -66,9 +65,6 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
                     <T w={600} size={14} color={colors.ink} numberOfLines={1}>{tab.label}</T>
                   </Animated.View>
                 )}
-                {route.name === 'teklifler' && offersBadge && !on && (
-                  <View style={{ position: 'absolute', top: 9, right: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.l600, borderWidth: 2, borderColor: colors.s3 }} />
-                )}
               </APressable>
             );
           })}
@@ -91,7 +87,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: t('tab.career') }} />
       <Tabs.Screen name="gelisim" options={{ title: t('tab.train') }} />
-      <Tabs.Screen name="teklifler" options={{ title: t('tab.offers') }} />
+      <Tabs.Screen name="yasam" options={{ title: t('tab.life') }} />
       <Tabs.Screen name="dukkan" options={{ title: t('tab.shop') }} />
     </Tabs>
   );

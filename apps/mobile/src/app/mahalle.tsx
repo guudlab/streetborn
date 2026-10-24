@@ -6,8 +6,9 @@ import { INVITE_BASE } from '../net/config.ts';
 import { colors } from '../theme.ts';
 import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { Caps, Cta, Ghost, H1, H3, T } from '../ui/kit.tsx';
+import { Cta, Ghost, H3, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
+import { Amount, Ico } from '../ui/sade.tsx';
 import { openPlayerMenu } from '../ui/player-menu.tsx';
 import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
@@ -51,63 +52,72 @@ export default function Mahalle() {
     );
   }
 
+  const share = () => void shareInvite(mahalle.name, mahalle.code);
+
   return (
     <Shell
-      label={t('mahalle.label')}
-      footer={<Ghost onPress={confirmLeave}>{t('mahalle.home.leave')}</Ghost>}
+      title={mahalle.name}
+      right={free > 0 ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share} hitSlop={6}
+          style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}>
+          <Ico name="davet" size={34} />
+        </Pressable>
+      ) : undefined}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <Emblem shape={mahalle.emblem} color={mahalle.color} name={mahalle.name} size={64} />
-        <View style={{ flex: 1, gap: 3 }}>
-          <H1 numberOfLines={1}>{mahalle.name}</H1>
-          <T w={500} size={13} color={colors.g200}>{mahalle.isOpen ? t('mahalle.home.open') : t('mahalle.home.closed')}</T>
-        </View>
+      <View style={{ alignItems: 'center', marginTop: -6 }}>
+        <Emblem shape={mahalle.emblem} color={mahalle.color} name={mahalle.name} size={72} />
       </View>
 
       <TodayCard />
 
       <View style={{ gap: 8 }}>
-        <Caps>{t('mahalle.home.roster', { n: members.length })}</Caps>
-        <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
-          {members.map((m, i) => (
-            <View key={m.playerId} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.line }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
-                <T w={700} size={12}>{(m.nick ?? '?').slice(0, 2).toLocaleUpperCase('tr')}</T>
-              </View>
-              <T w={600} size={15} style={{ flex: 1 }} numberOfLines={1}>{blocked.includes(m.playerId) ? t('report.blockedName') : (m.nick ?? t('mahalle.home.newPlayer'))}</T>
-              {m.playerId === mahalle.captainId && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: colors.l900 }}>
-                  <Icon name="star" size={12} color={colors.l500} /><T w={600} size={11} color={colors.l500}>{t('mahalle.home.captain')}</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Amount icon="oyuncu" size={24}>{members.length} / 12</Amount>
+          <Icon name={mahalle.isOpen ? 'city' : 'lock'} size={18} color={colors.g300} />
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {members.map((m) => {
+            const nick = blocked.includes(m.playerId) ? t('report.blockedName') : (m.nick ?? t('mahalle.home.newPlayer'));
+            const captain = m.playerId === mahalle.captainId;
+            return (
+              <Pressable
+                key={m.playerId} disabled={m.playerId === me} onPress={() => openPlayerMenu(m.playerId, m.nick)}
+                accessibilityRole="button" accessibilityLabel={`${nick}, ${t('mahalle.home.level', { n: m.level })}${captain ? `, ${t('mahalle.home.captain')}` : ''}`}
+                style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 18, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: m.playerId === me ? colors.l600 : 'transparent' }}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+                  <T w={700} size={14}>{(m.nick ?? '?').slice(0, 2).toLocaleUpperCase('tr')}</T>
+                  {captain && <View style={{ position: 'absolute', top: -4, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={12} color={colors.ink} /></View>}
                 </View>
-              )}
-              <T w={500} size={13} color={colors.g200}>{t('mahalle.home.level', { n: m.level })}</T>
-              {m.playerId !== me && (
-                <Pressable accessibilityRole="button" accessibilityLabel={t('report.menuA11y', { name: m.nick ?? '' })} hitSlop={8}
-                  onPress={() => openPlayerMenu(m.playerId, m.nick)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="info" size={18} color={colors.g300} />
-                </Pressable>
-              )}
-            </View>
-          ))}
+                <T w={700} size={13} numberOfLines={1} style={{ maxWidth: '90%' }}>{nick}</T>
+                <T w={600} size={11} color={colors.g300}>{t('mahalle.home.level', { n: m.level })}</T>
+              </Pressable>
+            );
+          })}
           {free > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: colors.line }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.g400, borderStyle: 'dashed' }} />
-              <T w={500} size={15} color={colors.g300}>{t('mahalle.home.empty')} · {free}</T>
-            </View>
+            <Pressable
+              accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share}
+              style={{ width: '31%', flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.g400 }}
+            >
+              <Icon name="plus" size={26} color={colors.l600} />
+              <T w={700} size={13} color={colors.g200}>{t('mahalle.invite.free', { n: free })}</T>
+            </Pressable>
           )}
         </View>
       </View>
 
       {free > 0 && (
-        <View style={{ gap: 10 }}>
-          <Caps>{t('mahalle.home.call')}</Caps>
-          <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900, gap: 12, alignItems: 'center' }}>
-            <T w={500} size={13} color={colors.g200}>{t('mahalle.home.code')}</T>
-            <T w={700} size={32} style={{ letterSpacing: 6 }} selectable>{mahalle.code}</T>
-            <Cta style={{ alignSelf: 'stretch' }} onPress={() => void shareInvite(mahalle.name, mahalle.code)}>{t('mahalle.home.share')}</Cta>
-          </View>
-        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${t('mahalle.home.code')} ${mahalle.code}. ${t('mahalle.home.share')}`} onPress={share}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900 }}>
+          <Ico name="anahtar" size={40} />
+          <T w={700} size={26} style={{ flex: 1, letterSpacing: 5 }} selectable>{mahalle.code}</T>
+          <Icon name="share" size={22} color={colors.l600} />
+        </Pressable>
       )}
+
+      <Pressable accessibilityRole="button" onPress={confirmLeave} hitSlop={8} style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center' }}>
+        <T w={600} size={14} color={colors.g300}>{t('mahalle.home.leave')}</T>
+      </Pressable>
     </Shell>
   );
 }
