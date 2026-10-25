@@ -1,4 +1,4 @@
-import { EngineInputError, type ChanceInput, type ChanceOutcome, type EngineVersion, type MatchPlan, type MatchResult, type MatchSetup, type TeamResult } from './types.ts';
+import { EngineInputError, type ChanceInput, type ChanceOutcome, type DefenseOutcome, type EngineVersion, type MatchPlan, type MatchResult, type MatchSetup, type TeamResult } from './types.ts';
 import { assertInputV2, planV2, playV2 } from './v2.ts';
 import { assertInputV3, momentCountV3, planV3, playV3, skippedDefenseV3 } from './v3.ts';
 
@@ -64,6 +64,14 @@ export function simulateMatch(setup: MatchSetup, inputs: readonly ChanceInput[])
     assistedShots: versionOf(setup) === 3 ? assistedShots : 0,
     us, them, result, outcomes,
   };
+}
+
+/**
+ * What happens in a defense moment the player let pass. The same outcome
+ * simulateMatch counts, so the client can show it as the match goes on.
+ */
+export function skippedDefense(setup: MatchSetup, chance: number): DefenseOutcome {
+  return skippedDefenseV3(setup, chance);
 }
 
 /** Resolves one moment. Exposed so the client can show each outcome as it is played. */

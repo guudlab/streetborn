@@ -2,7 +2,7 @@ import {
   computeRating, currentEnergy, DEFAULT_CONFIG, levelForXp, matchReward,
 } from '@streetborn/economy';
 import {
-  ENGINE_VERSION, planMatch, playChance, simulateMatch,
+  ENGINE_VERSION, planMatch, playChance, simulateMatch, skippedDefense,
   type ChanceInput, type ChanceOutcome, type MatchPlan, type MatchSetup, type MomentKind, type TeamResult,
 } from '@streetborn/engine';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -135,6 +135,8 @@ interface GameState {
   refreshCareer(): Promise<void>;
   acceptOffer(id: string): Promise<void>;
   play(input: ChanceInput): ChanceOutcome;
+  /** A defense moment the player let pass: shows the engine's outcome, records no input. */
+  skip(chance: number): void;
   /** Moves to the next moment; returns the opponent goals scored in between. */
   advance(): { done: boolean; events: { minute: number }[] };
   finishMatch(): Promise<PostMatch>;
@@ -506,6 +508,14 @@ export const useGame = create<GameState>()((set, get) => ({
     outcomes[input.chance] = outcome;
     set({ match: { ...m, inputs: [...m.inputs, input], outcomes } });
     return outcome;
+  },
+
+  skip(chance) {
+    const m = get().match!;
+    if (m.plan.moments[chance]?.kind !== 'defense' || m.outcomes[chance]) return;
+    const outcomes = m.outcomes.slice();
+    outcomes[chance] = { kind: 'defense', outcome: skippedDefense(m.setup, chance) };
+    set({ match: { ...m, outcomes } });
   },
 
   advance() {

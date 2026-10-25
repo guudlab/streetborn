@@ -114,6 +114,25 @@ export function preloadModels(models: number[]) {
   void load3d().then((three) => Promise.all(models.map(m => modelGltf(three, m)))).catch(() => {});
 }
 
+/**
+ * A parsed file for scenes that build their own three.js world (the 3D match). The
+ * result is shared: clone what you draw (SkeletonUtils) and leave the original alone.
+ */
+export async function loadModel(model: number): Promise<Gltf> {
+  return modelGltf(await load3d(), model);
+}
+
+/** The 3D match scene's builder (it lives in the three.js chunk, see three3d.ts). */
+export async function loadMatchScene() {
+  return (await load3d()).createMatch;
+}
+
+/** Recolours one model's kit, for scenes outside Model3D. Each call clones the materials. */
+export async function kitTinter(): Promise<(root: import('three').Object3D, tint: Tint) => void> {
+  const three = await load3d();
+  return (root, tint) => tintMaterials(three.THREE, root)(tint);
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
