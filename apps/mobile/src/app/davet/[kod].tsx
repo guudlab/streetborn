@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { useGame } from '../../game/store.ts';
 
-// Invite link: streetborn.netlify.app/davet/KOD. Keeps the code, then the normal
+// Invite link: streetborn.guudlab.workers.dev/davet/KOD. Keeps the code, then the normal
 // start continues (a new player taps to start, then sees the invite instead of the
 // mahalle choice; a player who already has a mahalle just lands on the hub).
 
