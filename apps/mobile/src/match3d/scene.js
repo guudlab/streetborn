@@ -666,7 +666,14 @@ export function createMatch(env) {
   // marks one of them. The player picks a side on the ring; the engine says whether the
   // pass found its man (he finishes first time) or was lost.
   const P = { active: false };
-  const MATE_SPOTS = { left: V(4.4, 0, 2.4), right: V(-4.4, 0, 2.4) };   // screen left is +x (camera looks down +z)
+  const MATE_SPOTS = { left: V(2.5, 0, 1.4), right: V(-2.5, 0, 1.4) };   // screen left is +x (camera looks down +z)
+  // a raised view from behind the ball, far enough back that both mates fit a portrait screen
+  function passCam() {
+    const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(52 / 2)) * camera.aspect);
+    const d = clamp(3.6 / Math.tan(half), 8, 17), el = 0.5;
+    const look = V(0, 0.3, -0.8);
+    return { pos: look.clone().add(V(0.2, Math.sin(el) * d, -Math.cos(el) * d)), look };
+  }
   function setupPass(m) {
     setPhase('pass-intro');
     const B0 = shot.B0.set(0, BALL_R, -4.2);
@@ -694,8 +701,9 @@ export function createMatch(env) {
     rivalM.visible = true; rivalM.position.copy(mk); rivalM.rotation.set(0, Math.atan2(B0.x - mk.x, B0.z - mk.z), 0);
     rival.snap('idle', { from: 1.1 }); rivalFeet.reset();
     P.marker = mk.clone(); markRing.position.set(mk.x, 0.02, mk.z); markRing.visible = true;
-    camPos.copy(B0).add(V(0.4, 3.6, -6.4)); camLook.set(0, 0.6, 1.2);
-    camTo(V(B0.x + 0.3, 3.3, B0.z - 5.6), V(0, 0.5, 1.6), 2);
+    const pc = passCam();
+    camPos.copy(pc.pos).add(V(0.4, 0.6, -1.2)); camLook.copy(pc.look);
+    camTo(pc.pos, pc.look, 2);
     later(1.1, () => { sfx('whistle_start', 0.6); setPhase('pass'); P.t = 0; });
   }
   /** Timing of the pass ring right now (0..1000), the value the screen sends to the engine. */

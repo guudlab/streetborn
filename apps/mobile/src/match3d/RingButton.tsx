@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
@@ -41,7 +41,11 @@ interface Props {
 export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
   { mode, enabled, size = 132, dark, label, children, onCharge, onFire }, ref,
 ) {
-  const [p, setP] = useState(0);
+  // The ring moves every frame: it is drawn straight into the SVG, not through React state.
+  const ring = useRef<Circle>(null);
+  const setP = useCallback((p: number) => {
+    ring.current?.setNativeProps({ strokeDasharray: `${Math.max(0.001, p) * RC} ${RC}`, stroke: ringColor(p) } as object);
+  }, []);
   const charging = useRef<{ t0: number; raf: number; p: number } | null>(null);
 
   const stop = useCallback(() => {
@@ -52,7 +56,7 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
     return c.p;
   }, []);
   useEffect(() => () => { stop(); }, [stop]);
-  useEffect(() => { if (!enabled) { stop(); setP(0); } }, [enabled, stop]);
+  useEffect(() => { if (!enabled) { stop(); setP(0); } }, [enabled, stop, setP]);
 
   const press = useCallback(() => {
     if (!enabled) return;
@@ -67,20 +71,22 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
     charging.current = c;
     onCharge?.();
     tick();
-  }, [enabled, mode, onCharge, onFire]);
+  }, [enabled, mode, onCharge, onFire, setP]);
 
   const release = useCallback(() => {
     const power = stop();
     if (power !== null && enabled) onFire(power);
   }, [enabled, onFire, stop]);
 
-  useImperativeHandle(ref, () => ({ set: setP, press, release }), [press, release]);
+  useImperativeHandle(ref, () => ({ set: setP, press, release }), [setP, press, release]);
 
   const inset = size * (dark ? 0.09 : 0.106);
   return (
     <Pressable
       accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !enabled }}
-      disabled={!enabled} onPressIn={press} onPressOut={mode === 'charge' ? release : undefined}
+      // No press delay: the timing is read when the finger lands. Taps shorter than the
+      // default 50 ms delay were otherwise lost on the web (delayPressIn is react-native-web's name).
+      disabled={!enabled} {...({ delayPressIn: 0, unstable_pressDelay: 0 } as object)} onPressIn={press} onPressOut={mode === 'charge' ? release : undefined}
       style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.12, transform: [{ scale: pressed ? 0.96 : 1 }] })}
     >
       <Svg width={size} height={size} viewBox="0 0 132 132" style={{ position: 'absolute' }}>
@@ -90,8 +96,8 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
             strokeDasharray={`${(SWEET[1] - SWEET[0]) * RC} ${RC}`} strokeDashoffset={-SWEET[0] * RC} />
           <Circle cx={66} cy={66} r={R} fill="none" stroke="#FFFFFF" strokeWidth={14}
             strokeDasharray={`${(PERFECT[1] - PERFECT[0]) * RC} ${RC}`} strokeDashoffset={-PERFECT[0] * RC} />
-          <Circle cx={66} cy={66} r={R} fill="none" stroke={ringColor(p)} strokeWidth={10} strokeLinecap="round"
-            strokeDasharray={`${Math.max(0.001, p) * RC} ${RC}`} />
+          <Circle ref={ring} cx={66} cy={66} r={R} fill="none" stroke={colors.l600} strokeWidth={10} strokeLinecap="round"
+            strokeDasharray={`0.001 ${RC}`} />
         </G>
       </Svg>
       <View

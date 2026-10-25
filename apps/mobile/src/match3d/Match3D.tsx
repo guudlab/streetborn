@@ -494,7 +494,7 @@ function BigText({ pop }: { pop: Pop }) {
     anim.start();
     return () => anim.stop();
   }, [a]);
-  const size = pop.text.length > 9 ? 56 : pop.text.length > 5 ? 72 : 104;
+  const size = pop.text.length > 8 ? 56 : pop.text.length > 5 ? 72 : 104;
   return (
     <Animated.View accessibilityLiveRegion="polite" style={{ opacity: a.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }), transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }, { rotate: '-4deg' }] }}>
       <T w={700} size={size} color={TONE[pop.tone]} style={{ fontStyle: 'italic', letterSpacing: -size * 0.04, lineHeight: size * 0.95, textAlign: 'center', textShadowColor: pop.tone === 'lime' ? 'rgba(207,253,92,.55)' : 'rgba(0,0,0,.45)', textShadowRadius: 28 }}>
