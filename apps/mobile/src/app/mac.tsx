@@ -2,7 +2,7 @@ import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type Side } f
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import Reanimated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,11 +17,13 @@ import { buzz, Caps, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
 import { Bubble, Ico, type IconAsset } from '../ui/sade.tsx';
 import { useShake } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
+import { AssistToggle } from '../ui/AssistToggle.tsx';
 import { DefenseScene, type DefenseSceneHandle } from '../ui/DefenseScene.tsx';
 import { SkillBar, type SkillBarHandle } from '../ui/SkillBar.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
 import { t } from '../i18n/index.ts';
+import { Match3D } from '../match3d/Match3D.tsx';
 
 const MOMENT_ICON: Record<'shot' | 'pass' | 'freekick' | 'defense', IconAsset> = { shot: 'sut', pass: 'pas', freekick: 'sut', defense: 'oyuncuKosu' };
 const KIND = { shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick'), defense: t('kind.defense') } as const;
@@ -50,7 +52,31 @@ function toAnim(o: Extract<ChanceOutcome, { x: number }>): ShotAnim {
 
 interface Card { good: boolean; title: string; desc: string; icon: IconName }
 
+/**
+ * The match screen. The browser plays the 3D halısaha (match3d/); native builds and
+ * browsers without WebGL play the 2D scenes below. `?mac2d` forces 2D. Both send the
+ * same inputs to the same engine, so the result does not depend on which one ran.
+ */
 export default function Mac() {
+  const [three, setThree] = useState(can3d);
+  if (!three) return <Match2D />;
+  return <Match3D onFail={(e) => { console.warn('3D match failed, using 2D', e); setThree(false); }} />;
+}
+
+function can3d(): boolean {
+  if (Platform.OS !== 'web' || /[?&]mac2d\b/.test(window.location.search)) return false;
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') ?? c.getContext('webgl');
+    gl?.getExtension('WEBGL_lose_context')?.loseContext(); // only a probe: hand the context back
+    return !!gl;
+  } catch {
+    return false;
+  }
+}
+
+/** The 2D match: native builds, and browsers without WebGL. */
+function Match2D() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const match = useGame(s => s.match);
@@ -346,20 +372,6 @@ function SlideButton({ dir, onPress }: { dir: Side; onPress(): void }) {
           {dir === 'right' && <Icon name="chev" size={20} color={pressed ? colors.ink : colors.g100} />}
         </>
       )}
-    </Pressable>
-  );
-}
-
-function AssistToggle({ on, nudge, onPress }: { on: boolean; nudge: boolean; onPress(): void }) {
-  return (
-    <Pressable accessibilityRole="switch" accessibilityState={{ checked: on }} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }}>
-      <View style={{
-        width: 44, height: 26, borderRadius: 13, backgroundColor: on ? colors.l600 : colors.s3, justifyContent: 'center', paddingHorizontal: 3,
-        borderWidth: nudge ? 2 : 0, borderColor: 'rgba(207,253,92,.6)',
-      }}>
-        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: on ? colors.ink : colors.g100, alignSelf: on ? 'flex-end' : 'flex-start' }} />
-      </View>
-      <T w={500} size={14} color={colors.g200}>{t('match.assistedShot')}</T>
     </Pressable>
   );
 }

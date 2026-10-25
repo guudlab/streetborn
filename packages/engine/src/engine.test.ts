@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  createRng, deriveSeed, EngineInputError, gradeTiming, momentCount, planMatch, playChance, simulateMatch, TIMING_TARGET,
+  createRng, deriveSeed, EngineInputError, gradeTiming, momentCount, planMatch, playChance, simulateMatch, skippedDefense, TIMING_TARGET,
   type ChanceInput, type MatchSetup, type Rng, type Side,
 } from './index.ts';
 
@@ -308,6 +308,18 @@ describe('engine 3 (skill)', () => {
       expect(r.defenseStops).toBe(r.outcomes.filter((o) => o?.kind === 'defense' && o.outcome === 'stopped').length);
       expect(r.result).toBe(r.us > r.them ? 'W' : r.us === r.them ? 'D' : 'L');
       expect(simulateMatch(s, [...inputs].reverse())).toEqual(r);
+    }
+  });
+
+  it('shows a skipped defense moment with the outcome the result counts', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const s = { ...v3, seed };
+      const plan = planMatch(s);
+      const skipped = plan.moments.flatMap((m, i) => (m.kind === 'defense' ? [i] : []));
+      const r = simulateMatch(s, play3(s, USTA).filter((i) => !skipped.includes(i.chance)));
+      const conceded = skipped.filter((i) => skippedDefense(s, i) === 'conceded').length;
+      expect(r.them).toBe(plan.opponentGoals.length + conceded);
+      expect(r.defenseStops).toBe(0);
     }
   });
 

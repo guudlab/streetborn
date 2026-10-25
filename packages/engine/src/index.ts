@@ -18,6 +18,7 @@ export {
   planMatch,
   playChance,
   simulateMatch,
+  skippedDefense,
 } from './match.ts';
 export {
   gradeTiming,

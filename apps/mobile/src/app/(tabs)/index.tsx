@@ -1,7 +1,7 @@
-import { Model3D } from '../../ui/Model3D.tsx';
+import { Model3D, preloadModels } from '../../ui/Model3D.tsx';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
@@ -19,6 +19,7 @@ import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { SoundButton } from '../../ui/settings.tsx';
 import { t } from '../../i18n/index.ts';
+import { matchModels } from '../../match3d/Match3D.tsx';
 
 export default function Hub() {
   const insets = useSafeAreaInsets();
@@ -30,6 +31,12 @@ export default function Hub() {
   const league = leagueToday(g.career);
 
   useEffect(() => { if (online && g.auth === 'in') void useGame.getState().refreshCareer(); }, [online, g.auth]);
+  // The browser plays the 3D match: fetch its models once the hub's own model is in.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const id = setTimeout(() => preloadModels(matchModels(ch.hero)), 2500);
+    return () => clearTimeout(id);
+  }, [ch.hero]);
   const news = g.careerNews;
   useEffect(() => {
     if (!news) return;

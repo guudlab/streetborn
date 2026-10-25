@@ -1,0 +1,71 @@
+// Types for scene.js (plain JS so it stays in step with the prototype it was ported from).
+import type { AnimationClip, Group, Object3D } from 'three';
+
+import type { SfxId } from '../audio/audio.ts';
+
+export interface Gltf { scene: Group; animations: AnimationClip[] }
+
+export type ScenePhase =
+  | 'menu' | 'intro' | 'aim' | 'runup' | 'kick' | 'flight' | 'resolved' | 'celebrate' | 'done'
+  | 'pass-intro' | 'pass' | 'passing' | 'defend-intro' | 'defend' | 'tackle';
+
+export type ShotGrade = 'perfect' | 'good' | 'over' | 'weak';
+export type DefenseGrade = 'perfect' | 'timed' | 'early' | 'late';
+
+export type SceneResult =
+  | { kind: 'goal' | 'save' | 'post' | 'miss'; by: 'us' | 'mate' | 'them'; q: ShotGrade; central: boolean; perfect: boolean }
+  | { kind: 'stopped'; by: 'us' }
+  | { kind: 'lost'; by: 'us'; marked: boolean };
+
+export interface SceneMoment {
+  kind: 'shot' | 'freekick' | 'pass' | 'defense';
+  attackSide?: 'left' | 'right';
+  openSide?: 'left' | 'right';
+  /** Defense only: what happens if the player never slides. */
+  skip?: 'stopped' | 'conceded' | 'survived';
+}
+
+export interface MatchEnv {
+  host: HTMLElement;
+  G: {
+    hero: Gltf; keeper: Gltf; rival: Gltf; ball: Gltf; mates: Gltf[];
+    'anim-street-idle': Gltf; 'anim-kick': Gltf; 'anim-cheer': Gltf; 'anim-run': Gltf; 'anim-slide': Gltf; 'anim-leap': Gltf;
+  };
+  /** Recolours a model's kit (our player and the teammates). */
+  tint(root: Object3D): void;
+  /** Text on the advertising boards. */
+  board: string;
+  on: {
+    phase(p: ScenePhase): void;
+    /** The player touched the goal for the first time in this moment. */
+    aimed(): void;
+    /** The defense or pass ring, 0..1. */
+    ring(p: number): void;
+    grade(q: ShotGrade | DefenseGrade): void;
+    result(r: SceneResult): void;
+    /** A defense moment ran out without a slide. */
+    skipped(): void;
+    /** The moment has been acted out. */
+    done(): void;
+  };
+  sfx(id: SfxId, gain?: number): void;
+}
+
+export interface MatchScene {
+  start(m: SceneMoment): void;
+  phase(): ScenePhase;
+  /** The aim in engine units. */
+  aim(): { aim: number; lift: number };
+  setCharging(v: boolean): void;
+  shoot(s: { power: number; outcome: 'goal' | 'saved' | 'wide' | 'over'; x: number; y: number; perfect: boolean; assisted: boolean }): void;
+  /** Timing of the defense or pass ring right now, 0..1000. */
+  timing(): number;
+  tackle(side: 1 | -1, timing: number, outcome: 'stopped' | 'conceded' | 'survived'): void;
+  passTo(side: 'left' | 'right', outcome: 'assist' | 'lost'): void;
+  setPaused(p: boolean): void;
+  /** Test hook: steps the game clock and draws once. */
+  sim(sec: number): void;
+  dispose(): void;
+}
+
+export function createMatch(env: MatchEnv): MatchScene;
