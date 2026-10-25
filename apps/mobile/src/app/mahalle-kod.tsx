@@ -48,11 +48,12 @@ export default function MahalleKod() {
             <T w={700} size={26}>{code[i] ?? ''}</T>
           </View>
         ))}
-        {/* The real input sits invisibly on top of the boxes. */}
+        {/* The real input sits invisibly on top of the boxes. Its font stays at 16 px or more:
+            iOS Safari zooms the page into any smaller input on focus, which shifted this screen. */}
         <TextInput
           ref={input} value={code} onChangeText={(s) => setCode(clean(s))} autoFocus autoCapitalize="characters" autoCorrect={false}
-          maxLength={LEN} accessibilityLabel={t('mahalle.code.a11y')} selectionColor={colors.l600}
-          style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.02, color: colors.ink }}
+          maxLength={LEN} accessibilityLabel={t('mahalle.code.a11y')} caretHidden selectionColor="transparent"
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.02, color: 'transparent', fontSize: 26, outlineStyle: 'none' } as object}
         />
       </Pressable>
 
