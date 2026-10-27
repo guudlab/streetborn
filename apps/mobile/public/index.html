@@ -20,6 +20,23 @@
         height: 100%;
         flex: 1;
       }
+      /* A game, not a web page: holding a button must not select text, open the
+         long-press menu or flash a tap highlight. Text fields stay editable. */
+      html, body, #root, #root * {
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-drag: none;
+      }
+      body {
+        touch-action: manipulation;
+      }
+      #root input, #root textarea, #root [contenteditable="true"] {
+        -webkit-user-select: text !important;
+        user-select: text !important;
+        -webkit-touch-callout: default !important;
+      }
     </style>
     <!-- Fonts start downloading with the JavaScript instead of after it (relative URLs
          so they work at the domain root and under a base path). -->
@@ -61,6 +78,14 @@
     <script>
       // On a slow connection, say so instead of leaving the player guessing.
       setTimeout(function () { var n = document.getElementById('boot-note'); if (n) n.textContent = 'Bağlantı yavaş, az kaldı'; }, 8000);
+    </script>
+    <script>
+      // Long press opens the browser's context menu (save image, copy) on Android; a game
+      // has none. Text fields keep theirs for paste.
+      document.addEventListener('contextmenu', function (e) {
+        var t = e.target;
+        if (!(t instanceof Element) || !t.closest('input, textarea, [contenteditable="true"]')) e.preventDefault();
+      });
     </script>
     <div id="root"></div>
   </body>
