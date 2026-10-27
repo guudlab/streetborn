@@ -110,7 +110,7 @@ export default function Mahalle() {
         <Pressable accessibilityRole="button" accessibilityLabel={`${t('mahalle.home.code')} ${mahalle.code}. ${t('mahalle.home.share')}`} onPress={share}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900 }}>
           <Ico name="anahtar" size={40} />
-          <T w={700} size={26} style={{ flex: 1, letterSpacing: 5 }} selectable>{mahalle.code}</T>
+          <T w={700} size={26} style={{ flex: 1, letterSpacing: 5 }}>{mahalle.code}</T>
           <Icon name="share" size={22} color={colors.l600} />
         </Pressable>
       )}
