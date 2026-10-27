@@ -1,5 +1,6 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import type React from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
+import { Platform, Pressable, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
 import { colors } from '../theme.ts';
@@ -41,11 +42,9 @@ interface Props {
 export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
   { mode, enabled, size = 132, dark, label, children, onCharge, onFire }, ref,
 ) {
-  // The ring moves every frame: it is drawn straight into the SVG, not through React state.
-  const ring = useRef<Circle>(null);
-  const setP = useCallback((p: number) => {
-    ring.current?.setNativeProps({ strokeDasharray: `${Math.max(0.001, p) * RC} ${RC}`, stroke: ringColor(p) } as object);
-  }, []);
+  // State, not setNativeProps: react-native-svg on the web ignores setNativeProps, and the
+  // ring stood still while the button was held.
+  const [p, setP] = useState(0);
   const charging = useRef<{ t0: number; raf: number; p: number } | null>(null);
 
   const stop = useCallback(() => {
@@ -80,14 +79,46 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
 
   useImperativeHandle(ref, () => ({ set: setP, press, release }), [setP, press, release]);
 
+  // Web: plain pointer events with pointer capture. Pressable's responder gives the press
+  // up when a long touch turns into a context menu or a selection, which released the
+  // shot early on phones.
+  const host = useRef<React.ComponentRef<typeof View>>(null);
+  const latest = useRef({ press, release });
+  latest.current = { press, release };
+  useEffect(() => {
+    const el = host.current as unknown as HTMLElement | null;
+    if (Platform.OS !== 'web' || !el) return;
+    const down = (e: PointerEvent) => {
+      if (e.button > 0) return;
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
+      latest.current.press();
+    };
+    const up = () => latest.current.release();
+    const menu = (e: Event) => e.preventDefault();
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('contextmenu', menu);
+    return () => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('contextmenu', menu);
+    };
+  }, []);
+  const web = Platform.OS === 'web';
+
   const inset = size * (dark ? 0.09 : 0.106);
   return (
     <Pressable
       accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !enabled }}
-      // No press delay: the timing is read when the finger lands. Taps shorter than the
-      // default 50 ms delay were otherwise lost on the web (delayPressIn is react-native-web's name).
-      disabled={!enabled} {...({ delayPressIn: 0, unstable_pressDelay: 0 } as object)} onPressIn={press} onPressOut={mode === 'charge' ? release : undefined}
-      style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.12, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+      // Native: no press delay, the timing is read when the finger lands.
+      ref={host} disabled={!enabled} {...({ delayPressIn: 0, unstable_pressDelay: 0 } as object)}
+      onPressIn={web ? undefined : press} onPressOut={web || mode !== 'charge' ? undefined : release}
+      // Keyboard activation on the web (Enter/Space on the focused button) for tap buttons.
+      onPress={web && mode === 'tap' ? press : undefined}
+      style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.12, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { touchAction: 'none' } : null) } as object)}
     >
       <Svg width={size} height={size} viewBox="0 0 132 132" style={{ position: 'absolute' }}>
         <G rotation={-90} origin="66, 66">
@@ -96,8 +127,8 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
             strokeDasharray={`${(SWEET[1] - SWEET[0]) * RC} ${RC}`} strokeDashoffset={-SWEET[0] * RC} />
           <Circle cx={66} cy={66} r={R} fill="none" stroke="#FFFFFF" strokeWidth={14}
             strokeDasharray={`${(PERFECT[1] - PERFECT[0]) * RC} ${RC}`} strokeDashoffset={-PERFECT[0] * RC} />
-          <Circle ref={ring} cx={66} cy={66} r={R} fill="none" stroke={colors.l600} strokeWidth={10} strokeLinecap="round"
-            strokeDasharray={`0.001 ${RC}`} />
+          <Circle cx={66} cy={66} r={R} fill="none" stroke={ringColor(p)} strokeWidth={10} strokeLinecap="round"
+            strokeDasharray={`${Math.max(0.001, p) * RC} ${RC}`} />
         </G>
       </Svg>
       <View
