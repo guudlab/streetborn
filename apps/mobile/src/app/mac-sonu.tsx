@@ -6,14 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setMusic, sfx } from '../audio/audio.ts';
 import { delta, num } from '../game/format.ts';
 import { levelProgress } from '../game/rules.ts';
-import { useGame } from '../game/store.ts';
+import { useGame, type PostMatch } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { startLink } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Cta, Ghost, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
 import { Pop } from '../ui/motion.tsx';
 import { closeSheet, openSheet } from '../ui/overlay.tsx';
-import { Bubble, Ico } from '../ui/sade.tsx';
+import { achName, injuryName, timeLeft } from '../ui/kariyer.tsx';
+import { Amount, Bubble, Ico } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
 
 const RES = { W: t('post.W'), D: t('post.D'), L: t('post.L') } as const;
@@ -126,6 +127,8 @@ export default function MacSonu() {
         <T w={700} size={15} color={r.trialPassed ? colors.l500 : colors.g200} style={{ textAlign: 'center' }}>{r.trialPassed ? t('post.trialPassed') : t('post.trialFailed')}</T>
       )}
 
+      {r.kariyer && step >= 5 && <KariyerLines k={r.kariyer} />}
+
       {r.first && <LinkStrip />}
 
       {r.flagged && (
@@ -143,6 +146,37 @@ export default function MacSonu() {
           : <Cta onPress={() => router.replace('/')}>{t('common.continue')}</Cta>}
       </View>
     </ScrollView>
+  );
+}
+
+/** New trophies and a possible injury from this match. */
+function KariyerLines({ k }: { k: NonNullable<PostMatch['kariyer']> }) {
+  return (
+    <View style={{ gap: 8 }}>
+      {k.unlocked.map(u => (
+        <Pop key={u.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, backgroundColor: colors.l900 }}>
+          <Ico name="cup" size={40} />
+          <View style={{ flex: 1 }}>
+            <T w={600} size={12} color={colors.l500}>{t('ach.newLabel')}</T>
+            <T w={700} size={16}>{achName(u.key)}</T>
+          </View>
+          <Amount icon="coin" size={22} textSize={15} color={colors.l500}>+{u.coin}</Amount>
+        </Pop>
+      ))}
+      {k.injury && (
+        <Pressable
+          accessibilityRole="button" onPress={() => router.push('/sakatlik')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, backgroundColor: '#3A1D19', borderWidth: 1, borderColor: colors.bad }}
+        >
+          <Icon name="plus" size={26} color={colors.bad} />
+          <View style={{ flex: 1 }}>
+            <T w={700} size={15} color={colors.bad}>{t('injury.postTitle', { kind: injuryName(k.injury.kind) })}</T>
+            <T size={13} color={colors.g200}>{t('injury.postText', { t: timeLeft(k.injury.days * 86_400_000) })}</T>
+          </View>
+          <Icon name="chev" size={18} color={colors.g300} />
+        </Pressable>
+      )}
+    </View>
   );
 }
 

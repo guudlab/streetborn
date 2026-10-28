@@ -138,6 +138,52 @@ export interface LifestyleConfig {
   halisahaMaxAccrualDays: number;
 }
 
+/** Form, morale, pre-match choice, injury and the weekly friend duel (kariyer.ts). All numbers are assumptions. */
+export interface KariyerConfig {
+  /** Form comes from the last `formWindow` finished matches, once at least `formMinMatches` exist. Ratings are x10. */
+  formWindow: number;
+  formMinMatches: number;
+  formHotFrom: number;
+  formGoodFrom: number;
+  formColdBelow: number;
+  /** Shooting stat added for a match (the stat is clamped to 1..100 by the caller). */
+  shootHot: number;
+  shootGood: number;
+  shootCold: number;
+  moraleStart: number;
+  moraleWin: number;
+  moraleDraw: number;
+  moraleLoss: number;
+  moraleHighFrom: number;
+  moraleLowBelow: number;
+  shootMoraleHigh: number;
+  shootMoraleLow: number;
+  /** Pre-match choice (once a day): moral change, shooting bonus of the next match, respect. */
+  restMorale: number;
+  workMorale: number;
+  workShoot: number;
+  hangMorale: number;
+  hangRespect: number;
+  /** Injury risk per mille after a match: base minus (stamina − 40) × perStamina/10, at least minRisk. */
+  injuryBase: number;
+  injuryPerStamina: number;
+  injuryMinRisk: number;
+  /** Chance (percent) of the longer injury; the rest are the short one. */
+  injuryLongPct: number;
+  injuryShortDays: number;
+  injuryLongDays: number;
+  /** Coin for a massage that ends an injury at once. */
+  massageCost: number;
+  /** Weekly duel against a mahalle friend (Kerem, an NPC, when nobody else is in the mahalle). */
+  duelMinMatches: number;
+  duelWinCoin: number;
+  duelWinRespect: number;
+  /** Kerem's weekly score: base + level × perLevel + a seeded 0..variance. */
+  keremBase: number;
+  keremPerLevel: number;
+  keremVariance: number;
+}
+
 export interface EconomyConfig {
   /** Coin every finished match pays, even a flagged one. */
   matchCoinBase: number;
@@ -177,6 +223,7 @@ export interface EconomyConfig {
   training: TrainingConfig;
   shop: ShopConfig;
   lifestyle: LifestyleConfig;
+  kariyer: KariyerConfig;
 
   matchChances: number;
   ticketTtlSeconds: number;
@@ -321,6 +368,43 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     ],
     halisahaIncomePerDay: 200,
     halisahaMaxAccrualDays: 3,
+  },
+
+  kariyer: {
+    formWindow: 5,
+    formMinMatches: 2,
+    formHotFrom: 75,
+    formGoodFrom: 65,
+    formColdBelow: 55,
+    shootHot: 3,
+    shootGood: 1,
+    shootCold: -3,
+    moraleStart: 60,
+    moraleWin: 5,
+    moraleDraw: 0,
+    moraleLoss: -4,
+    moraleHighFrom: 80,
+    moraleLowBelow: 30,
+    shootMoraleHigh: 1,
+    shootMoraleLow: -2,
+    restMorale: 10,
+    workMorale: -3,
+    workShoot: 2,
+    hangMorale: 5,
+    hangRespect: 2,
+    injuryBase: 60,
+    injuryPerStamina: 1,
+    injuryMinRisk: 10,
+    injuryLongPct: 25,
+    injuryShortDays: 1,
+    injuryLongDays: 2,
+    massageCost: 200,
+    duelMinMatches: 3,
+    duelWinCoin: 300,
+    duelWinRespect: 3,
+    keremBase: 8,
+    keremPerLevel: 1,
+    keremVariance: 7,
   },
 
   matchChances: 3,

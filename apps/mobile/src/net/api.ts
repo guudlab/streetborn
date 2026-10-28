@@ -38,6 +38,8 @@ export interface FinishResponse {
   trustDelta?: number;
   /** Trial matches: whether the rating reached the trial bar. */
   trialPassed?: boolean;
+  /** Morale, a possible injury and achievements unlocked by this match (null for a retried finish). */
+  kariyer?: { morale: number; injury: { days: number; kind: InjuryKind } | null; unlocked: { key: string; coin: number }[] } | null;
   player: { coin: number; xp: number; level: number };
 }
 
@@ -267,3 +269,38 @@ export async function loadShopToday(): Promise<ShopToday> {
   if (error) throw new ApiError(error.message);
   return data as ShopToday;
 }
+
+// Career features (oyuncu Edge Function): form, morale, the day's choice, injuries, achievements, the weekly duel.
+export type InjuryKind = 'ankle' | 'muscle' | 'knee';
+export type FormLevel = 'none' | 'cold' | 'normal' | 'good' | 'hot';
+export type Choice = 'rest' | 'work' | 'hang';
+export interface WeekScore { matches: number; goals: number; assists: number; score: number }
+export interface DuelView {
+  week: string;
+  daysLeft: number;
+  rival: { kind: 'friend' | 'npc'; id: string | null; nick: string | null; level: number };
+  me: WeekScore;
+  them: WeekScore;
+  record: { win: number; lose: number; draw: number };
+  minMatches: number;
+  winCoin: number;
+  winRespect: number;
+}
+export interface AchievementView { key: string; group: 'match' | 'mahalle' | 'club'; coin: number; target: number; value: number; unlocked: boolean }
+export interface Kariyer {
+  coin: number;
+  morale: number;
+  form: { level: FormLevel; avg: number; ratings: number[] };
+  injury: { until: number; kind: InjuryKind } | null;
+  choice: Choice | null;
+  choseToday: boolean;
+  massageCost: number;
+  duel: DuelView;
+  settled: { week: string; status: 'win' | 'lose' | 'draw' | 'void'; coin: number; respect: number; rivalNick: string | null }[];
+  achievements: AchievementView[];
+  unlocked: { key: string; coin: number }[];
+  totals: { matches: number; goals: number; assists: number };
+}
+export const kariyerDurum = () => call<Kariyer>('oyuncu', { action: 'durum' });
+export const kariyerSec = (choice: Choice) => call<{ ok: true }>('oyuncu', { action: 'sec', choice });
+export const kariyerMasaj = () => call<{ ok: true; coin: number }>('oyuncu', { action: 'masaj' });

@@ -309,3 +309,75 @@ do $$ declare r jsonb := dukkan_bugun(); begin
   raise notice 'shop rls: ok';
 end $$;
 reset role;
+
+-- Career features: morale, choice, injury, massage, achievements, weekly duel.
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-000000000301'), ('00000000-0000-0000-0000-000000000302');
+set role service_role;
+do $$
+declare
+  p constant uuid := '00000000-0000-0000-0000-000000000301';
+  m1 constant uuid := '00000000-0000-0000-0000-0000000000a1';
+  m2 constant uuid := '00000000-0000-0000-0000-0000000000a2';
+begin
+  if not kariyer_mac_sonrasi(p, m1, 5, 1, 'ankle') then raise exception 'first match not counted'; end if;
+  if kariyer_mac_sonrasi(p, m1, 5, 1, 'ankle') then raise exception 'match counted twice'; end if;
+  if (select morale from kariyer_durum where player_id = p) <> 65 then raise exception 'morale wrong'; end if;
+  -- A running injury is neither replaced nor extended.
+  perform kariyer_mac_sonrasi(p, m2, -4, 2, 'knee');
+  if (select injury_kind from kariyer_durum where player_id = p) <> 'ankle' or (select morale from kariyer_durum where player_id = p) <> 61 then
+    raise exception 'injury replaced or morale wrong';
+  end if;
+  if (select injury_until from kariyer_durum where player_id = p) > now() + interval '1 day 1 minute' then raise exception 'injury extended'; end if;
+  raise notice 'morale and injury: ok';
+
+  perform kariyer_secim(p, '2026-10-28', 'hang', 5, 2);
+  begin perform kariyer_secim(p, '2026-10-28', 'rest', 10, 0); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'already_chosen' then raise; end if; end;
+  if (select respect from players where id = p) <> 2 or (select choice from kariyer_durum where player_id = p) <> 'hang' then raise exception 'choice not stored'; end if;
+  -- The next finished match uses the choice up; the day stays taken.
+  perform kariyer_mac_sonrasi(p, '00000000-0000-0000-0000-0000000000a3', 0, 0, null);
+  if (select choice from kariyer_durum where player_id = p) is not null or (select choice_day from kariyer_durum where player_id = p) <> '2026-10-28' then
+    raise exception 'choice not used up';
+  end if;
+  raise notice 'pre-match choice: ok';
+
+  -- Massage: needs coin, ends the injury, only once.
+  begin perform kariyer_masaj(p, 200); raise exception 'should have failed';
+  exception when check_violation then null; end;
+  perform grant_currency(p, 'coin', 500, 'test', 'x', 'massage-test');
+  perform kariyer_masaj(p, 200);
+  if (select coin from wallets where player_id = p) <> 300 or (select injury_until from kariyer_durum where player_id = p) is not null then raise exception 'massage not applied'; end if;
+  begin perform kariyer_masaj(p, 200); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_injured' then raise; end if; end;
+  raise notice 'massage: ok';
+
+  -- Achievements pay once.
+  if basarim_ac(p, '[{"key":"first_goal","coin":50},{"key":"ten_matches","coin":100}]') <> '["first_goal", "ten_matches"]'::jsonb then raise exception 'unlock wrong'; end if;
+  if basarim_ac(p, '[{"key":"first_goal","coin":50}]') <> '[]'::jsonb then raise exception 'unlocked twice'; end if;
+  if (select coin from wallets where player_id = p) <> 450 then raise exception 'achievement paid wrong'; end if;
+  if (basarim_ozet(p)->>'level')::int <> 1 or (basarim_ozet(p)->>'matches')::int <> 0 then raise exception 'summary wrong: %', basarim_ozet(p); end if;
+  raise notice 'achievements: ok';
+
+  -- Weekly duel: opened once, settled once, a win pays.
+  if rakip_ac(p, '2026-10-26', '00000000-0000-0000-0000-000000000302')->>'rivalId' <> '00000000-0000-0000-0000-000000000302' then raise exception 'duel not opened'; end if;
+  if rakip_ac(p, '2026-10-26', null)->>'rivalId' <> '00000000-0000-0000-0000-000000000302' then raise exception 'duel rival replaced'; end if;
+  if not rakip_kapat(p, '2026-10-26', 'win', 300, 3) then raise exception 'duel not settled'; end if;
+  if rakip_kapat(p, '2026-10-26', 'win', 300, 3) then raise exception 'duel settled twice'; end if;
+  if (select coin from wallets where player_id = p) <> 750 or (select respect from players where id = p) <> 5 then raise exception 'duel paid wrong'; end if;
+  if (basarim_ozet(p)->>'duelWins')::int <> 1 then raise exception 'duel win not counted'; end if;
+  raise notice 'weekly duel: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000301';
+do $$ begin
+  if (select count(*) from kariyer_durum) <> 0 or (select count(*) from basarimlar) <> 0 or (select count(*) from rakip_hafta) <> 0 then
+    raise exception 'RLS leak: career feature tables readable';
+  end if;
+  begin perform kariyer_masaj('00000000-0000-0000-0000-000000000301', 0); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform basarim_ac('00000000-0000-0000-0000-000000000301', '[{"key":"x","coin":999999}]'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'career feature rls: ok';
+end $$;
+reset role;

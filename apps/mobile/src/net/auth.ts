@@ -107,4 +107,16 @@ export async function verifyEmailCode(email: string, code: string): Promise<void
   fail((await supabase.auth.verifyOtp({ email, token: code, type: 'email' })).error);
 }
 
+/**
+ * Signs out of this device for good. The anonymous guest session is only kept in this
+ * device's storage, so a guest who signs out can never reach that player again; the
+ * profile screen warns about it first.
+ */
+export async function signOutAll(): Promise<void> {
+  const supabase = await client();
+  // Even when the server cannot be reached, the local session must go.
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  if (error) throw new ApiError(error.code ?? error.message);
+}
+
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
