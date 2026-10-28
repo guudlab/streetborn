@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { useSound } from '../audio/audio.ts';
@@ -6,7 +7,7 @@ import { AccountRow } from './account.tsx';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { H3, T, tap } from './kit.tsx';
-import { openSheet } from './overlay.tsx';
+import { closeSheet, openSheet } from './overlay.tsx';
 import { t } from '../i18n/index.ts';
 
 /** The two sound toggles; used in the settings sheet and the match pause sheet. */
@@ -23,7 +24,45 @@ export function SoundToggles() {
 /** Hub settings: sound and the account (guest or linked). */
 export function openSettingsSheet() {
   void useGame.getState().refreshAccount();
-  openSheet(<><H3>{t('settings.title')}</H3><SoundToggles /><AccountRow /></>);
+  openSheet(<><H3>{t('settings.title')}</H3><SoundToggles /><ProfileRow /><AccountRow /></>);
+}
+
+/** Opens the profile screen, where the account and the sign-out button live. */
+function ProfileRow() {
+  const name = useGame(s => s.name);
+  const online = useGame(s => s.mode === 'online');
+  if (!online) return null;
+  return (
+    <Pressable
+      accessibilityRole="button" accessibilityLabel={t('profile.a11y')} onPress={() => { tap(); closeSheet(); router.push('/profil'); }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2 }}
+    >
+      <Avatar name={name} size={28} />
+      <T w={600} size={15} style={{ flex: 1 }} numberOfLines={1}>{t('profile.title')}</T>
+      <Icon name="chev" size={18} color={colors.g300} />
+    </Pressable>
+  );
+}
+
+/** Round initial of the nickname. */
+export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.l900, borderWidth: 1.5, borderColor: colors.l700, alignItems: 'center', justifyContent: 'center' }}>
+      <T w={700} size={size * 0.42} color={colors.l500}>{name.trim().charAt(0).toLocaleUpperCase('tr') || '?'}</T>
+    </View>
+  );
+}
+
+/** Round button that opens the profile; sits above the sound button on the hub. */
+export function ProfileButton() {
+  const name = useGame(s => s.name);
+  const online = useGame(s => s.mode === 'online');
+  if (!online) return null;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={t('profile.a11y')} onPress={() => { tap(); router.push('/profil'); }} hitSlop={4}>
+      <Avatar name={name} />
+    </Pressable>
+  );
 }
 
 /** Round button that opens the settings sheet; the icon shows whether anything is muted. */

@@ -10,10 +10,10 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type GemGrant, type OwnedItem,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
-import { loadAccount, type Account } from '../net/auth.ts';
+import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
@@ -46,6 +46,8 @@ export interface PostMatch {
   log: LogEntry[];
   /** The player's very first match: the result screen also offers to link an account. */
   first: boolean;
+  /** Morale, a possible injury and achievements from this match (online). */
+  kariyer: { morale: number; injury: { days: number; kind: InjuryKind } | null; unlocked: { key: string; coin: number }[] } | null;
   before: { level: number; xp: number; trust: number };
   after: { level: number; xp: number; trust: number };
 }
@@ -97,8 +99,14 @@ interface GameState {
   career: Career | null;
   /** Whether the player linked an email, Google or Apple (online, loaded on demand). */
   account: Account | null;
+  /** Form, morale, injury, the day's choice, achievements and the weekly duel (online). */
+  kariyer: Kariyer | null;
   /** Salary, season result or gems from the last career refresh, shown once by the hub. */
   careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null; gems: GemGrant | null } | null;
+  /** The season that just ended; the hub opens the summary screen once and clears it. */
+  seasonSummary: { place: number; prize: number } | null;
+  /** Duels settled and achievements unlocked since the last visit, shown once by the hub. */
+  kariyerNews: { settled: Kariyer['settled']; unlocked: Kariyer['unlocked'] } | null;
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number;
@@ -131,7 +139,14 @@ interface GameState {
   leaveMahalle(): Promise<void>;
   setPendingInvite(code: string | null): void;
   syncEnergy(now?: number): void;
-  startMatch(kind?: MatchKind, offerId?: string): Promise<'ok' | 'no_energy' | 'already_played' | 'error'>;
+  startMatch(kind?: MatchKind, offerId?: string): Promise<'ok' | 'no_energy' | 'already_played' | 'injured' | 'error'>;
+  refreshKariyer(): Promise<void>;
+  /** The day's pre-match choice. */
+  choose(choice: Choice): Promise<'ok' | 'already_chosen' | 'error'>;
+  /** Ends an injury for coin. */
+  massage(): Promise<'ok' | 'no_coin' | 'not_injured' | 'error'>;
+  /** Signs out of this device and goes back to the sign-in screen. */
+  signOut(): Promise<void>;
   refreshCareer(): Promise<void>;
   acceptOffer(id: string): Promise<void>;
   play(input: ChanceInput): ChanceOutcome;
@@ -272,8 +287,11 @@ export const useGame = create<GameState>()((set, get) => ({
   mahalleToday: null,
   blocked: [],
   career: null,
+  kariyer: null,
   account: null,
   careerNews: null,
+  kariyerNews: null,
+  seasonSummary: null,
   pendingInvite: null,
   club: t('club.home'),
   level: 7,
@@ -329,7 +347,7 @@ export const useGame = create<GameState>()((set, get) => ({
 
   async signedIn() {
     // Whatever was cached belonged to the session before; the server has the truth.
-    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, account: null, owned: [], character: null });
+    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, account: null, owned: [], character: null });
     await connect(true);
     await get().refreshMahalle();
     set({ auth: 'in' });
@@ -411,6 +429,59 @@ export const useGame = create<GameState>()((set, get) => ({
     }
   },
 
+  async refreshKariyer() {
+    if (get().mode !== 'online') return;
+    try {
+      const k = await kariyerDurum();
+      set({ kariyer: k, coins: k.coin });
+      // What happened since the last visit is shown once by the hub.
+      if (k.settled.length > 0 || k.unlocked.length > 0) set({ kariyerNews: { settled: k.settled, unlocked: k.unlocked } });
+    } catch (e) {
+      console.warn('Could not load the career features', e);
+    }
+  },
+
+  async choose(choice) {
+    try {
+      await kariyerSec(choice);
+      await get().refreshKariyer();
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'already_chosen') { void get().refreshKariyer(); return 'already_chosen'; }
+      console.warn('choice failed', e);
+      return 'error';
+    }
+  },
+
+  async massage() {
+    try {
+      const r = await kariyerMasaj();
+      set({ coins: r.coin });
+      await get().refreshKariyer();
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_coin' || e.code === 'not_injured')) {
+        if (e.code === 'not_injured') void get().refreshKariyer();
+        return e.code;
+      }
+      console.warn('massage failed', e);
+      return 'error';
+    }
+  },
+
+  async signOut() {
+    // The device forgets this player: the session, the saved profile and every local cache.
+    await signOutAll();
+    await AsyncStorage.multiRemove([PROFILE_KEY, CHARACTER_KEY, MAHALLE_KEY, INVITE_KEY]).catch(() => {});
+    set({
+      auth: 'none', mode: 'online', offlineReason: null, name: 'Efe Yılmaz', character: null, tutorial: false,
+      mahalle: null, mahalleReady: false, mahalleToday: null, blocked: [], career: null, kariyer: null, account: null,
+      careerNews: null, kariyerNews: null, seasonSummary: null, pendingInvite: null, club: t('club.home'), level: 1, xp: 0, coins: 0, gems: 0,
+      stats: { sut: 40, pas: 40, hiz: 40, fizik: 40 }, drillProgress: { sut: 0, pas: 0, hiz: 0, fizik: 0 }, form: [],
+      owned: [], catalog: [], match: null, post: null,
+    });
+  },
+
   async acceptOffer(id) {
     await apiAcceptOffer(id);
     await get().refreshCareer();
@@ -475,6 +546,7 @@ export const useGame = create<GameState>()((set, get) => ({
         set({ energy: t.energy.energy, energyUpdatedAt: t.energy.updatedAt });
       } catch (e) {
         if (e instanceof ApiError && e.code === 'no_energy') { set({ energy: 0 }); return 'no_energy'; }
+        if (e instanceof ApiError && e.code === 'injured') { void get().refreshKariyer(); return 'injured'; }
         if (e instanceof ApiError && (e.code === 'already_played' || e.code === 'season_over')) {
           void get().refreshCareer();
           return 'already_played';
@@ -540,6 +612,7 @@ export const useGame = create<GameState>()((set, get) => ({
     let sim, rating: number, coins: number, xpGain: number, after: { level: number; xp: number }, flagged = false;
     let coinBalance = s.coins;
     let server: { trustDelta?: number; trialPassed?: boolean; offersBefore: number; offersAfter: number } | null = null;
+    let kariyer: PostMatch['kariyer'] = null;
     if (s.mode === 'online' && m.matchId) {
       const r = await apiFinish(m.matchId, m.inputs, durationMs);
       // The career may change after any match: league day, trial result, the first offers.
@@ -553,6 +626,7 @@ export const useGame = create<GameState>()((set, get) => ({
       flagged = r.flagged;
       after = { level: r.player.level, xp: r.player.xp };
       coinBalance = r.player.coin;
+      kariyer = r.kariyer ?? null;
     } else {
       sim = simulateMatch(m.setup, m.inputs);
       rating = computeRating(sim);
@@ -571,7 +645,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const scout = server ? server.offersBefore === 0 && server.offersAfter > 0 : rating >= 65;
     const post: PostMatch = {
       kind: m.kind, coachTrust, trialPassed: server?.trialPassed, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
-      coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial,
+      coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial, kariyer,
       before, after: { ...after, trust },
     };
     set({
@@ -582,6 +656,7 @@ export const useGame = create<GameState>()((set, get) => ({
     });
     saveCharacter(get());
     if (m.kind === 'mahalle') void get().refreshMahalleToday();
+    if (s.mode === 'online') void get().refreshKariyer();
     return post;
   },
 

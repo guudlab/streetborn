@@ -4,12 +4,14 @@ import { ENGINE_VERSION, planMatch, type MatchSetup } from '../../../packages/en
 import {
   istanbulDay,
   leagueSchedule,
+  shootingBonus,
   mahalleOpponent,
   playerOpponent,
   spendEnergy,
   type LeagueTeam,
 } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
+import { loadState } from '../_shared/kariyer.ts';
 import { admin, loadEconomyConfig, randomSeed, requirePlayer } from '../_shared/supabase.ts';
 
 Deno.serve(handle(async (req) => {
@@ -28,6 +30,12 @@ Deno.serve(handle(async (req) => {
       admin.from('player_stats').select('shooting, passing').eq('player_id', playerId).single(),
     ]);
   if (walletError || playerError || statsError) throw walletError ?? playerError ?? statsError;
+
+  // Form, morale and the day's "work" choice move the shooting stat for this match; the ticket stores
+  // the result, so match-finish replays with the same number. An injured player rests from friendlies.
+  const state = await loadState(playerId, now, config);
+  if (state.injury && kind === 'energy') throw new HttpError(409, 'injured', { until: state.injury.until });
+  const shooting = Math.max(1, Math.min(100, stats.shooting + shootingBonus(state.form.level, state.morale, state.choice, config)));
 
   const spent = spendEnergy(
     { energy: wallet.energy, updatedAt: Date.parse(wallet.energy_updated_at) },
@@ -92,7 +100,7 @@ Deno.serve(handle(async (req) => {
     engineVersion: ENGINE_VERSION,
     seed: randomSeed(),
     chances: config.matchChances,
-    shooting: stats.shooting,
+    shooting,
     passing: stats.passing,
     opponentGoalkeeping: opponent.goalkeeping,
     opponentAttack: opponent.attack,

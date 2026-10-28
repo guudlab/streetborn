@@ -18,6 +18,7 @@ import {
   type MatchTicket,
 } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
+import { afterMatch, unlockAchievements } from '../_shared/kariyer.ts';
 import { admin, loadEconomyConfig, requirePlayer } from '../_shared/supabase.ts';
 
 Deno.serve(handle(async (req) => {
@@ -129,12 +130,23 @@ Deno.serve(handle(async (req) => {
   }).single<{ coin: number; xp: number; level: number; already_finished: boolean }>();
   if (error) throw error;
 
+  // Morale, a possible injury and new achievements. A retried finish pays and counts nothing twice.
+  let kariyer: { morale: number; injury: { days: number; kind: string } | null; unlocked: { key: string; coin: number }[] } | null = null;
+  let bonusCoin = 0;
+  if (!data.already_finished) {
+    const after = await afterMatch(playerId, match.id, sim.result, now, config);
+    const { unlocked } = await unlockAchievements(playerId);
+    bonusCoin = unlocked.reduce((sum, u) => sum + u.coin, 0);
+    kariyer = { morale: after.morale, injury: after.injury, unlocked };
+  }
+
   return json({
     result: { ...sim, rating },
     reward: data.already_finished ? null : reward,
     flagged,
     ...extra,
-    player: { coin: Number(data.coin), xp: Number(data.xp), level: data.level },
+    kariyer,
+    player: { coin: Number(data.coin) + bonusCoin, xp: Number(data.xp), level: data.level },
   });
 }));
 
