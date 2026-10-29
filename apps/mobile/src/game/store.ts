@@ -10,7 +10,7 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, deleteAccount as apiDeleteAccount,
   type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
@@ -147,6 +147,10 @@ interface GameState {
   massage(): Promise<'ok' | 'no_coin' | 'not_injured' | 'error'>;
   /** Signs out of this device and goes back to the sign-in screen. */
   signOut(): Promise<void>;
+  /** Deletes the account on the server for good, then signs out. */
+  deleteAccount(): Promise<void>;
+  /** Clears the saved profile and caches and returns to the signed-out state. */
+  forget(): Promise<void>;
   refreshCareer(): Promise<void>;
   acceptOffer(id: string): Promise<void>;
   play(input: ChanceInput): ChanceOutcome;
@@ -470,8 +474,20 @@ export const useGame = create<GameState>()((set, get) => ({
   },
 
   async signOut() {
-    // The device forgets this player: the session, the saved profile and every local cache.
     await signOutAll();
+    await get().forget();
+  },
+
+  async deleteAccount() {
+    await apiDeleteAccount();
+    // The user is gone on the server, so the sign-out call may be refused; the local
+    // session goes either way.
+    await signOutAll().catch(e => console.warn('sign out after delete', e));
+    await get().forget();
+  },
+
+  async forget() {
+    // The device forgets this player: the session, the saved profile and every local cache.
     await AsyncStorage.multiRemove([PROFILE_KEY, CHARACTER_KEY, MAHALLE_KEY, INVITE_KEY]).catch(() => {});
     set({
       auth: 'none', mode: 'online', offlineReason: null, name: 'Efe Yılmaz', character: null, tutorial: false,

@@ -67,6 +67,28 @@ export function Ghost({ children, style, onPress, ...rest }: BtnProps) {
   );
 }
 
+/**
+ * Red button for leaving or deleting: outlined by default so it is never the loudest thing
+ * on a screen; `solid` for the last, deliberate step.
+ */
+export function Danger({ children, style, off, disabled, busy, solid, onPress, ...rest }: BtnProps & { solid?: boolean }) {
+  const dim = (off || disabled) && !busy;
+  const fg = solid && !dim ? colors.ink : colors.bad;
+  return (
+    <PressableScale
+      accessibilityRole="button" disabled={disabled || off || busy} accessibilityState={{ disabled: !!(disabled || off || busy), busy: !!busy }}
+      onPress={(e) => { tap(); onPress?.(e); }} {...rest}
+      style={[{
+        height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.bad, flexDirection: 'row', gap: 8,
+        backgroundColor: solid && !dim ? colors.bad : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: dim ? 0.45 : 1,
+      }, style]}
+    >
+      {busy ? <ActivityIndicator color={fg} />
+        : typeof children === 'string' ? <T w={600} size={16} color={fg}>{children}</T> : children}
+    </PressableScale>
+  );
+}
+
 export function Pill({ icon, iconColor, image, children, onPress, label }: { icon?: IconName; iconColor?: string; image?: ImageSource; children: ReactNode; onPress?: () => void; label: string }) {
   return (
     <PressableScale

@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,9 +94,15 @@ export default function Giris() {
         </Animated.View>
       </View>
 
-      <T pointerEvents="none" w={500} size={11} color={colors.g300} style={{ position: 'absolute', left: 24, right: 24, bottom: Math.max(insets.bottom, 16), textAlign: 'center', lineHeight: 16 }}>
-        {t('login.terms')}
-      </T>
+      <Pressable
+        onPress={() => { buzz(); router.push('/gizlilik'); }} hitSlop={6}
+        accessibilityRole="link" accessibilityLabel={t('privacy.title')}
+        style={{ position: 'absolute', left: 24, right: 24, bottom: Math.max(insets.bottom, 16) - 6, paddingVertical: 6 }}
+      >
+        <T w={500} size={11} color={colors.g300} style={{ textAlign: 'center', lineHeight: 16 }}>
+          {t('login.termsA')}<T w={600} size={11} color={colors.g100} style={{ textDecorationLine: 'underline' }}>{t('login.termsLink')}</T>{t('login.termsB')}
+        </T>
+      </Pressable>
     </View>
   );
 }

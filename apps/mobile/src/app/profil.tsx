@@ -1,7 +1,7 @@
 import { xpNeed } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../game/character.ts';
 import { num } from '../game/format.ts';
@@ -11,18 +11,17 @@ import { colors } from '../theme.ts';
 import { openLinkSheet } from '../ui/account.tsx';
 import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { buzz, Caps, Cta, Ghost, H3, T, Track } from '../ui/kit.tsx';
+import { buzz, Caps, Cta, Danger, Ghost, H3, T, Track } from '../ui/kit.tsx';
 import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { Ico, Tile, type IconAsset } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
-import { PressableScale } from '../ui/motion.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // Profil: who the player is (nickname, level, skills, career numbers, club, mahalle) and
-// the account. The sign-out button lives here, at the very bottom, behind a confirmation
-// that warns a guest what they would lose.
+// the account. Sign-out and account deletion live here, at the very bottom: sign-out behind
+// a confirmation that warns a guest what they would lose, deletion on its own screen.
 
 const SKILLS: { key: StatKey; icon: IconAsset }[] = [
   { key: 'sut', icon: 'sut' }, { key: 'pas', icon: 'pas' }, { key: 'hiz', icon: 'hiz' }, { key: 'fizik', icon: 'fizik' },
@@ -134,9 +133,25 @@ export default function Profil() {
       <View style={{ gap: 10 }}>
         <Caps>{t('profile.account')}</Caps>
         {online ? <AccountCard /> : <T size={14} color={colors.g200}>{t('profile.offline')}</T>}
+        <Tile row label={t('privacy.title')} onPress={() => router.push('/gizlilik')} style={{ minHeight: 64 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="shield" size={22} color={colors.l500} />
+          </View>
+          <T w={600} size={16} style={{ flex: 1 }}>{t('privacy.title')}</T>
+          <Icon name="chev" size={18} color={colors.g300} />
+        </Tile>
       </View>
 
       {online && <SignOut />}
+      {online && (
+        <Pressable
+          accessibilityRole="button" hitSlop={8} onPress={() => { buzz(); router.push('/hesap-sil'); }}
+          style={{ alignSelf: 'center', minHeight: 44, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+        >
+          <Icon name="trash" size={16} color={colors.bad} />
+          <T w={600} size={14} color={colors.bad}>{t('delete.link')}</T>
+        </Pressable>
+      )}
     </Shell>
   );
 }
@@ -203,7 +218,7 @@ function SignOut() {
           </View>
           <SheetText>{t('profile.signOutGuestText')}</SheetText>
           <Cta onPress={() => { closeSheet(); setTimeout(openLinkSheet, 250); }}>{t('profile.signOutLinkFirst')}</Cta>
-          <DangerButton onPress={() => void run()}>{t('profile.signOutAnyway')}</DangerButton>
+          <Danger onPress={() => void run()}>{t('profile.signOutAnyway')}</Danger>
         </>,
       );
       return;
@@ -212,7 +227,7 @@ function SignOut() {
       <>
         <H3>{t('profile.signOutTitle')}</H3>
         <SheetText>{t('profile.signOutText')}</SheetText>
-        <DangerButton onPress={() => void run()}>{t('profile.signOut')}</DangerButton>
+        <Danger onPress={() => void run()}>{t('profile.signOut')}</Danger>
         <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
       </>,
     );
@@ -220,20 +235,8 @@ function SignOut() {
 
   return (
     <View style={{ gap: 8, marginTop: 8 }}>
-      <DangerButton onPress={ask} off={busy}>{t('profile.signOut')}</DangerButton>
+      <Danger onPress={ask} off={busy}>{t('profile.signOut')}</Danger>
       <T size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('profile.signOutHint')}</T>
     </View>
-  );
-}
-
-/** Outlined red button: leaving is allowed but never the loudest thing on the screen. */
-function DangerButton({ children, onPress, off }: { children: string; onPress: () => void; off?: boolean }) {
-  return (
-    <PressableScale
-      accessibilityRole="button" disabled={off} onPress={onPress}
-      style={{ height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center', opacity: off ? 0.5 : 1 }}
-    >
-      <T w={600} size={16} color={colors.bad}>{children}</T>
-    </PressableScale>
   );
 }
