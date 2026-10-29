@@ -53,10 +53,10 @@ export function EnergyOptions({ onDone }: { onDone?: () => void }) {
   const a = useEnergyActions(onDone);
   return (
     <>
-      <Opt
-        icon="ad" title={t('energy.ad')} sub={a.adSoon ? t('energy.soon') : t('energy.adSub', { n: a.adsLeft })}
+      {!a.adSoon && <Opt
+        icon="ad" title={t('energy.ad')} sub={t('energy.adSub', { n: a.adsLeft })}
         disabled={a.adOff} onPress={a.watchAd}
-      />
+      />}
       <Opt
         icon="gem" title={t('energy.refill')}
         sub={a.refillsLeft > 0 ? t('energy.refillSub', { n: a.refillsLeft, g: a.gems }) : t('energy.refillLimit')}
@@ -71,18 +71,19 @@ export function EnergyTiles() {
   const a = useEnergyActions();
   return (
     <View style={{ flexDirection: 'row', gap: 10 }}>
-      <Tile
+      {/* No ad SDK online yet: a dead "Yakında" tile is only noise, so the refill tile stands alone. */}
+      {!a.adSoon && <Tile
         onPress={a.watchAd} disabled={a.adOff} style={{ flex: 1, opacity: a.adOff ? 0.5 : 1 }}
-        label={`${t('energy.ad')}, ${a.adSoon ? t('energy.soon') : t('energy.adSub', { n: a.adsLeft })}`}
+        label={`${t('energy.ad')}, ${t('energy.adSub', { n: a.adsLeft })}`}
       >
         <Ico name="enerji" size={48} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Icon name="ad" size={18} color={colors.g100} />
-          <T w={700} size={15}>{a.adSoon ? t('energy.soon') : '+1'}</T>
+          <T w={700} size={15}>+1</T>
         </View>
-      </Tile>
+      </Tile>}
       <Tile
-        onPress={a.refill} disabled={a.refillOff} style={{ flex: 1, opacity: a.refillOff ? 0.5 : 1 }}
+        row={a.adSoon} onPress={a.refill} disabled={a.refillOff} style={{ flex: 1, opacity: a.refillOff ? 0.5 : 1 }}
         label={`${t('energy.refill')}, ${a.cost} ${t('shop.gems')}`}
       >
         <Ico name="enerji" size={48} />

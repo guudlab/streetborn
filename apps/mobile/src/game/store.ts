@@ -10,7 +10,7 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, deleteAccount as apiDeleteAccount,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount,
   type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
@@ -147,6 +147,8 @@ interface GameState {
   refreshKariyer(): Promise<void>;
   /** The day's pre-match choice. */
   choose(choice: Choice): Promise<'ok' | 'already_chosen' | 'error'>;
+  /** Answers the day's phone event. */
+  answerPhone(key: string, answer: 0 | 1): Promise<'ok' | 'no_coin' | 'stale' | 'error'>;
   /** Ends an injury for coin. */
   massage(): Promise<'ok' | 'no_coin' | 'not_injured' | 'error'>;
   /** Signs out of this device and goes back to the sign-in screen. */
@@ -492,6 +494,21 @@ export const useGame = create<GameState>()((set, get) => ({
     } catch (e) {
       if (e instanceof ApiError && e.code === 'already_chosen') { void get().refreshKariyer(); return 'already_chosen'; }
       console.warn('choice failed', e);
+      return 'error';
+    }
+  },
+
+  async answerPhone(key, answer) {
+    try {
+      await kariyerTelefon(key, answer);
+      await get().refreshKariyer();
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_coin' || e.code === 'stale' || e.code === 'already_answered')) {
+        void get().refreshKariyer();
+        return e.code === 'no_coin' ? 'no_coin' : 'stale';
+      }
+      console.warn('phone answer failed', e);
       return 'error';
     }
   },
