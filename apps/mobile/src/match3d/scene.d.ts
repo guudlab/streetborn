@@ -32,6 +32,11 @@ export interface MatchEnv {
     hero: Gltf; keeper: Gltf; rival: Gltf; ball: Gltf; mates: Gltf[];
     /** More of their players (lime-kit models the scene dresses in graphite). */
     opps?: Gltf[];
+    /** the fan models (fan1-4.glb): the terraces and the fans by the fences */
+    fans?: Gltf[];
+    /** the stand module (stand.glb) and floodlight tower (floodlight.glb) */
+    stand?: Gltf;
+    floodlight?: Gltf;
     'anim-street-idle': Gltf; 'anim-kick': Gltf; 'anim-cheer': Gltf; 'anim-run': Gltf; 'anim-slide': Gltf; 'anim-leap': Gltf;
   };
   /** Recolours a model's kit: our colours when `tint` is left out. */
