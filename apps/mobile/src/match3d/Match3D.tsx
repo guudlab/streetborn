@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audio.ts';
@@ -19,10 +19,13 @@ import { closeSheet, openSheet, SheetText, toast, useOverlay } from '../ui/overl
 import { Bubble } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
 import { t, type Key } from '../i18n/index.ts';
+import { assembleG } from './assemble.ts';
+import type { SceneBridge } from './bridgeTypes.ts';
+import { NativeSceneView } from './nativeScene';
 import { RingButton, type RingHandle } from './RingButton.tsx';
 import type { DefenseGrade, Gltf, MatchEnv, MatchScene, SceneResult, ScenePhase, ShotGrade } from './scene.d.ts';
 
-// The 3D match screen (web). The scene (scene.js) acts each moment out; this screen
+// The 3D match screen (web, and iOS/Android through a WebView). The scene (scene.js) acts each moment out; this screen
 // owns the HUD and the engine: it sends the player's input to the engine through the
 // store, then tells the scene the outcome. The scene never decides anything.
 
@@ -201,11 +204,15 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   }, [mark, pop, say]);
 
   // Load the models, build the scene, kick off. Once: the scene lives as long as the screen.
+  // The browser draws into a canvas here; iOS and Android host the same scene in a WebView
+  // (nativeScene.native.tsx), which hands over its bridge once its page is ready.
   const handlers = useRef({ next, onResult });
   handlers.current = { next, onResult };
+  const [bridge, setBridge] = useState<SceneBridge | null>(null);
   useEffect(() => {
+    const native = Platform.OS !== 'web';
     const el = host.current as unknown as HTMLElement | null;
-    if (!el) return;
+    if (native ? !bridge : !el) return;
     let cancelled = false;
     let sc: MatchScene | null = null;
     void (async () => {
@@ -217,48 +224,50 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
         ...oppsOf(ch.hero).map((h, i): [string, number] => [`opp${i}`, HERO_MODEL[h]]),
         ...Object.entries(MODELS),
       ];
-      let n = 0;
-      const [parsed, createMatch, tinter] = await Promise.all([
-        Promise.all(files.map(async ([k, f]) => { const g = await loadModel(f); setProgress(++n / files.length); return [k, g] as const; })),
-        loadMatchScene(),
-        kitTinter(),
-      ]);
-      if (cancelled) return;
-      const byKey = Object.fromEntries(parsed) as Record<string, Gltf>;
-      const G = { ...byKey, mates: [byKey.mate0!, byKey.mate1!].filter(Boolean), opps: [byKey.opp0!, byKey.opp1!].filter(Boolean) } as MatchEnv['G'];
       const tint = jerseyTint(ch.jersey);
       const kind = s.match?.kind;
-      const board = (kind === 'league' ? s.career?.contract?.clubName : s.mahalle?.name) ?? t('club.home');
-      const away = s.match?.opponentName;
-      sc = createMatch({
-        host: el, G, board: board.toLocaleUpperCase('tr'),
-        kit: JERSEYS.find(j => j.key === ch.jersey)?.color ?? colors.l600,
-        away: away ? away.toLocaleUpperCase('tr') : undefined,
-        tint: (root, t) => tinter(root, t === undefined ? tint : t),
-        sfx: (id, gain) => sfx(id, gain),
-        on: {
-          phase: setPhase,
-          aimed: () => setAimed(true),
-          ring: (p) => { leftRing.current?.set(p); rightRing.current?.set(p); },
-          grade: (q: ShotGrade | DefenseGrade) => {
-            const tone: Tone = q in SHOT_GRADE ? SHOT_GRADE[q as ShotGrade] : q === 'perfect' || q === 'timed' ? 'lime' : 'muted';
-            setGrade({ text: t(`m3.grade.${q}` as Key), tone, id: Date.now() });
-          },
-          result: (r) => handlers.current.onResult(r),
-          skipped: () => { const m = useGame.getState().match; if (m) useGame.getState().skip(m.i); },
-          done: () => { void handlers.current.next(); },
+      const board = ((kind === 'league' ? s.career?.contract?.clubName : s.mahalle?.name) ?? t('club.home')).toLocaleUpperCase('tr');
+      const away = s.match?.opponentName?.toLocaleUpperCase('tr');
+      const kit = JERSEYS.find(j => j.key === ch.jersey)?.color ?? colors.l600;
+      const on: MatchEnv['on'] = {
+        phase: setPhase,
+        aimed: () => setAimed(true),
+        ring: (p) => { leftRing.current?.set(p); rightRing.current?.set(p); },
+        grade: (q: ShotGrade | DefenseGrade) => {
+          const tone: Tone = q in SHOT_GRADE ? SHOT_GRADE[q as ShotGrade] : q === 'perfect' || q === 'timed' ? 'lime' : 'muted';
+          setGrade({ text: t(`m3.grade.${q}` as Key), tone, id: Date.now() });
         },
-      });
+        result: (r) => handlers.current.onResult(r),
+        skipped: () => { const m = useGame.getState().match; if (m) useGame.getState().skip(m.i); },
+        done: () => { void handlers.current.next(); },
+      };
+      if (native) {
+        sc = await bridge!.start({ keys: files.map(f => f[0]), tint, board, kit, away }, files, setProgress, { on, sfx: (id, gain) => sfx(id, gain) });
+      } else {
+        let n = 0;
+        const [parsed, createMatch, tinter] = await Promise.all([
+          Promise.all(files.map(async ([k, f]) => { const g = await loadModel(f); setProgress(++n / files.length); return [k, g] as const; })),
+          loadMatchScene(),
+          kitTinter(),
+        ]);
+        if (cancelled) return;
+        sc = createMatch({
+          host: el!, G: assembleG(Object.fromEntries(parsed)), board, kit, away,
+          tint: (root, t) => tinter(root, t === undefined ? tint : t),
+          sfx: (id, gain) => sfx(id, gain),
+          on,
+        });
+        (window as unknown as { __match3d?: MatchScene }).__match3d = sc; // test hook (sim)
+      }
       scene.current = sc;
-      (window as unknown as { __match3d?: MatchScene }).__match3d = sc; // test hook (sim)
       // The loading bar stays up while the shaders compile, so no frame stalls mid-match.
       await sc.ready;
       if (cancelled) return;
       setReady(true);
       begin();
     })().catch((e: unknown) => { if (!cancelled) onFail(e); });
-    return () => { cancelled = true; sc?.dispose(); scene.current = null; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; sc?.dispose(); bridge?.dispose(); scene.current = null; };
+  }, [bridge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const moment = match ? match.plan.moments[match.i] : undefined;
   const live = !!moment && finishing === 'no';
@@ -304,7 +313,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
 
   // Keyboard on the web: space charges the shot, arrows slide or pass.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (Platform.OS !== 'web') return;
     const down = (e: KeyboardEvent) => {
       const k = useGame.getState().match?.plan.moments[useGame.getState().match!.i]?.kind;
       if (e.code === 'Space' && !e.repeat && (k === 'shot' || k === 'freekick')) { e.preventDefault(); shootRing.current?.press(); }
@@ -344,7 +353,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, overflow: 'hidden' }}>
-      <View ref={host} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <View ref={host} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+        {Platform.OS !== 'web' && <NativeSceneView onBridge={setBridge} onFail={onFail} />}
+      </View>
 
       {/* HUD: the canvas under it still gets the taps that aim */}
       <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 20, paddingHorizontal: 16 }}>

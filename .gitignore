@@ -12,3 +12,4 @@ coverage/
 apps/mobile/dist/
 apps/mobile/ios/
 apps/mobile/android/
+apps/mobile/assets/match3d/match.webview.html
