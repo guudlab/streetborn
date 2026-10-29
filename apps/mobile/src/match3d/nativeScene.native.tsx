@@ -40,6 +40,7 @@ const tick = () => new Promise<void>(r => setTimeout(r, 0));
 
 function createBridge(inject: (js: string) => void, onFail: (e: unknown) => void) {
   let hello = false;
+  let stage = 'page';
   const queue: ToWebView[] = [];
   const state = { phase: 'menu' as ScenePhase, aim: { aim: 0, lift: 0 }, timing: 0 };
   let env: Pick<MatchEnv, 'on' | 'sfx'> | null = null;
@@ -52,8 +53,8 @@ function createBridge(inject: (js: string) => void, onFail: (e: unknown) => void
 
   const handle = (m: FromWebView) => {
     switch (m.t) {
-      case 'hello': hello = true; queue.splice(0).forEach(flush); break;
-      case 'progress': progress(0.5 + m.p / 2); break;
+      case 'hello': hello = true; stage = 'models'; queue.splice(0).forEach(flush); break;
+      case 'progress': stage = `parse ${Math.round(m.p * 100)}%`; progress(0.5 + m.p / 2); break;
       case 'ready': ready?.resolve(); ready = null; break;
       case 'error': console.warn('3D match (webview):', m.message); if (ready) { ready.reject(new Error(m.message)); ready = null; } else onFail(new Error(m.message)); break;
       case 'state':
@@ -91,14 +92,20 @@ function createBridge(inject: (js: string) => void, onFail: (e: unknown) => void
     async start(cfg: MatchConfig, files, onProgress, e) {
       env = e;
       progress = onProgress;
-      const done = new Promise<void>((resolve, reject) => { ready = { resolve, reject }; });
+      const done = new Promise<void>((resolve, reject) => {
+        ready = { resolve, reject };
+        // A page that never answers (a script that did not start, no WebGL) must not hang the loading bar.
+        setTimeout(() => { if (ready) { ready = null; reject(new Error(`timeout at stage ${stage}${hello ? '' : ' (page never said hello)'}`)); } }, 90_000);
+      });
       let sent = 0;
       for (const [key, model] of files) {
         const b64 = toBase64(new Uint8Array(await loadModelBytes(model)));
         const n = Math.ceil(b64.length / CHUNK);
         for (let i = 0; i < n; i++) { send({ t: 'model', key, i, n, d: b64.slice(i * CHUNK, (i + 1) * CHUNK) }); await tick(); }
         onProgress(++sent / files.length / 2);
+        stage = `models ${sent}/${files.length}`;
       }
+      stage = 'build';
       send({ t: 'go', cfg });
       await done;
       return scene;
@@ -116,7 +123,7 @@ export function NativeSceneView({ onBridge, onFail }: { onBridge(b: SceneBridge)
 
   useEffect(() => {
     let alive = true;
-    loadHtml().then((h) => { if (alive) { setHtml(h); onBridge(core.current!.bridge); } }, onFail);
+    loadHtml().then((h) => { if (alive) { setHtml(h); onBridge(core.current!.bridge); } }, (e: unknown) => onFail(new Error(`html asset: ${String((e as Error)?.message ?? e)}`)));
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -139,7 +146,8 @@ export function NativeSceneView({ onBridge, onFail }: { onBridge(b: SceneBridge)
       onMessage={(e: WebViewMessageEvent) => core.current!.handle(JSON.parse(e.nativeEvent.data) as FromWebView)}
       onContentProcessDidTerminate={() => onFail(new Error('web content process terminated'))}
       onRenderProcessGone={() => onFail(new Error('render process gone'))}
-      onError={(e) => onFail(new Error(e.nativeEvent.description))}
+      onError={(e) => onFail(new Error(`webview: ${e.nativeEvent.description}`))}
+      onHttpError={(e) => onFail(new Error(`webview http ${e.nativeEvent.statusCode}`))}
     />
   );
 }

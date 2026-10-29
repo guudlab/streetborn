@@ -166,7 +166,8 @@ export function Model3D(props: Props) {
   const onFail = useCallback((e: unknown) => {
     console.warn('Model3D failed', e);
     setFailed(true);
-    if (Platform.OS === 'web' && /3ddebug/.test(window.location.search)) setError(String((e as Error)?.stack ?? e).slice(0, 300));
+    // On the phone the cause is shown under the fallback picture until native 3D is proven on devices.
+    if (Platform.OS !== 'web' || /3ddebug/.test(window.location.search)) setError(`${stage}: ${String((e as Error)?.message ?? e)}`.slice(0, 160));
   }, []);
 
   useEffect(() => { scene.current?.setClip(clip); }, [clip, ready]);
