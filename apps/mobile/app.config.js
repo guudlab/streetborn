@@ -4,6 +4,12 @@
 // EXPO_BASE_URL, when set, overrides both.
 module.exports = ({ config }) => ({
   ...config,
+  ios: {
+    ...config.ios,
+    // Placeholder until the store bundle id is decided; the sideload workflow
+    // (ios-sideload.yml) lets Sideloadly rewrite it for a free Apple ID.
+    bundleIdentifier: process.env.IOS_BUNDLE_ID ?? 'com.guudlab.streetborn',
+  },
   experiments: {
     ...config.experiments,
     baseUrl:

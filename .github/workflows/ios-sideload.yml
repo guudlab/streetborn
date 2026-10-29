@@ -1,0 +1,44 @@
+name: Build unsigned iOS IPA (sideload)
+
+# Builds an UNSIGNED StreetBorn.ipa on a macOS runner so it can be signed with a
+# free Apple ID using Sideloadly or AltStore on Windows. No Apple Developer
+# account or secrets needed. Run it by hand: Actions > this workflow > Run workflow.
+# macOS minutes bill at 10x on private repos, so there is no automatic trigger.
+on:
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate the native iOS project (not committed)
+        working-directory: apps/mobile
+        run: npx expo prebuild -p ios
+      - name: Build Release without code signing
+        working-directory: apps/mobile/ios
+        run: |
+          WORKSPACE=$(ls -d *.xcworkspace | head -n1)
+          SCHEME="${WORKSPACE%.xcworkspace}"
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package StreetBorn.ipa
+        working-directory: apps/mobile/ios
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/*.app Payload/
+          zip -qry StreetBorn.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreetBorn-unsigned-ipa
+          path: apps/mobile/ios/StreetBorn.ipa
+          retention-days: 7

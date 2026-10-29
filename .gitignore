@@ -10,3 +10,5 @@ coverage/
 # taste-skill working files
 .taste-skill/
 apps/mobile/dist/
+apps/mobile/ios/
+apps/mobile/android/
