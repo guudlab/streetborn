@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, Ellipse, Line, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { setMusic, sfx } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
@@ -11,25 +11,17 @@ import { colors } from '../theme.ts';
 import { openSignInSheet } from '../ui/account.tsx';
 import { buzz, Cta, T } from '../ui/kit.tsx';
 import { toast } from '../ui/overlay.tsx';
-import { Model3D, preloadModels } from '../ui/Model3D.tsx';
+import { preloadModels } from '../ui/Model3D.tsx';
+import { Pack, BadgeCard, Rays, PACK_H, PEEL_MS, type PackStage } from '../ui/paket.tsx';
 import { t } from '../i18n/index.ts';
 
-// First screen for a new player (design C "Dokun ve başla"): the whole screen is the
-// button. Tapping anywhere starts an anonymous career, then the mahalle and character steps follow; "Hesabım var" signs
-// in to an account linked before (Apple, Google or an email code).
-// The 3D player idles on a chalk-lined pitch and dribbles or celebrates now and then;
-// the ball, cup, coin and gem float around him.
+// First screen for a new player (design G "İlk rozet paketi"): a glowing sealed pack waits,
+// "Aç" peels its foil seal off like a sticker and the card with the first badge flips in.
+// "Devam" then starts an anonymous career, and the mahalle and character steps follow;
+// "Hesabım var" signs in to an account linked before (Apple, Google or an email code).
+// The pack and badge are vector placeholders until the Meshy models replace them.
 
-const HERO = require('../../assets/meshy/hero-street.webp');
-const HERO_3D = require('../../assets/models/karakter-street.glb');
 const BURAK_3D = require('../../assets/models/burak.glb');
-const FIDGET = { clips: ['dribble', 'cheer', 'kick'], seconds: 5 };
-const PROPS = [
-  { src: require('../../assets/meshy/cup-gold.webp'), size: 74, left: '4%', top: 0.18, delay: 0 },
-  { src: require('../../assets/meshy/coin.webp'), size: 54, right: '6%', top: 0.14, delay: 500 },
-  { src: require('../../assets/meshy/ball.webp'), size: 62, left: '8%', top: 0.5, delay: 900 },
-  { src: require('../../assets/meshy/gem.webp'), size: 48, right: '5%', top: 0.44, delay: 300 },
-] as const;
 const LOGO = require('../../assets/brand/logo.png');
 const ease = Easing.bezier(0.2, 0.8, 0.2, 1);
 const native = Platform.OS !== 'web';
@@ -38,13 +30,25 @@ export default function Giris() {
   const insets = useSafeAreaInsets();
   const startAnonymous = useGame(s => s.startAnonymous);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<PackStage>('idle');
   const intro = useIntro();
+  // Short phones shrink the pack so it never touches the text.
+  const { height } = useWindowDimensions();
+  const fit = Math.max(0.6, Math.min(1, (height - 330) / (PACK_H + 40)));
   useEffect(() => { setMusic('menu'); preloadModels([BURAK_3D]); }, []);
+
+  function open() {
+    if (stage !== 'idle') return;
+    buzz('medium');
+    sfx('whistle_start');
+    setStage('peel');
+    // The seal peels, the pack drops, then the card shows.
+    setTimeout(() => { buzz('success'); setStage('reveal'); }, PEEL_MS);
+  }
 
   async function start() {
     if (busy) return;
     buzz('medium');
-    sfx('whistle_start');
     setBusy(true);
     // The anonymous account starts here; the mahalle and character steps follow (see _layout).
     try { await startAnonymous(); } catch (e) {
@@ -53,26 +57,26 @@ export default function Giris() {
     } finally { setBusy(false); }
   }
 
+  const revealed = stage === 'reveal';
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, overflow: 'hidden' }}>
-      <Pressable
-        onPress={start} disabled={busy}
-        accessibilityRole="button" accessibilityLabel={t('login.tapA11y')} accessibilityState={{ busy }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Pitch />
-        {PROPS.map((p, i) => <Float key={i} {...p} top={insets.top + 90 + p.top * 520} show={intro.logo} />)}
-        <Animated.View style={[styles.heroWrap, { top: insets.top + 96, opacity: intro.hero, transform: [{ translateY: intro.heroY }] }]}>
-          <FloorGlow />
-          <Model3D model={HERO_3D} fallback={HERO} clip="idle" fidget={FIDGET} headroom={0.14} style={styles.hero} />
-        </Animated.View>
-        <View style={styles.fade} />
-      </View>
-
-      <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: insets.top + 28, left: 20, opacity: intro.logo }]}>
-        <Image source={LOGO} style={{ width: 168, height: 31 }} contentFit="contain" accessibilityLabel="StreetBorn" />
+      <Animated.View pointerEvents="none" style={{ alignItems: 'center', marginTop: insets.top + 28, opacity: intro.logo }}>
+        <Image source={LOGO} style={{ width: 168, height: 31, alignSelf: 'flex-start', marginLeft: 20 }} contentFit="contain" accessibilityLabel="StreetBorn" />
+        <T w={700} size={26} style={{ letterSpacing: -0.4, marginTop: 28, height: 32 }}>
+          {revealed ? <>{t('login.badgeA')}<T w={700} size={26} color={colors.l600}>{t('login.badgeB')}</T></>
+            : <>{t('login.packA')}<T w={700} size={26} color={colors.l600}>{t('login.packB')}</T></>}
+        </T>
       </Animated.View>
+
+      <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ position: 'absolute' }}><Rays /></View>
+        <Glow />
+        <Animated.View style={{ opacity: intro.hero, transform: [{ translateY: intro.heroY }, { scale: fit }], alignItems: 'center', justifyContent: 'center', height: PACK_H + 40 }}>
+          {revealed ? <BadgeCard /> : <Pack stage={stage} />}
+        </Animated.View>
+        <Floor />
+      </View>
 
       <Pressable
         onPress={() => { buzz(); openSignInSheet(); }}
@@ -87,44 +91,39 @@ export default function Giris() {
         <T w={600} size={13} color={colors.g200}>{t('login.haveAccount')}</T>
       </Pressable>
 
-      <View pointerEvents="box-none" style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(insets.bottom, 16) + 34, gap: 20 }}>
-        <Animated.View pointerEvents="none" style={{ opacity: intro.logo, alignItems: 'center', gap: 4 }}>
-          <T w={700} size={26} style={{ letterSpacing: -0.4 }}>{t('login.slogan1')}</T>
-          <T w={700} size={26} color={colors.l600} style={{ letterSpacing: -0.4 }}>{t('login.slogan2')}</T>
+      <View style={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 14 }}>
+        <Animated.View style={{ opacity: intro.logo, alignItems: 'center' }}>
+          <T w={600} size={17} color={colors.g200} style={{ textAlign: 'center' }}>
+            {revealed ? t('login.badgeSaved') : <>{t('login.slogan1')} <T w={600} size={17} color={colors.l600}>{t('login.slogan2')}</T></>}
+          </T>
         </Animated.View>
-        {/* The whole screen still starts the game; the button makes that obvious. */}
         <Animated.View style={{ opacity: intro.logo }}>
-          <Cta busy={busy} onPress={() => void start()} accessibilityLabel={t('login.tapA11y')}>{t('common.start')}</Cta>
+          {revealed
+            ? <Cta busy={busy} onPress={() => void start()} accessibilityLabel={t('common.continue')}>{t('common.continue')}</Cta>
+            : <Cta off={stage === 'peel'} onPress={open} accessibilityLabel={t('login.open')}>{t('login.open')}</Cta>}
         </Animated.View>
+        <Pressable
+          onPress={() => { buzz(); router.push('/gizlilik'); }} hitSlop={6}
+          accessibilityRole="link" accessibilityLabel={t('privacy.title')}
+          style={{ paddingVertical: 4 }}
+        >
+          <T w={500} size={11} color={colors.g300} style={{ textAlign: 'center', lineHeight: 16 }}>
+            {t('login.termsA')}<T w={600} size={11} color={colors.g100} style={{ textDecorationLine: 'underline' }}>{t('login.termsLink')}</T>{t('login.termsB')}
+          </T>
+        </Pressable>
       </View>
-
-      <Pressable
-        onPress={() => { buzz(); router.push('/gizlilik'); }} hitSlop={6}
-        accessibilityRole="link" accessibilityLabel={t('privacy.title')}
-        style={{ position: 'absolute', left: 24, right: 24, bottom: Math.max(insets.bottom, 16) - 6, paddingVertical: 6 }}
-      >
-        <T w={500} size={11} color={colors.g300} style={{ textAlign: 'center', lineHeight: 16 }}>
-          {t('login.termsA')}<T w={600} size={11} color={colors.g100} style={{ textDecorationLine: 'underline' }}>{t('login.termsLink')}</T>{t('login.termsB')}
-        </T>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  heroWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  hero: { width: 320, height: 470 },
-  fade: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, height: '30%',
-    backgroundColor: colors.ink, opacity: 0.85,
-  },
   account: {
     position: 'absolute', right: 12, height: 44, paddingHorizontal: 14, borderRadius: 22,
     backgroundColor: 'rgba(13,13,13,.72)', flexDirection: 'row', alignItems: 'center', gap: 6,
   },
 });
 
-/** Logo, player and the tap prompt come in one after another. Reduced motion shows them at once. */
+/** Logo, pack and the button come in one after another. Reduced motion shows them at once. */
 function useIntro() {
   const v = useRef({
     hero: new Animated.Value(0), logo: new Animated.Value(0),
@@ -147,53 +146,32 @@ function useIntro() {
   return { ...v, heroY };
 }
 
-/** Faint chalk lines of a pitch behind the player: halfway line, centre circle and spot. */
-function Pitch() {
+/** Lime glow behind the pack. */
+function Glow() {
   return (
-    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
-      <Line x1={0} y1={560} x2={390} y2={560} stroke="#fff" strokeOpacity={0.06} strokeWidth={2} />
-      <Ellipse cx={195} cy={560} rx={150} ry={46} stroke="#fff" strokeOpacity={0.06} strokeWidth={2} fill="none" />
-      <Circle cx={195} cy={560} r={3} fill="#fff" fillOpacity={0.1} />
-      <Path d="M-20 820 L120 640 L270 640 L410 820" stroke="#fff" strokeOpacity={0.04} strokeWidth={2} fill="none" />
-    </Svg>
-  );
-}
-
-function FloorGlow() {
-  return (
-    <Svg width={300} height={60} style={{ position: 'absolute', bottom: 0, alignSelf: 'center' }}>
+    <Svg width={300} height={360} style={{ position: 'absolute' }}>
       <Defs>
-        <RadialGradient id="floor" cx="50%" cy="50%" rx="50%" ry="50%">
-          <Stop offset="0" stopColor={colors.l600} stopOpacity={0.35} />
+        <RadialGradient id="packGlow" cx="50%" cy="50%" rx="50%" ry="50%">
+          <Stop offset="0" stopColor={colors.l600} stopOpacity={0.42} />
           <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
         </RadialGradient>
       </Defs>
-      <Ellipse cx={150} cy={30} rx={150} ry={30} fill="url(#floor)" />
+      <Ellipse cx={150} cy={180} rx={150} ry={180} fill="url(#packGlow)" />
     </Svg>
   );
 }
 
-/** A 3D-rendered prop that drifts up and down beside the player. */
-function Float({ src, size, left, right, top, delay, show }: {
-  src: number; size: number; left?: string; right?: string; top: number; delay: number; show: Animated.Value;
-}) {
-  const y = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    let loop: Animated.CompositeAnimation | undefined;
-    let alive = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
-      if (reduce || !alive) return;
-      loop = Animated.loop(Animated.sequence([
-        Animated.timing(y, { toValue: -10, duration: 1800, delay, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
-        Animated.timing(y, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
-      ]));
-      loop.start();
-    });
-    return () => { alive = false; loop?.stop(); };
-  }, [y, delay]);
+/** Soft lime pool on the floor under the pack. */
+function Floor() {
   return (
-    <Animated.View style={{ position: 'absolute', top, left, right, opacity: show, transform: [{ translateY: y }] } as object}>
-      <Image source={src} style={{ width: size, height: size }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" />
-    </Animated.View>
+    <Svg width={230} height={36} style={{ position: 'absolute', bottom: 6 }}>
+      <Defs>
+        <RadialGradient id="floorPool" cx="50%" cy="50%" rx="50%" ry="50%">
+          <Stop offset="0" stopColor={colors.l600} stopOpacity={0.4} />
+          <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Ellipse cx={115} cy={18} rx={115} ry={18} fill="url(#floorPool)" />
+    </Svg>
   );
 }
