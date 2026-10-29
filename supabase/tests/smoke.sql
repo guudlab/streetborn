@@ -455,7 +455,7 @@ do $$ declare p uuid := '00000000-0000-0000-0000-000000000960'; w record; s1 big
   if (select energy from wallets where player_id = p) <> w.energy - 1 then raise exception 'drill energy not spent'; end if;
 
   r := finish_drill(p, s1, 6, 3::smallint, 'perfect', 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 30, 1, null, null, 0::smallint);
-  if r <> '{"best": 6, "previous": null}'::jsonb then raise exception 'first record wrong: %', r; end if;
+  if r <> '{"best": 6, "previous": null, "trust": 0}'::jsonb then raise exception 'first record wrong: %', r; end if;
   begin perform finish_drill(p, s1, 6, 3::smallint, 'perfect', 40::smallint, 2::smallint, 40::smallint, 4::smallint, 2::smallint, 30, 1, null, null, 0::smallint); raise exception 'should have failed';
   exception when raise_exception then if sqlerrm <> 'finished' then raise; end if; end;
   begin perform finish_drill('00000000-0000-0000-0000-000000000950', s2, 1, 0::smallint, 'miss', 40::smallint, 0::smallint, 40::smallint, 0::smallint, 0::smallint, 8, 1, null, null, 0::smallint); raise exception 'should have failed';
@@ -469,7 +469,7 @@ do $$ declare p uuid := '00000000-0000-0000-0000-000000000960'; w record; s1 big
   select * into w from wallets where player_id = p;
   s3 := start_drill(p, 'shooting', 'energy', null, 13, 1::smallint, w.version, (w.energy - 1)::smallint, now());
   r := finish_drill(p, s3, 4, 2::smallint, 'good', 40::smallint, 2::smallint, 41::smallint, 0::smallint, 1::smallint, 20, 1, null, null, 0::smallint);
-  if r <> '{"best": 6, "previous": 6}'::jsonb or (select best from drill_records where player_id = p and stat = 'shooting') <> 6 then raise exception 'record lowered: %', r; end if;
+  if r <> '{"best": 6, "previous": 6, "trust": 0}'::jsonb or (select best from drill_records where player_id = p and stat = 'shooting') <> 6 then raise exception 'record lowered: %', r; end if;
   if (select score from training_log where id = s3) <> 4 or (select stars from training_log where id = s3) <> 2 or (select finished_at from training_log where id = s3) is null then
     raise exception 'drill session not closed';
   end if;
@@ -520,6 +520,26 @@ do $$ declare r jsonb := antrenman_bugun(); d jsonb := dukkan_bugun(); begin
   begin perform buy_boots('00000000-0000-0000-0000-000000000960', 'krampon_pro', 0, 150::smallint, 1); raise exception 'should have failed';
   exception when insufficient_privilege then null; end;
   raise notice 'drill rls: ok';
+end $$;
+reset role;
+
+-- Drill of the day at a club: the first 3 stars of the day add 1 coach trust, never past the cap.
+insert into auth.users values ('00000000-0000-0000-0000-000000000962');
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000962'; s1 bigint; s2 bigint; s3 bigint; r jsonb; begin
+  update players set coach_trust = 68 where id = p;
+  s1 := start_drill(p, 'passing', 'free', 3, 21, 0::smallint, 0, 0::smallint, now());
+  s2 := start_drill(p, 'passing', 'free', 3, 22, 0::smallint, 0, 0::smallint, now());
+  s3 := start_drill(p, 'shooting', 'free', 3, 23, 0::smallint, 0, 0::smallint, now());
+  r := finish_drill(p, s1, 56, 3::smallint, 'perfect', 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 30, 1, null, null, 0::smallint, 69::smallint);
+  if r->>'trust' <> '1' or (select coach_trust from players where id = p) <> 69 then raise exception 'drill trust not added: %', r; end if;
+  update players set coach_trust = 50 where id = p;
+  r := finish_drill(p, s2, 56, 3::smallint, 'perfect', 40::smallint, 2::smallint, 41::smallint, 0::smallint, 2::smallint, 30, 1, null, null, 0::smallint, 69::smallint);
+  if r->>'trust' <> '0' or (select coach_trust from players where id = p) <> 50 then raise exception 'drill trust twice a day: %', r; end if;
+  update players set coach_trust = 69 where id = p;
+  r := finish_drill(p, s3, 6, 3::smallint, 'perfect', 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 30, 1, null, null, 0::smallint, 69::smallint);
+  if r->>'trust' <> '0' or (select coach_trust from players where id = p) <> 69 then raise exception 'drill trust past the cap: %', r; end if;
+  raise notice 'drill trust: ok';
 end $$;
 reset role;
 

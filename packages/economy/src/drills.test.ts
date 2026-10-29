@@ -6,6 +6,7 @@ import {
   drillStars,
   drillTier,
   keremRecord,
+  dailyDrill,
   kosAdvance,
   kosLane,
   kosObstacles,
@@ -205,5 +206,11 @@ describe('drill inputs and stars', () => {
     expect(keremRecord('pace', 0, tc)).toBe(18);
     expect(keremRecord('pace', 10, tc)).toBe(21);
     expect(keremRecord('pace', 40, tc)).toBe(24);
+  });
+
+  it('picks one drill a day, the same every call, all four over a month', () => {
+    expect(dailyDrill('2026-11-03')).toBe(dailyDrill('2026-11-03'));
+    const month = Array.from({ length: 30 }, (_, i) => dailyDrill(`2026-11-${String(i + 1).padStart(2, '0')}`));
+    expect(new Set(month).size).toBe(4);
   });
 });

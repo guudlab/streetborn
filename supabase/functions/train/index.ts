@@ -7,6 +7,7 @@
 import {
   STAT_NAMES,
   applyAp,
+  dailyDrill,
   drillGain,
   drillScore,
   drillStars,
@@ -99,7 +100,7 @@ async function finish(playerId: string, body: Record<string, unknown>, config: E
   const id = body.session;
   if (!Number.isSafeInteger(id) || (id as number) <= 0) throw new HttpError(400, 'bad_session');
   const { data: s, error: sessionError } = await admin
-    .from('training_log').select('stat, seed, tier, created_at, finished_at').eq('id', id).eq('player_id', playerId).maybeSingle();
+    .from('training_log').select('day, stat, seed, tier, created_at, finished_at').eq('id', id).eq('player_id', playerId).maybeSingle();
   if (sessionError) throw sessionError;
   if (!s || s.seed === null) throw new HttpError(404, 'no_session');
   if (s.finished_at) throw new HttpError(409, 'finished');
@@ -134,15 +135,22 @@ async function finish(playerId: string, body: Record<string, unknown>, config: E
   const level = Math.max(player.level, levelForXp(xpAfter, config));
   // The cap follows the level the player reaches with this drill's XP.
   const after = applyAp(value, ap, gain.ap + bootAp, level, config);
+  // 3 stars on the drill of the day: at a club the coach adds trust, up to just below promotion.
+  let trustCap: number | null = null;
+  if (stars === 3 && stat === dailyDrill(s.day)) {
+    const { data: contract, error: contractError } = await admin.from('contracts').select('active').eq('player_id', playerId).maybeSingle();
+    if (contractError) throw contractError;
+    if (contract?.active) trustCap = config.career.trustPromoteMin - 1;
+  }
 
   const { data: record, error } = await admin.rpc('finish_drill', {
     p_player: playerId, p_session: id, p_score: score, p_stars: stars, p_grade: grade,
     p_expected_stat: value, p_expected_ap: ap, p_stat_after: after.stat, p_ap_after: after.ap,
     p_ap: gain.ap + bootAp, p_xp: gain.xp, p_level: level,
-    p_boot: boot?.item_id ?? null, p_boot_uses: boot?.uses_left ?? null, p_boot_ap: bootAp,
+    p_boot: boot?.item_id ?? null, p_boot_uses: boot?.uses_left ?? null, p_boot_ap: bootAp, p_trust_cap: trustCap,
   });
   fail(error);
-  const r = record as { best: number; previous: number | null };
+  const r = record as { best: number; previous: number | null; trust: number };
 
   return {
     score, stars, grade, ap: gain.ap + bootAp, bootAp, xp: gain.xp, coin: 0,
@@ -150,6 +158,7 @@ async function finish(playerId: string, body: Record<string, unknown>, config: E
     player: { xp: xpAfter, level, coin: Number(wallet.coin) },
     record: { best: r.best, previous: r.previous },
     boots: boot ? { id: boot.item_id, usesLeft: boot.uses_left - 1 } : null,
+    trust: r.trust,
     energy: null,
   };
 }

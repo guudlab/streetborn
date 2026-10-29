@@ -93,6 +93,7 @@ export {
   pasGoodWindow,
   pasJudge,
   pasPoints,
+  dailyDrill,
   pasScore,
   powerError,
   starsGrade,

@@ -1,6 +1,6 @@
 import type { TrainingConfig } from './config.ts';
 import { rng } from './random.ts';
-import type { DrillGrade, StatName } from './training.ts';
+import { STAT_NAMES, type DrillGrade, type StatName } from './training.ts';
 
 // Burak abi's mini games, one per stat (antrenman doc, decision 1A): teneke devirme
 // (shooting), duvar pası (passing), bakkala koş (pace) and merdiven (stamina).
@@ -356,3 +356,10 @@ export function keremRecord(stat: StatName, level: number, cfg: TrainingConfig):
   const [, two, three] = cfg.drillStars[stat];
   return two + Math.trunc(((three - two) * Math.min(Math.max(level, 0), 20)) / 20);
 }
+
+/**
+ * The coach's drill of the day (decision 3A/9A): the same for everyone on a day, on
+ * the app and the server. 3 stars on it ready the player for today's mahalle match
+ * and, at a club, add coach trust once.
+ */
+export const dailyDrill = (day: string): StatName => STAT_NAMES[rng(`gunun-talimi:${day}`)(STAT_NAMES.length)]!;
