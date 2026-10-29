@@ -8,6 +8,11 @@ import { MeshoptDecoder } from 'meshoptimizer';
 
 import { build, debug } from '../modelScene.ts';
 
+// WKWebView's createImageBitmap ignores the options GLTFLoader passes (flipY, premultiply), so
+// textures can come out upside down. three.js avoids it on Safari only by sniffing the user
+// agent, which an embedded web view does not carry; without it GLTFLoader uses TextureLoader.
+window.createImageBitmap = undefined;
+
 const post = (msg) => window.ReactNativeWebView.postMessage(JSON.stringify(msg));
 const fail = (e) => post({ t: 'error', message: `${debug.stage}: ${String((e && e.message) || e)}`.slice(0, 400) });
 window.addEventListener('error', (e) => fail(e.error || e.message));

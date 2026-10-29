@@ -58,6 +58,7 @@ interface Card { good: boolean; title: string; desc: string; icon: IconName }
  * same inputs to the same engine, so the result does not depend on which one ran.
  */
 export default function Mac() {
+  const insets = useSafeAreaInsets();
   const [three, setThree] = useState(can3d);
   const [why, setWhy] = useState('');
   if (!three) {
@@ -65,7 +66,7 @@ export default function Mac() {
     return (
       <View style={{ flex: 1 }}>
         <Match2D />
-        {Platform.OS !== 'web' && why ? <View pointerEvents="none" style={{ position: 'absolute', left: 8, right: 8, bottom: 2 }}><T size={9} color="#ff6666">{`3D: ${why}`}</T></View> : null}
+        {Platform.OS !== 'web' && why ? <View pointerEvents="none" style={{ position: 'absolute', left: 8, right: 8, top: insets.top + 4, backgroundColor: 'rgba(0,0,0,.7)', padding: 4 }}><T size={11} color="#ff6666">{`3D: ${why}`}</T></View> : null}
       </View>
     );
   }
