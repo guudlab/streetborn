@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
@@ -28,6 +28,12 @@ const ERRORS: Partial<Record<string, Key>> = {
   otp_expired: 'account.err.code',
   email_address_invalid: 'account.err.email',
 };
+// Supabase's built-in email sender allows only a few emails per hour, so the app
+// never sends twice in a row: one code per address per minute, even if the sheet is reopened.
+const RESEND_MS = 60_000;
+const lastSent = new Map<string, number>();
+const waitLeft = (email: string) => Math.max(0, Math.ceil((RESEND_MS - (Date.now() - (lastSent.get(email.toLowerCase()) ?? 0))) / 1000));
+
 export const accountError = (e: unknown) => t(ERRORS[e instanceof ApiError ? e.code : ''] ?? 'account.err.other');
 
 function ProviderButtons({ onPick }: { onPick(p: Provider | 'email'): void }) {
@@ -153,15 +159,35 @@ function SignInEmail() {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [wait, setWait] = useState(0);
+  const sending = useRef(false);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const id = setTimeout(() => setWait(waitLeft(email.trim())), 1000);
+    return () => clearTimeout(id);
+  }, [wait, email]);
   const send = async () => {
     const v = email.trim();
+    if (sending.current) return;
     if (!EMAIL.test(v)) { setError(t('account.err.email')); return; }
+    // A code was sent a moment ago: it is still valid, so go and type it instead of sending another.
+    if (waitLeft(v) > 0) { setWait(waitLeft(v)); setStep('code'); setError(null); return; }
+    sending.current = true;
     setBusy(true);
-    try { await sendEmailCode(v); setStep('code'); setError(null); } catch (e) { setError(accountError(e)); }
+    try {
+      await sendEmailCode(v);
+      lastSent.set(v.toLowerCase(), Date.now());
+      setWait(waitLeft(v)); setStep('code'); setError(null);
+    } catch (e) {
+      const rate = e instanceof ApiError && (e.code === 'over_email_send_rate_limit' || e.code === 'over_request_rate_limit');
+      setError(rate ? t('account.err.rateEmail') : accountError(e));
+    }
+    sending.current = false;
     setBusy(false);
   };
   const verify = async () => {
-    if (code.length < 6) return;
+    if (code.length < 6 || sending.current) return;
+    sending.current = true;
     setBusy(true);
     try {
       await verifyEmailCode(email.trim(), code);
@@ -171,6 +197,7 @@ function SignInEmail() {
       setError(accountError(e));
       setBusy(false);
     }
+    sending.current = false;
   };
   if (step === 'code') {
     return (
@@ -179,6 +206,7 @@ function SignInEmail() {
         <SheetText>{t('account.codeText', { email: email.trim() })}</SheetText>
         <Field code value={code} onChange={(s) => { setCode(s.replace(/\D/g, '')); setError(null); }} placeholder="000000" label={t('account.codeTitle')} error={error} onSubmit={verify} />
         <Cta onPress={verify} disabled={busy || code.length < 6}>{t('account.signIn')}</Cta>
+        <Ghost onPress={() => { void send(); }}>{wait > 0 ? t('account.resendIn', { s: String(wait) }) : t('account.resend')}</Ghost>
         <Ghost onPress={() => { setStep('email'); setCode(''); setError(null); }}>{t('account.otherEmail')}</Ghost>
       </>
     );
