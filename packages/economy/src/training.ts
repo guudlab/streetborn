@@ -1,6 +1,7 @@
 import type { EconomyConfig, TrainingConfig } from './config.ts';
 
-// Training (GDD v3.1 section 6): drills and private sessions give AP; AP turns into
+// Training (GDD v3.1 section 6): drills (the mini games in drills.ts) and private
+// sessions give AP; AP turns into
 // stat points up to a cap that grows with level. The app shows these numbers and
 // the `train` Edge Function applies them.
 
@@ -16,12 +17,6 @@ export function apNeed(stat: number, cfg: TrainingConfig): number {
 
 export function statCap(level: number, cfg: TrainingConfig): number {
   return Math.min(cfg.statMax, cfg.statCapBase + Math.trunc((level * cfg.statCapPerLevelX10) / 10));
-}
-
-/** Grade of a drill from timing quality 0..100; implausibly fast drills are misses. */
-export function drillGrade(quality: number, durationMs: number, cfg: TrainingConfig): DrillGrade {
-  if (durationMs < cfg.drillMinMs) return 'miss';
-  return quality >= cfg.drillPerfectFrom ? 'perfect' : quality >= cfg.drillGoodFrom ? 'good' : 'miss';
 }
 
 export function drillGain(grade: DrillGrade, cfg: TrainingConfig): { ap: number; xp: number } {

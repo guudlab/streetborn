@@ -1,3 +1,5 @@
+import type { StatName } from './training.ts';
+
 /**
  * Economy parameters. The live values are stored in the Supabase `config` table
  * so they can be tuned without an app release; these defaults seed that table
@@ -73,6 +75,8 @@ export interface CareerConfig {
   tiers: LeagueTier[];
 }
 
+export interface BootsItem { id: string; price: number; uses: number; unlockLevel: number }
+
 export interface TrainingConfig {
   freeDrillsPerDay: number;
   drillEnergyCost: number;
@@ -82,11 +86,16 @@ export interface TrainingConfig {
   drillGoodAp: number;
   drillGoodXp: number;
   drillMissXp: number;
-  /** Timing quality (0..100) for a perfect and for a good drill. */
-  drillPerfectFrom: number;
-  drillGoodFrom: number;
-  /** A drill faster than this is scored as a miss: no one hits the bar that quickly. */
-  drillMinMs: number;
+  /** Mini game score for 1, 2 and 3 stars (3 stars pay the perfect grade, 2 the good one). */
+  drillStars: Record<StatName, [number, number, number]>;
+  /** The mini games get harder (tier 1 and 2) once the stat reaches these values. */
+  drillTierFrom: [number, number];
+  /** A started drill has to be finished within this many seconds. */
+  drillSessionSeconds: number;
+  /** Extra AP for a 3-star drill while the player has boots with talim left; every drill wears them by 1. */
+  bootPerfectAp: number;
+  /** Krampon: coin price, how many drills they last, and the level that unlocks them. Coin only. */
+  boots: BootsItem[];
   privateSessionsPerDay: number;
   privateCostBase: number;
   privateCostPerStat: number;
@@ -334,9 +343,17 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     drillGoodAp: 1,
     drillGoodXp: 20,
     drillMissXp: 8,
-    drillPerfectFrom: 85,
-    drillGoodFrom: 50,
-    drillMinMs: 600,
+    // Mini game scores: cans down, pass points, obstacles passed, steps climbed.
+    drillStars: { shooting: [2, 4, 6], passing: [10, 28, 56], pace: [12, 18, 24], stamina: [36, 50, 60] },
+    drillTierFrom: [60, 80],
+    drillSessionSeconds: 10 * 60,
+    // Antrenman doc decision 7 (Kaan, 2026-10-29): same +1 AP at every tier, the tiers only last longer.
+    bootPerfectAp: 1,
+    boots: [
+      { id: 'krampon_mahalle', price: 500, uses: 25, unlockLevel: 3 },
+      { id: 'krampon_cim', price: 1200, uses: 60, unlockLevel: 8 },
+      { id: 'krampon_pro', price: 2500, uses: 150, unlockLevel: 15 },
+    ],
     privateSessionsPerDay: 5,
     privateCostBase: 100,
     privateCostPerStat: 8,

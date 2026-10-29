@@ -27,6 +27,9 @@ export const ICONS = {
   gemCluster: require('../../assets/icons/gem-cluster.webp'),
   halisaha: require('../../assets/icons/halisaha.webp'),
   hiz: require('../../assets/icons/hiz-krampon.webp'),
+  kramponMahalle: require('../../assets/icons/krampon-mahalle.webp'),
+  kramponCim: require('../../assets/icons/krampon-cim.webp'),
+  kramponPro: require('../../assets/icons/krampon-pro.webp'),
   kale: require('../../assets/icons/kale.webp'),
   kulup: require('../../assets/icons/kulup-bina.webp'),
   arma: require('../../assets/icons/mahalle-arma.webp'),
@@ -45,6 +48,11 @@ export const ICONS = {
   cup: require('../../assets/meshy/cup-gold.webp'),
 } as const;
 export type IconAsset = keyof typeof ICONS;
+
+/** The picture of a pair of krampon by item id. */
+export function bootIcon(id: string | null | undefined): IconAsset {
+  return id === 'krampon_pro' ? 'kramponPro' : id === 'krampon_cim' ? 'kramponCim' : 'kramponMahalle';
+}
 
 /** A 3D icon. Decorative by default: the tile or button around it carries the label. */
 export function Ico({ name, size = 40, dim, style }: { name: IconAsset; size?: number; dim?: boolean; style?: StyleProp<ViewStyle> }) {

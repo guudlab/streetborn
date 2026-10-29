@@ -1,3 +1,5 @@
+import { DEFAULT_CONFIG, type BootsItem } from '@streetborn/economy';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,10 +9,10 @@ import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { EnergyTiles, energyLeft } from '../../ui/energy.tsx';
 import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
-import { Amount, Ico, Tile } from '../../ui/sade.tsx';
+import { Amount, bootIcon, Ico, Tile } from '../../ui/sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
 import { HintBubble } from '../../ui/hint.tsx';
-import { t } from '../../i18n/index.ts';
+import { t, type Key } from '../../i18n/index.ts';
 
 // Gem packs and the season pass are store purchases (RevenueCat comes later), so
 // their "buy" only shows the flow. Online, gem items are bought on the server at
@@ -101,12 +103,120 @@ function openJersey() {
   );
 }
 
+const BOOTS = DEFAULT_CONFIG.training.boots;
+const bootName = (id: string) => t(`boots.${id}` as Key);
+
+/** Krampon: details and the coin price on tap. Coin only, so the chain layer never releases them. */
+function openBoots(b: BootsItem) {
+  const s = useGame.getState();
+  const inUse = s.boots?.id === b.id ? s.boots : null;
+  const locked = s.level < b.unlockLevel;
+  const name = bootName(b.id);
+  const buyIt = async () => {
+    openSheet(<><H3>{name}</H3><Spinner /></>);
+    const r = await useGame.getState().buyBoots(b.id);
+    closeSheet();
+    if (r === 'ok') { sfx('unlock'); buzz('success'); toast(t('shop.bootsBought', { name })); }
+    else toast(t(r === 'no_coin' ? 'shop.bootsNoCoin' : r === 'locked' ? 'shop.bootsLocked' : 'shop.buyFailed', { n: b.unlockLevel }));
+  };
+  openSheet(
+    <>
+      <View style={{ alignItems: 'center', gap: 6 }}>
+        <Ico name={bootIcon(b.id)} size={150} dim={locked} />
+        <H3>{name}</H3>
+      </View>
+      <View style={{ gap: 8 }}>
+        <SheetRow icon="star">{t('shop.bootsPerfect')}</SheetRow>
+        <SheetRow icon="clock">{t('shop.bootsLasts', { n: b.uses })}</SheetRow>
+      </View>
+      {inUse ? (
+        <>
+          <SheetText>{t('shop.bootsInUse', { n: inUse.usesLeft })}</SheetText>
+          <Cta onPress={closeSheet}>{t('common.ok')}</Cta>
+        </>
+      ) : locked ? (
+        <>
+          <SheetText>{t('shop.bootsLocked', { n: b.unlockLevel })}</SheetText>
+          <Cta onPress={closeSheet}>{t('common.ok')}</Cta>
+        </>
+      ) : (
+        <>
+          <Cta disabled={s.mode !== 'online'} off={s.mode !== 'online'} onPress={() => void buyIt()} accessibilityLabel={`${t('shop.bootsBuy')}, ${b.price} coin`}>
+            <T w={700} size={17} color={colors.ink}>{t('shop.bootsBuy')}</T>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
+              <Ico name="coin" size={18} /><T w={700} size={14} color={colors.ink}>{b.price.toLocaleString('tr-TR')}</T>
+            </View>
+          </Cta>
+          {s.mode !== 'online' && <SheetText>{t('shop.bootsOffline')}</SheetText>}
+          <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
+        </>
+      )}
+    </>,
+  );
+}
+
+const SheetRow = ({ icon, children }: { icon: 'star' | 'clock'; children: string }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.s2 }}>
+    <Icon name={icon} size={20} color={colors.l600} />
+    <T w={600} size={15} style={{ flex: 1 }}>{children}</T>
+  </View>
+);
+
+/** The three pairs: the one in use with its talim left, the others with a price or the level they open at. */
+function BootsSection() {
+  const { level, boots, mode } = useGame();
+  // The pair in use comes with the training state.
+  useEffect(() => { if (mode === 'online') void useGame.getState().refreshTraining(); }, [mode]);
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ gap: 2 }}>
+        <H3>{t('shop.boots')}</H3>
+        <T w={500} size={13} color={colors.g200}>{t('shop.bootsSub')}</T>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {BOOTS.map(b => {
+          const inUse = boots?.id === b.id ? boots : null;
+          const locked = level < b.unlockLevel;
+          const state = inUse ? t('shop.bootsLeft', { n: inUse.usesLeft, of: b.uses })
+            : locked ? t('shop.bootsLevel', { n: b.unlockLevel }) : `${t('shop.bootsUses', { n: b.uses })}, ${b.price} coin`;
+          return (
+            <Tile key={b.id} selected={!!inUse} onPress={() => openBoots(b)} label={t('shop.bootsA11y', { name: bootName(b.id), state })} style={{ flex: 1, minHeight: 168, gap: 6, justifyContent: 'flex-start' }}>
+              <Ico name={bootIcon(b.id)} size={60} dim={locked} />
+              <T w={700} size={15} color={locked ? colors.g200 : colors.g100}>{t(`boots.short.${b.id}` as Key)}</T>
+              {inUse ? (
+                <View style={{ alignSelf: 'stretch', paddingHorizontal: 10, gap: 6 }}>
+                  <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.s3, overflow: 'hidden' }}>
+                    <View style={{ width: `${(inUse.usesLeft / b.uses) * 100}%`, height: '100%', backgroundColor: colors.l600 }} />
+                  </View>
+                  <T w={700} size={12} color={colors.l600} style={{ textAlign: 'center' }}>{t('shop.bootsLeft', { n: inUse.usesLeft, of: b.uses })}</T>
+                </View>
+              ) : locked ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Icon name="lock" size={13} color={colors.g200} />
+                  <T w={600} size={12} color={colors.g200}>{t('shop.bootsLevel', { n: b.unlockLevel })}</T>
+                </View>
+              ) : (
+                <>
+                  <T w={500} size={12} color={colors.g200}>{t('shop.bootsUses', { n: b.uses })}</T>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.s3, borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
+                    <Ico name="coin" size={16} /><T w={700} size={13}>{b.price.toLocaleString('tr-TR')}</T>
+                  </View>
+                </>
+              )}
+            </Tile>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const GEM_PACKS = [[80, 'shop.price.gem1', 40], [450, 'shop.price.gem2', 48], [1000, 'shop.price.gem3', 56]] as const;
 
 export default function Dukkan() {
   const insets = useSafeAreaInsets();
   const now = useNow();
-  const { energy, energyMax, gems, mode, owned, catalog } = useGame();
+  const { energy, energyMax, gems, coins, mode, owned, catalog } = useGame();
   const left = energyLeft(now);
   const online = mode === 'online';
   const jerseyPrice = catalog.find(i => i.id === JERSEY)?.priceGem ?? 120;
@@ -122,11 +232,13 @@ export default function Dukkan() {
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
         <H1>{t('tab.shop')}</H1>
-        <View style={{ height: 40, paddingLeft: 6, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, justifyContent: 'center' }}>
+        <View style={{ height: 40, paddingLeft: 6, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Amount icon="coin" size={24}>{coins.toLocaleString('tr-TR')}</Amount>
           <Amount icon="gem" size={26}>{gems}</Amount>
         </View>
       </View>
       <HintBubble id="shopTab" text={t('hint.shopTab')} />
+      <BootsSection />
 
       <View
         accessible accessibilityLabel={`${t('shop.energy', { energy, max: energyMax })}. ${left ? t('shop.nextEnergy', { t: left }) : t('shop.energyFull')}`}
