@@ -1,6 +1,6 @@
 import { DEFAULT_CONFIG, shootingBonus } from '@streetborn/economy';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
@@ -9,9 +9,9 @@ import { useGame } from '../game/store.ts';
 import type { AchievementView, Choice, FormLevel, InjuryKind, Kariyer } from '../net/api.ts';
 import { colors } from '../theme.ts';
 import { Icon } from './Icon.tsx';
-import { buzz, Cta, H3, T, Track } from './kit.tsx';
-import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
-import { Dot, Ico, Tile, type IconAsset } from './sade.tsx';
+import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
+import { closeSheet, openSheet, toast } from './overlay.tsx';
+import { Ico, Tile, type IconAsset } from './sade.tsx';
 import { Skeleton } from './motion.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
@@ -38,11 +38,14 @@ export function timeLeft(ms: number): string {
 export const shootPoints = (c: Kariyer) => shootingBonus(c.form.level, c.morale, c.choice, DEFAULT_CONFIG);
 
 export const CHOICE_ICON: Record<Choice, IconAsset> = { rest: 'enerji', work: 'sut', hang: 'mahalle' };
-const CHOICE_SUB: Record<Choice, () => string> = {
-  rest: () => t('choice.rest.sub', { n: k.restMorale }),
-  work: () => t('choice.work.sub', { n: k.workShoot, m: delta(k.workMorale, 0) }),
-  hang: () => t('choice.hang.sub', { n: k.hangMorale, r: k.hangRespect }),
+type Fx = { text: string; good: boolean };
+/** What each choice does, as small chips: green when it helps, red when it costs. */
+const CHOICE_FX: Record<Choice, () => Fx[]> = {
+  rest: () => [{ text: t('choice.fx.morale', { n: delta(k.restMorale, 0) }), good: true }, { text: t('choice.fx.injury'), good: true }],
+  work: () => [{ text: t('choice.fx.shoot', { n: delta(k.workShoot, 0) }), good: true }, { text: t('choice.fx.morale', { n: delta(k.workMorale, 0) }), good: k.workMorale >= 0 }],
+  hang: () => [{ text: t('choice.fx.morale', { n: delta(k.hangMorale, 0) }), good: true }, { text: t('choice.fx.respect', { n: delta(k.hangRespect, 0) }), good: true }],
 };
+const fxLabel = (c: Choice) => CHOICE_FX[c]().map(f => f.text).join(', ');
 export const choiceName = (c: Choice) => t(`choice.${c}` as Key);
 
 /** One existing icon per achievement; no new 3D asset needed. */
@@ -66,21 +69,7 @@ export function FormMark({ level, size = 38 }: { level: FormLevel; size?: number
   );
 }
 
-/** Last ratings as little chips; the newest is on the left. */
-export function RatingChips({ ratings }: { ratings: number[] }) {
-  if (ratings.length === 0) return null;
-  return (
-    <View style={{ flexDirection: 'row', gap: 6 }}>
-      {ratings.map((r, i) => (
-        <View key={i} style={{ minWidth: 42, height: 32, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: r >= 65 ? colors.l900 : colors.s3 }}>
-          <T w={700} size={13} color={r >= 65 ? colors.l500 : colors.g100}>{num(r / 10, 1)}</T>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** The hub's form line: form mark, form name and the morale bar. A lime dot means today's prep is open. */
+/** The hub's form line: form on the left, morale on the right, and a lime "Hazırlan" pill while today's prep is open. */
 export function FormStrip() {
   const c = useGame(s => s.kariyer);
   const loading = useGame(s => s.mode === 'online' && !s.kariyerTried);
@@ -88,20 +77,35 @@ export function FormStrip() {
   if (!c) return loading ? <Skeleton height={56} radius={18} /> : null;
   if (c.injury) return <InjuryStrip c={c} />;
   const label = t(`form.${c.form.level}` as Key);
+  const low = c.morale < k.moraleLowBelow;
   return (
     <Tile
       row label={t('form.a11y', { form: label, morale: c.morale })} onPress={openFormSheet}
-      style={{ minHeight: 56, paddingVertical: 6, gap: 12, borderRadius: 18 }}
+      style={{ minHeight: 56, paddingVertical: 6, paddingRight: 8, gap: 10, borderRadius: 18 }}
     >
-      <FormMark level={c.form.level} />
-      <View style={{ flex: 1, gap: 6 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <T w={700} size={15} color={FORM_COLOR[c.form.level]}>{label}</T>
-          <T w={600} size={13} color={colors.g200}>{c.morale}</T>
-        </View>
-        <Track value={c.morale / 100} height={6} color={c.morale < k.moraleLowBelow ? colors.bad : colors.l600} />
+      <FormMark level={c.form.level} size={34} />
+      <View style={{ minWidth: 64 }}>
+        <Caps style={{ fontSize: 10 }}>{t('form.formLabel')}</Caps>
+        <T w={700} size={15} color={FORM_COLOR[c.form.level]} numberOfLines={1}>{label}</T>
       </View>
-      {!c.choseToday && <Dot />}
+      <View style={{ width: 1, alignSelf: 'stretch', marginVertical: 6, backgroundColor: colors.line }} />
+      <View style={{ flex: 1, gap: 5 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <Caps style={{ fontSize: 10 }}>{t('form.moraleLabel')}</Caps>
+          <T w={700} size={14} color={low ? colors.bad : colors.g100}>{c.morale}</T>
+        </View>
+        <Track value={c.morale / 100} height={5} color={low ? colors.bad : colors.l600} />
+      </View>
+      {!c.choseToday
+        ? (
+          // Lime on dark, not solid lime: the play button stays the one loud thing on the hub.
+          <View style={{ height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.l900, borderWidth: 1, borderColor: colors.l700, alignItems: 'center', justifyContent: 'center' }}>
+            <T w={700} size={13} color={colors.l500}>{t('choice.pill')}</T>
+          </View>
+        )
+        : c.choice
+          ? <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.l900, alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={16} color={colors.l500} /></View>
+          : null}
     </Tile>
   );
 }
@@ -132,65 +136,152 @@ export function openFormSheet() {
 
 function FormSheet() {
   const c = useGame(s => s.kariyer);
+  const [picked, setPicked] = useState<Choice | null>(null);
   if (!c) return null;
   const shoot = shootPoints(c);
+  const low = c.morale < k.moraleLowBelow;
+  // While a choice waits for its "are you sure", the stats step aside so the sheet stays short.
+  if (picked && !c.choseToday) return <Prep c={c} picked={picked} setPicked={setPicked} />;
   return (
     <>
       <H3>{t('form.title')}</H3>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <FormMark level={c.form.level} size={52} />
-        <View style={{ flex: 1, gap: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <T w={700} size={20} color={FORM_COLOR[c.form.level]}>{t(`form.${c.form.level}` as Key)}</T>
-            <T w={600} size={14} color={colors.g200}>{t('form.moraleLabel')} {c.morale}</T>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <StatCard label={t('form.formLabel')}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <FormMark level={c.form.level} size={30} />
+            <T w={700} size={20} color={FORM_COLOR[c.form.level]} numberOfLines={1} style={{ flexShrink: 1 }}>{t(`form.${c.form.level}` as Key)}</T>
           </View>
-          <Track value={c.morale / 100} height={8} color={c.morale < k.moraleLowBelow ? colors.bad : colors.l600} />
-        </View>
+          <RatingBars ratings={c.form.ratings} />
+        </StatCard>
+        <StatCard label={t('form.moraleLabel')}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
+            <T w={700} size={26} color={low ? colors.bad : colors.g100} style={{ lineHeight: 30 }}>{c.morale}</T>
+            <T w={600} size={13} color={colors.g300}>/100</T>
+          </View>
+          <Track value={c.morale / 100} height={6} color={low ? colors.bad : colors.l600} />
+        </StatCard>
       </View>
-      {c.form.ratings.length > 0 && (
-        <View style={{ gap: 6 }}>
-          <T w={600} size={12} color={colors.g200}>{t('form.last')}</T>
-          <RatingChips ratings={c.form.ratings} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{
+          paddingHorizontal: 10, height: 28, borderRadius: 14, justifyContent: 'center',
+          backgroundColor: shoot > 0 ? colors.l900 : shoot < 0 ? '#3A1D19' : colors.s3,
+        }}>
+          <T w={700} size={13} color={shoot > 0 ? colors.l500 : shoot < 0 ? colors.bad : colors.g200}>
+            {shoot === 0 ? t('form.effect.none') : t('form.effect', { n: delta(shoot, 0) })}
+          </T>
         </View>
-      )}
-      <T w={700} size={15} color={shoot > 0 ? colors.l500 : shoot < 0 ? colors.bad : colors.g200}>
-        {shoot === 0 ? t('form.effect.none') : t('form.effect', { n: delta(shoot, 0) })}
-      </T>
-      <SheetText>{t('form.explain')}</SheetText>
+        <T size={12} color={colors.g300} style={{ flex: 1, lineHeight: 16 }}>{t('form.explainShort')}</T>
+      </View>
 
-      <T w={600} size={14}>{c.choseToday ? (c.choice ? t('choice.done', { choice: choiceName(c.choice) }) : t('choice.used')) : t('choice.title')}</T>
-      {!c.choseToday && <ChoiceTiles />}
-      {c.choseToday && c.choice && (
-        <Tile row selected style={{ minHeight: 64 }}>
-          <Ico name={CHOICE_ICON[c.choice]} size={40} />
-          <View style={{ flex: 1 }}><T w={700} size={16}>{choiceName(c.choice)}</T><T w={500} size={13} color={colors.g200}>{CHOICE_SUB[c.choice]()}</T></View>
-          <Icon name="check" size={20} color={colors.l600} />
-        </Tile>
-      )}
-      <Cta onPress={closeSheet}>{t('common.ok')}</Cta>
+      <View style={{ height: 1, backgroundColor: colors.line, marginVertical: 2 }} />
+      <Prep c={c} picked={picked} setPicked={setPicked} />
     </>
   );
 }
 
-/** The three pre-match choices; picking one saves it for the day. */
-function ChoiceTiles() {
-  const pick = async (choice: Choice) => {
-    buzz('medium');
-    const r = await useGame.getState().choose(choice);
-    if (r === 'ok') { sfx('tab'); toast(t('choice.saved')); } else toast(t(r === 'already_chosen' ? 'choice.already' : 'choice.failed'));
-  };
+function StatCard({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={{ gap: 8 }}>
-      {(['rest', 'work', 'hang'] as const).map(choice => (
-        <Tile key={choice} row label={`${choiceName(choice)}. ${CHOICE_SUB[choice]()}`} onPress={() => void pick(choice)} style={{ minHeight: 64, paddingVertical: 8 }}>
-          <Ico name={CHOICE_ICON[choice]} size={40} />
-          <View style={{ flex: 1 }}>
-            <T w={700} size={16}>{choiceName(choice)}</T>
-            <T w={500} size={13} color={colors.g200}>{CHOICE_SUB[choice]()}</T>
-          </View>
-        </Tile>
+    <View style={{ flex: 1, gap: 8, padding: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.04)', borderWidth: 1, borderColor: colors.line }}>
+      <Caps style={{ fontSize: 10 }}>{label}</Caps>
+      {children}
+    </View>
+  );
+}
+
+/** Last ratings as small bars, oldest on the left; good games lime. */
+function RatingBars({ ratings }: { ratings: number[] }) {
+  if (ratings.length === 0) return <T size={12} color={colors.g300}>{t('form.noRatings')}</T>;
+  const shown = [...ratings].reverse();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 22 }} accessible accessibilityLabel={`${t('form.last')}: ${ratings.map(r => num(r / 10, 1)).join(', ')}`}>
+      {shown.map((r, i) => (
+        <View key={i} style={{ flex: 1, height: Math.max(4, Math.round((Math.min(100, r) / 100) * 22)), borderRadius: 3, backgroundColor: r >= 65 ? colors.l600 : r < 55 ? colors.g400 : colors.g300 }} />
       ))}
     </View>
+  );
+}
+
+/** Today's pre-match prep. Cards look like options (radio circle); picking one asks once before it is saved. */
+function Prep({ c, picked, setPicked }: { c: Kariyer; picked: Choice | null; setPicked: (c: Choice | null) => void }) {
+  const [busy, setBusy] = useState(false);
+
+  if (c.choseToday) {
+    return (
+      <>
+        <Caps>{c.choice ? t('choice.todayTitle') : t('choice.title')}</Caps>
+        {c.choice
+          ? <ChoiceCard choice={c.choice} state="done" />
+          : <T size={14} color={colors.g200}>{t('choice.used')}</T>}
+        <Cta onPress={closeSheet}>{t('common.ok')}</Cta>
+      </>
+    );
+  }
+
+  const confirm = async () => {
+    if (!picked) return;
+    buzz('medium');
+    setBusy(true);
+    const r = await useGame.getState().choose(picked);
+    setBusy(false);
+    if (r === 'ok') { sfx('tab'); toast(t('choice.saved')); closeSheet(); } else toast(t(r === 'already_chosen' ? 'choice.already' : 'choice.failed'));
+  };
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <T w={700} size={16}>{t('choice.title')}</T>
+        <Caps style={{ fontSize: 10 }}>{t('choice.onceADay')}</Caps>
+      </View>
+      <View style={{ gap: 8 }} accessibilityRole="radiogroup">
+        {(['rest', 'work', 'hang'] as const).map(choice => (
+          <ChoiceCard
+            key={choice} choice={choice} state={picked === choice ? 'picked' : picked ? 'dim' : 'open'}
+            onPress={busy ? undefined : () => { buzz(); setPicked(picked === choice ? null : choice); }}
+          />
+        ))}
+      </View>
+      {picked
+        ? (
+          <View style={{ gap: 10 }}>
+            <T w={600} size={14} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{t('choice.confirm', { choice: choiceName(picked) })}</T>
+            <Cta busy={busy} onPress={() => void confirm()}>{t('choice.confirmYes')}</Cta>
+            <Ghost onPress={() => setPicked(null)}>{t('common.cancel')}</Ghost>
+          </View>
+        )
+        : <Ghost onPress={closeSheet}>{t('choice.later')}</Ghost>}
+    </>
+  );
+}
+
+/** One prep option: icon, name, a short flavour line, effect chips and a radio circle. */
+function ChoiceCard({ choice, state, onPress }: { choice: Choice; state: 'open' | 'picked' | 'dim' | 'done'; onPress?: () => void }) {
+  const on = state === 'picked' || state === 'done';
+  return (
+    <Tile
+      row role="radio" selected={on} onPress={onPress} label={`${choiceName(choice)}. ${fxLabel(choice)}`}
+      style={{ minHeight: 76, paddingVertical: 10, gap: 12, opacity: state === 'dim' ? 0.55 : 1 }}
+    >
+      <Ico name={CHOICE_ICON[choice]} size={44} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <View>
+          <T w={700} size={16}>{choiceName(choice)}</T>
+          <T w={500} size={12} color={colors.g200}>{t(`choice.${choice}.flavor` as Key)}</T>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {CHOICE_FX[choice]().map(f => (
+            <View key={f.text} style={{ paddingHorizontal: 8, height: 22, borderRadius: 11, justifyContent: 'center', backgroundColor: f.good ? 'rgba(207,253,92,.12)' : 'rgba(255,122,102,.14)' }}>
+              <T w={700} size={11} color={f.good ? colors.l500 : colors.bad}>{f.text}</T>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={{
+        width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center',
+        borderColor: on ? colors.l600 : colors.g400, backgroundColor: on ? colors.l600 : 'transparent',
+      }}>
+        {on && <Icon name="check" size={15} color={colors.ink} />}
+      </View>
+    </Tile>
   );
 }
 
