@@ -1,22 +1,24 @@
 // Stands and crowd round the halısaha: stepped concrete terraces behind both goals and
-// along the sides, a few hundred fans, banners, flags and phone lights. Everything is
-// built from plain geometry (no model files) and drawn in a handful of calls: the stands
-// are one merged mesh, the fans one InstancedMesh whose arms, jumps and colours are
-// worked out in the vertex shader, so a full stand costs no more CPU per frame than an
-// empty one.
+// along the sides, a few hundred fans, banners, flags and phone lights. The stands are
+// plain geometry merged into one mesh; the fans are the four Meshy fan models, instanced,
+// with their arms, jumps and colours worked out in the shaders, so a full stand costs no
+// more CPU per frame than an empty one.
 //
 // The scene calls update() every frame and cheer() when something happens. The fans
-// next to the fences (the skinned ones in scene.js) stay as they are: these fill the
-// terraces behind them.
+// next to the fences (skinned copies of the same models, in scene.js) are animated with
+// clips: these fill the terraces behind them.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { aimBone } from './rig.js';
 
 const STEP_H = 0.42, STEP_D = 0.8, BASE = 0.3;   // terrace riser, tread, first step height
 const SEAT = 0.62;                               // shoulder to shoulder along a row
+const FAN_SIZE = [1, 1, 1, 0.84];                // fan4 is the kid
 
 /**
  * opts: { goalZ, goal2Z, kit: our colour '#rrggbb', board: our banner text, away?: their
- *         banner text, seed, canvasTex(w, h, draw) }
+ *         banner text, fans: the fan GLTFs, seed, canvasTex(w, h, draw) }
  */
 export function buildStands(scene, opts) {
   let seed = opts.seed || 3;
@@ -90,90 +92,52 @@ export function buildStands(scene, opts) {
   banner('STREETBORN', '#0d0d0d', '#CFFD5C', 4.4, main, 2);
 
   // ------------------------------------------------------------ the crowd
-  // One low-poly fan, standing, facing +z in its own frame. `part` tags each vertex:
-  // 0 shirt, 1 left arm, 2 right arm, 3 head (hair above the brow), 4 legs.
-  const part = (g, k) => { g.setAttribute('part', new THREE.Float32BufferAttribute(new Array(g.attributes.position.count).fill(k), 1)); return g; };
-  const piece = (g, k, x, y, z) => { g.translate(x, y, z); return part(g, k); };
-  const fan = mergeGeometries([
-    piece(new THREE.BoxGeometry(0.3, 0.8, 0.2), 4, 0, 0.4, 0),
-    piece(new THREE.CylinderGeometry(0.19, 0.16, 0.62, 6, 1, true), 0, 0, 1.11, 0),   // open: the head and legs close it
-    piece(new THREE.SphereGeometry(0.115, 6, 4), 3, 0, 1.55, 0.01),
-    piece(new THREE.BoxGeometry(0.09, 0.58, 0.09), 1, -0.245, 1.1, 0),
-    piece(new THREE.BoxGeometry(0.09, 0.58, 0.09), 2, 0.245, 1.1, 0),
-  ].map((g) => { for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'part'].includes(k)) g.deleteAttribute(k); return g; }));
+  // The four Meshy fans (fan1-4.glb), each posed once with the arms down and frozen into a
+  // plain mesh, drawn as one InstancedMesh per fan per stand so a stand out of shot is
+  // culled. The vertex shader swings the arms round the shoulder and makes them jump; the
+  // fragment shader puts each one's shirt (the lime texels) in their side's colours.
+  const bodies = opts.fans.map((g, i) => bakeFan(g.scene, FAN_SIZE[i] ?? 1));
 
   // a few empty places, more on the higher rows of the away end (they travelled fewer). An
   // empty place gets no instance: a fan squashed to nothing would have zero-length normals,
   // and one NaN pixel spreads over the whole screen through the bloom
   for (let i = seats.length - 1; i >= 0; i--) { const st = seats[i]; if ((st.stand.team === 'them' && st.row > 3 && rnd() < 0.35) || rnd() < 0.08) seats.splice(i, 1); }
-  const N = seats.length;
   const kit = new THREE.Color(opts.kit), graphite = new THREE.Color(0x2c2e31);
   const casual = [0xf2f2f2, 0x161616, 0x5b6068, 0x1f2a44, 0x3c5a7a, 0x7a2e2e, 0xd9d2c3].map((c) => new THREE.Color(c));
-  const shirt = new Float32Array(N * 3), info = new Float32Array(N * 4);
-  const crowd = new THREE.InstancedMesh(fan, null, N);
-  const dummy = new THREE.Object3D();
-  seats.forEach((st, i) => {
-    const s = st.stand;
-    // home end: our colours; away end: theirs; the side stands split at the halfway line
-    let team = s.team === 'us' ? 0 : s.team === 'them' ? 1 : (st.p.z > -5 ? 0 : 1);
-    if (rnd() < 0.12) team = 2;   // neutrals, here for the football
-    const r = rnd();
-    // ours: the kit, black hoodies and whatever they came in; theirs: graphite and white
-    const c = team === 2 || r < 0.2 ? casual[Math.floor(rnd() * casual.length)] : team === 0 ? (r < 0.42 ? casual[1] : kit) : (r < 0.35 ? casual[0] : graphite);
-    // the terraces sit outside the floodlights' pool; the home end faces the key light
-    const lit = (s.name === 'home' ? 0.22 : 0.45) + rnd() * 0.18;
-    shirt.set([c.r * lit, c.g * lit, c.b * lit], i * 3);
-    // phase, team, skin tone, energy (how much this one jumps)
-    info.set([rnd(), team, Math.pow(rnd(), 1.6), 0.5 + rnd() * 0.5], i * 4);
-    const sc = 0.92 + rnd() * 0.16;
-    dummy.position.copy(st.p); dummy.rotation.set(0, st.yaw, 0); dummy.scale.setScalar(sc); dummy.updateMatrix();
-    crowd.setMatrixAt(i, dummy.matrix);
-  });
-  fan.setAttribute('aShirt', new THREE.InstancedBufferAttribute(shirt, 3));
-  fan.setAttribute('aInfo', new THREE.InstancedBufferAttribute(info, 4));
-  crowd.computeBoundingSphere();
-
   const U = { uTime: { value: 0 }, uCheer: { value: new THREE.Vector2() }, uChant: { value: 0.6 } };
-  const crowdMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  crowdMat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, U);
-    sh.vertexShader = `
-uniform float uTime; uniform vec2 uCheer; uniform float uChant;
-attribute float part; attribute vec3 aShirt; attribute vec4 aInfo;
-varying vec3 vCrowd;
-float fanCheer() { return aInfo.y < 0.5 ? uCheer.x : aInfo.y < 1.5 ? uCheer.y : 0.5 * max(uCheer.x, uCheer.y); }
-// how far an arm swings out and up from hanging (radians): waving overhead when they cheer,
-// a clap now and then while they chant
-float armAngle() {
-  float ph = aInfo.x * 6.2832, c = fanCheer();
-  float wave = c * (2.35 + 0.35 * sin(uTime * 9.0 + ph));
-  float clap = (1.0 - c) * uChant * step(0.72, fract(aInfo.x * 3.7)) * (0.9 + 0.5 * sin(uTime * 7.5 + ph));
-  return max(wave, clap);
-}
-// arms turn round the shoulder in the body's plane: the left one (−x) clockwise, the right one anticlockwise
-vec2 turn(vec2 d, float a) { float ang = (part < 1.5 ? -1.0 : 1.0) * a, cs = cos(ang), sn = sin(ang); return vec2(cs * d.x - sn * d.y, sn * d.x + cs * d.y); }
-vec3 swing(vec3 p, float a) {
-  if (part < 0.5 || part > 2.5) return p;
-  vec2 piv = vec2(part < 1.5 ? -0.23 : 0.23, 1.38);
-  return vec3(piv + turn(p.xy - piv, a), p.z);
-}
-` + sh.vertexShader
-      .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
-  float armA = armAngle();
-  if (part > 0.5 && part < 2.5) objectNormal.xy = turn(objectNormal.xy, armA);`)
-      .replace('#include <begin_vertex>', `vec3 transformed = swing(position, armA);
-  {
-    float ph = aInfo.x * 6.2832, c = fanCheer();
-    transformed.y += c * aInfo.w * max(0.0, sin(uTime * 8.0 + ph)) * 0.24;                                    // jumping
-    transformed.y += (1.0 - c) * uChant * aInfo.w * max(0.0, sin(uTime * 4.4 + floor(aInfo.x * 4.0))) * 0.05; // bouncing to the chant
-    transformed.x += sin(uTime * 1.1 + ph) * 0.03 * transformed.y;                                            // swaying
+  const dummy = new THREE.Object3D();
+  const groups = new Map();   // stand + body -> seats
+  for (const st of bodies.length ? seats : []) {
+    const r = rnd(), b = r < 0.3 ? 0 : r < 0.55 ? 1 : r < 0.8 ? 2 : 3;
+    const key = st.stand.name + b;
+    if (!groups.has(key)) groups.set(key, { body: bodies[b % bodies.length], seats: [] });
+    groups.get(key).seats.push(st);
   }
-  vec3 skin = mix(vec3(0.62, 0.42, 0.3), vec3(0.2, 0.12, 0.08), aInfo.z);
-  vCrowd = part < 0.5 ? aShirt : part < 2.5 ? (position.y < 0.88 ? skin : aShirt) : part < 3.5 ? (position.y > 1.61 || position.z < -0.04 ? vec3(0.035, 0.03, 0.025) : skin) : vec3(0.08, 0.085, 0.1);`);
-    sh.fragmentShader = 'varying vec3 vCrowd;\n' + sh.fragmentShader.replace('#include <color_fragment>', 'diffuseColor.rgb *= vCrowd;');
-  };
-  crowd.material = crowdMat;
-  group.add(crowd);
+  for (const { body, seats: list } of groups.values()) {
+    const n = list.length, geo = body.geometry.clone();
+    const shirt = new Float32Array(n * 3), info = new Float32Array(n * 4);
+    const crowd = new THREE.InstancedMesh(geo, body.material, n);
+    list.forEach((st, i) => {
+      const s = st.stand;
+      // home end: our colours; away end: theirs; the side stands split at the halfway line
+      let team = s.team === 'us' ? 0 : s.team === 'them' ? 1 : (st.p.z > -5 ? 0 : 1);
+      if (rnd() < 0.12) team = 2;   // neutrals, here for the football
+      const r = rnd();
+      // ours: the kit, black and whatever they came in; theirs: graphite and white
+      const c = team === 2 || r < 0.2 ? casual[Math.floor(rnd() * casual.length)] : team === 0 ? (r < 0.42 ? casual[1] : kit) : (r < 0.35 ? casual[0] : graphite);
+      shirt.set([c.r, c.g, c.b], i * 3);
+      // phase, team, light (the terraces sit outside the floodlights' pool; the home end
+      // faces the key light), energy (how much this one jumps)
+      info.set([rnd(), team, (s.name === 'home' ? 0.55 : 0.8) + rnd() * 0.25, 0.5 + rnd() * 0.5], i * 4);
+      dummy.position.copy(st.p); dummy.rotation.set(0, st.yaw, 0); dummy.scale.setScalar(0.94 + rnd() * 0.1); dummy.updateMatrix();
+      crowd.setMatrixAt(i, dummy.matrix);
+    });
+    geo.setAttribute('aShirt', new THREE.InstancedBufferAttribute(shirt, 3));
+    geo.setAttribute('aInfo', new THREE.InstancedBufferAttribute(info, 4));
+    crowd.computeBoundingSphere();
+    group.add(crowd);
+  }
+  for (const b of bodies) b.material.onBeforeCompile = (sh) => crowdShader(sh, U);
 
   // ------------------------------------------------------------ flags waved over the crowd
   const flagSeats = seats.filter(() => rnd() < 0.03);
@@ -239,4 +203,107 @@ vec3 swing(vec3 p, float a) {
       c.x += (target.x - c.x) * (target.x > c.x ? k : kd); c.y += (target.y - c.y) * (target.y > c.y ? k : kd);
     },
   };
+}
+
+/**
+ * One fan model posed with the arms hanging and frozen: world-space positions and normals
+ * skinned on the CPU, once. `arm` holds, per vertex, how much it follows its upper arm and
+ * that shoulder's pivot (x, y), for the shader to swing. Feet on y = 0, facing +z.
+ */
+function bakeFan(src, size) {
+  const root = SkeletonUtils.clone(src);
+  root.updateMatrixWorld(true);
+  let sm = null;
+  root.traverse((o) => { if (o.isSkinnedMesh && !sm) sm = o; });
+  const sk = sm.skeleton, bones = {};
+  sk.bones.forEach((b) => { bones[b.name] = b; });
+  const wp = (b) => b.getWorldPosition(new THREE.Vector3());
+  const hips = wp(bones.Hips);
+  for (const side of ['Left', 'Right']) {
+    const s = Math.sign(wp(bones[side + 'Arm']).x - hips.x);
+    aimBone(bones[side + 'Arm'], bones[side + 'ForeArm'], new THREE.Vector3(s * 0.2, -1, 0.04));
+    aimBone(bones[side + 'ForeArm'], bones[side + 'Hand'], new THREE.Vector3(s * 0.1, -1, 0.32));
+  }
+  root.updateMatrixWorld(true);
+  const pre = new THREE.Matrix4().multiplyMatrices(sm.matrixWorld, sm.bindMatrixInverse);
+  const K = sk.bones.map((b, i) => pre.clone().multiply(b.matrixWorld).multiply(sk.boneInverses[i]).multiply(sm.bindMatrix));
+  const sideOf = sk.bones.map((b) => (/^Left(Arm|ForeArm|Hand)$/.test(b.name) ? 1 : /^Right(Arm|ForeArm|Hand)$/.test(b.name) ? 2 : 0));
+  const pivots = [null, wp(bones.LeftArm), wp(bones.RightArm)];
+  const g = sm.geometry, pos = g.attributes.position, nor = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const n = pos.count, P = new Float32Array(n * 3), N = new Float32Array(n * 3), A = new Float32Array(n * 3);
+  const p = new THREE.Vector3(), q = new THREE.Vector3(), nn = new THREE.Vector3(), acc = new THREE.Vector3(), accN = new THREE.Vector3(), nm = new THREE.Matrix3();
+  for (let v = 0; v < n; v++) {
+    p.fromBufferAttribute(pos, v); nn.fromBufferAttribute(nor, v);
+    acc.set(0, 0, 0); accN.set(0, 0, 0);
+    const w = [0, 0, 0];
+    for (let k = 0; k < 4; k++) {
+      const wt = sw.getComponent(v, k); if (!wt) continue;
+      const j = si.getComponent(v, k);
+      acc.addScaledVector(q.copy(p).applyMatrix4(K[j]), wt);
+      accN.addScaledVector(q.copy(nn).applyMatrix3(nm.setFromMatrix4(K[j])), wt);
+      w[sideOf[j]] += wt;
+    }
+    acc.toArray(P, v * 3); accN.normalize().toArray(N, v * 3);
+    const side = w[1] >= w[2] ? 1 : 2;
+    if (w[side] > 0.001) A.set([w[side], pivots[side].x, pivots[side].y], v * 3);
+  }
+  // feet on the ground, centred on the hips, to the fan's height
+  let minY = Infinity;
+  for (let v = 0; v < n; v++) minY = Math.min(minY, P[v * 3 + 1]);
+  for (let v = 0; v < n; v++) { P[v * 3] = (P[v * 3] - hips.x) * size; P[v * 3 + 1] = (P[v * 3 + 1] - minY) * size; P[v * 3 + 2] = (P[v * 3 + 2] - hips.z) * size; }
+  for (let v = 0; v < n; v++) if (A[v * 3]) { A[v * 3 + 1] = (A[v * 3 + 1] - hips.x) * size; A[v * 3 + 2] = (A[v * 3 + 2] - minY) * size; }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(P, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  geometry.setAttribute('uv', g.attributes.uv);
+  geometry.setAttribute('arm', new THREE.BufferAttribute(A, 3));
+  geometry.setIndex(g.index);
+  const material = new THREE.MeshLambertMaterial({ map: sm.material.map });
+  material.customProgramCacheKey = () => 'crowd';
+  return { geometry, material };
+}
+
+function crowdShader(sh, U) {
+  Object.assign(sh.uniforms, U);
+  sh.vertexShader = `
+uniform float uTime; uniform vec2 uCheer; uniform float uChant;
+attribute vec3 arm; attribute vec3 aShirt; attribute vec4 aInfo;
+varying vec3 vShirt; varying float vLit;
+float fanCheer() { return aInfo.y < 0.5 ? uCheer.x : aInfo.y < 1.5 ? uCheer.y : 0.5 * max(uCheer.x, uCheer.y); }
+// how far an arm swings out and up from hanging (radians): waving overhead when they cheer,
+// a clap now and then while they chant
+float armAngle() {
+  float ph = aInfo.x * 6.2832, c = fanCheer();
+  float wave = c * (2.45 + 0.3 * sin(uTime * 9.0 + ph));
+  float clap = (1.0 - c) * uChant * step(0.72, fract(aInfo.x * 3.7)) * (0.7 + 0.4 * sin(uTime * 7.5 + ph));
+  return max(wave, clap);
+}
+// an arm turns round its shoulder in the body's plane, out to its own side and up
+vec2 turn(vec2 d, float a) { float ang = sign(arm.y) * a, cs = cos(ang), sn = sin(ang); return vec2(cs * d.x - sn * d.y, sn * d.x + cs * d.y); }
+` + sh.vertexShader
+    .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+  float armA = armAngle();
+  objectNormal.xy = mix(objectNormal.xy, turn(objectNormal.xy, armA), arm.x);`)
+    .replace('#include <begin_vertex>', `vec3 transformed = position;
+  transformed.xy = mix(position.xy, arm.yz + turn(position.xy - arm.yz, armA), arm.x);
+  {
+    float ph = aInfo.x * 6.2832, c = fanCheer();
+    transformed.y += c * aInfo.w * max(0.0, sin(uTime * 8.0 + ph)) * 0.24;                                    // jumping
+    transformed.y += (1.0 - c) * uChant * aInfo.w * max(0.0, sin(uTime * 4.4 + floor(aInfo.x * 4.0))) * 0.05; // bouncing to the chant
+    transformed.x += sin(uTime * 1.1 + ph) * 0.03 * transformed.y;                                            // swaying
+  }
+  vShirt = aShirt; vLit = aInfo.z;`);
+  // the shirts (and T1's scarf) are lime in the texture: same hue rule as the kit tint in ui/Model3D
+  sh.fragmentShader = `varying vec3 vShirt; varying float vLit;
+vec3 fanHsv(vec3 c) {
+  float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), d = mx - mn, h = 0.0;
+  if (d > 1e-5) { if (mx == c.r) h = mod((c.g - c.b) / d, 6.0); else if (mx == c.g) h = (c.b - c.r) / d + 2.0; else h = (c.r - c.g) / d + 4.0; }
+  return vec3(h / 6.0, mx > 0.0 ? d / mx : 0.0, mx);
+}
+` + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  {
+    vec3 hsv = fanHsv(pow(max(diffuseColor.rgb, 0.0), vec3(1.0 / 2.2)));
+    if (hsv.x >= 42.0 / 360.0 && hsv.x <= 115.0 / 360.0 && hsv.y > 0.18) diffuseColor.rgb = vShirt * pow(min(1.0, hsv.z * 1.05), 2.2);
+    diffuseColor.rgb *= vLit;
+  }`);
 }

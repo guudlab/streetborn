@@ -29,6 +29,10 @@ import type { DefenseGrade, Gltf, MatchEnv, MatchScene, SceneResult, ScenePhase,
 const MODELS = {
   keeper: require('../../assets/models/mac/keeper.glb'),
   rival: require('../../assets/models/mac/rival.glb'),
+  // their other players (Meshy R1-R3, lime kit; the scene puts them in graphite)
+  rival2: require('../../assets/models/mac/rival2.glb'),
+  rival3: require('../../assets/models/mac/rival3.glb'),
+  rival4: require('../../assets/models/mac/rival4.glb'),
   ball: require('../../assets/models/ball.glb'),
   'anim-street-idle': require('../../assets/models/mac/anim-street-idle.glb'),
   'anim-kick': require('../../assets/models/mac/anim-kick.glb'),
@@ -36,15 +40,17 @@ const MODELS = {
   'anim-run': require('../../assets/models/mac/anim-run.glb'),
   'anim-slide': require('../../assets/models/mac/anim-slide.glb'),
   'anim-leap': require('../../assets/models/mac/anim-leap.glb'),
+  fan1: require('../../assets/models/mac/fan1.glb'),
+  fan2: require('../../assets/models/mac/fan2.glb'),
+  fan3: require('../../assets/models/mac/fan3.glb'),
+  fan4: require('../../assets/models/mac/fan4.glb'),
 } as const;
 
 /** Our two teammates in pass moments: the starters the player did not pick. */
 const matesOf = (hero: Hero) => STARTERS.filter(h => h !== hero).slice(0, 2);
-/** Their players besides rival.glb: the models nobody on our side wears (in their kit), so no two look alike. */
-const oppsOf = (hero: Hero) => ([...STARTERS, 'pro'] as Hero[]).filter(h => h !== hero && !matesOf(hero).includes(h)).slice(0, 2);
 
 /** Every file the 3D match loads, so the hub can fetch them before kick-off. */
-export const matchModels = (hero: Hero) => [HERO_MODEL[hero], ...matesOf(hero).map(h => HERO_MODEL[h]), ...oppsOf(hero).map(h => HERO_MODEL[h]), ...Object.values(MODELS)];
+export const matchModels = (hero: Hero) => [HERO_MODEL[hero], ...matesOf(hero).map(h => HERO_MODEL[h]), ...Object.values(MODELS)];
 
 /** Can stands on the left, Mert on the right, as in the 2D match. */
 const NAME: Record<Side, string> = { left: 'Can', right: 'Mert' };
@@ -214,7 +220,6 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       const files: [string, number][] = [
         ['hero', HERO_MODEL[ch.hero]],
         ...matesOf(ch.hero).map((h, i): [string, number] => [`mate${i}`, HERO_MODEL[h]]),
-        ...oppsOf(ch.hero).map((h, i): [string, number] => [`opp${i}`, HERO_MODEL[h]]),
         ...Object.entries(MODELS),
       ];
       let n = 0;
@@ -225,7 +230,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       ]);
       if (cancelled) return;
       const byKey = Object.fromEntries(parsed) as Record<string, Gltf>;
-      const G = { ...byKey, mates: [byKey.mate0!, byKey.mate1!].filter(Boolean), opps: [byKey.opp0!, byKey.opp1!].filter(Boolean) } as MatchEnv['G'];
+      const G = { ...byKey, mates: [byKey.mate0!, byKey.mate1!].filter(Boolean), opps: [byKey.rival2!, byKey.rival3!, byKey.rival4!].filter(Boolean), fans: [byKey.fan1!, byKey.fan2!, byKey.fan3!, byKey.fan4!].filter(Boolean) } as MatchEnv['G'];
       const tint = jerseyTint(ch.jersey);
       const kind = s.match?.kind;
       const board = (kind === 'league' ? s.career?.contract?.clubName : s.mahalle?.name) ?? t('club.home');

@@ -267,7 +267,7 @@ export function createMatch(env) {
   }
 
   // terraces and crowd behind the fences (stands.js)
-  const stands = buildStands(scene, { goalZ: GOAL_Z, goal2Z: GOAL2_Z, kit: env.kit || '#CFFD5C', board: env.board, away: env.away, canvasTex, seed: 5 });
+  const stands = buildStands(scene, { goalZ: GOAL_Z, goal2Z: GOAL2_Z, kit: env.kit || '#CFFD5C', board: env.board, away: env.away, fans: G.fans || [], canvasTex, seed: 5 });
 
   // -------------------------------------------------------------- particles: confetti + trail + cue ring
   const CONF = 320;
@@ -335,7 +335,7 @@ export function createMatch(env) {
   };
   const heroM = copy(G.hero), keeperM = copy(G.keeper);
   const mateMs = (G.mates || []).map(copy);
-  // their players: rival.glb, then the starters nobody on our side plays, in their graphite kit
+  // their players: rival.glb, then the three other rivals (rival2-4), in their graphite kit
   const rivalMs = [copy(G.rival), ...(G.opps || []).map(copy)];
   // rest data before anything animates
   const R = { street: rigInfo(heroM), streetSrc: rigInfo(G['anim-street-idle'].scene), keeperSrc: rigInfo(G['anim-slide'].scene) };
@@ -444,34 +444,34 @@ export function createMatch(env) {
   const keeper = new Keeper(keeperM, retarget(C.leap, R.keeperSrc, rigInfo(keeperM), { name: 'leap' }));
   scene.add(keeper.root);
 
-  // free kick wall: three of their players, standing, no two alike
+  // free kick wall: three of their players, standing, no two alike (rival2-4 when there are)
   const wall = [0, 1, 2].map((i) => {
-    const r = rivals[i % rivals.length];
+    const r = rivals[(i + 1) % rivals.length];
     const m = SkeletonUtils.clone(r.m); prep(m); m.visible = false; scene.add(m);
     const a = new Actor(m, { idle: r.a.A.idle.getClip() }); a.play('idle', { from: i * 1.3, speed: 0.9 + i * 0.07 });
     return { m, a, feet: new FootLock(rigFor(m, r.rig)) };
   });
 
-  // fans behind the fences: copies of every player model, ours in our kit (one in two of the
-  // younger ones in a white shirt), theirs in graphite. Clones share meshes and textures
+  // fans behind the fences: skinned copies of the four fan models (the terraces behind them
+  // are the same models, instanced) with the street idle and cheer clips. Ours wear our kit,
+  // one in three in white; theirs graphite and white. Clones share meshes and textures
   const fans = [];
   {
-    const src = {
-      us: [{ m: heroM, rig: R.street, a: hero }, ...mates.map((x) => ({ m: x.m, rig: x.rig, a: x.a }))],
-      them: rivals.map((x) => ({ m: x.m, rig: x.rig, a: x.a })),
-    };
+    const kinds = (G.fans || []).map((g, i) => {
+      const rig = rigInfo(g.scene), r = (c, name) => retarget(c, R.streetSrc, rig, { name });
+      return { g, rig, size: i === 3 ? 0.84 : 1, clips: { idle: r(C.idle, 'idle'), cheer: r(C.cheer, 'cheer') } };
+    });
     // six, not more: each is a full skinned character, and the terraces behind them are full
     const spots = [[-4.6, GOAL_Z + 5.4, 'us'], [-2.9, GOAL_Z + 5.7, 'them'], [1.4, GOAL_Z + 5.6, 'us'], [3.6, GOAL_Z + 5.3, 'us'],
       [-3.6, GOAL2_Z - 4, 'them'], [2.6, GOAL2_Z - 4, 'them']];
     const n = { us: 0, them: 0 };
-    spots.forEach(([x, z, team], i) => {
-      const k = n[team]++, f = src[team][k % src[team].length];
-      const m = SkeletonUtils.clone(f.m); prep(m, false);
-      if (team === 'us' && k % 2 === 1) env.tint(m, 'white');
-      m.position.set(x, 0, z); m.rotation.y = Math.atan2(-x * 0.3, (z > 0 ? -1 : 1));
+    if (kinds.length) spots.forEach(([x, z, team], i) => {
+      const k = n[team]++, f = kinds[(i * 3) % kinds.length];
+      const m = SkeletonUtils.clone(f.g.scene); prep(m, false);
+      env.tint(m, team === 'us' ? (k % 3 === 1 ? 'white' : undefined) : (k % 2 ? 'white' : 'graphite'));
+      m.position.set(x, 0, z); m.rotation.y = Math.atan2(-x * 0.3, (z > 0 ? -1 : 1)); m.scale.setScalar(f.size);
       scene.add(m);
-      const a = new Actor(m, { idle: f.a.A.idle.getClip(), cheer: f.a.A.cheer.getClip() }); a.play('idle', { from: (i * 0.9) % 4, speed: 0.8 + (i % 3) * 0.12 });
-      m.visible = true;
+      const a = new Actor(m, f.clips); a.play('idle', { from: (i * 0.9) % 4, speed: 0.8 + (i % 3) * 0.12 });
       fans.push({ a, team, feet: new FootLock(rigFor(m, f.rig)) });
     });
   }
