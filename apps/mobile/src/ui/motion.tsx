@@ -1,10 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, type DimensionValue, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
-  FadeInDown, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming,
+  Easing, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 
-import { motion } from '../theme.ts';
+import { colors, motion } from '../theme.ts';
 
 // Reanimated building blocks for game feel. Springs and timings come from
 // `motion` in theme.ts; Reanimated skips them when the OS asks for reduced motion.
@@ -78,4 +78,17 @@ export function useShake(px = 6) {
     );
   };
   return { style, shake };
+}
+
+/**
+ * Placeholder in the shape of the content that is still loading, so nothing jumps when it
+ * arrives. A slow breathing pulse; with reduced motion it stays still.
+ */
+export function Skeleton({ width = '100%', height, radius = 12, style }: { width?: DimensionValue; height: number; radius?: number; style?: StyleProp<ViewStyle> }) {
+  const o = useSharedValue(0.5);
+  useEffect(() => {
+    o.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.inOut(Easing.quad) }), -1, true);
+  }, [o]);
+  const anim = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[{ width, height, borderRadius: radius, backgroundColor: colors.s2 }, style, anim]} />;
 }

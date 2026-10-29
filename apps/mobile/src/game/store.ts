@@ -97,6 +97,9 @@ interface GameState {
   blocked: string[];
   /** Club career from the server (online only). */
   career: Career | null;
+  /** The first career/kariyer request has answered (or failed): loading placeholders stop. */
+  careerTried: boolean;
+  kariyerTried: boolean;
   /** Whether the player linked an email, Google or Apple (online, loaded on demand). */
   account: Account | null;
   /** Form, morale, injury, the day's choice, achievements and the weekly duel (online). */
@@ -196,6 +199,9 @@ const CHARACTER_KEY = 'streetborn.character.v1';
 // Last mahalle the server sent (display only) and an invite code waiting to be used.
 const MAHALLE_KEY = 'streetborn.mahalle.v1';
 const INVITE_KEY = 'streetborn.invite.v1';
+// Last career screens the server sent (form, duel, trophies, club). Display only, like the
+// profile: the hub shows them at once instead of filling in a second later.
+const KARIYER_KEY = 'streetborn.kariyer.v1';
 
 interface SavedCharacter { name: string; character: Character; tutorial: boolean }
 
@@ -228,6 +234,27 @@ async function cachedMahalle(playerId: string): Promise<MahalleInfo | null> {
   } catch {
     return null;
   }
+}
+
+interface SavedKariyer { playerId: string; kariyer: Kariyer | null; career: Career | null }
+
+async function restoreKariyer(playerId: string) {
+  try {
+    const raw = await AsyncStorage.getItem(KARIYER_KEY);
+    const v = raw ? (JSON.parse(raw) as SavedKariyer) : null;
+    if (v?.playerId !== playerId) return;
+    // An injury that ran out while the app was closed is not shown again.
+    const k = v.kariyer && v.kariyer.injury && v.kariyer.injury.until <= Date.now() ? { ...v.kariyer, injury: null } : v.kariyer;
+    useGame.setState(s => ({ kariyer: s.kariyer ?? k, career: s.career ?? v.career }));
+  } catch { /* no saved career */ }
+}
+
+async function saveKariyer() {
+  const playerId = await storedPlayerId().catch(() => null);
+  if (!playerId) return;
+  const { kariyer, career } = useGame.getState();
+  const v: SavedKariyer = { playerId, kariyer, career };
+  void AsyncStorage.setItem(KARIYER_KEY, JSON.stringify(v)).catch(() => {});
 }
 
 function showProfile(p: Profile, fromServer = false) {
@@ -291,6 +318,8 @@ export const useGame = create<GameState>()((set, get) => ({
   mahalleToday: null,
   blocked: [],
   career: null,
+  careerTried: false,
+  kariyerTried: false,
   kariyer: null,
   account: null,
   careerNews: null,
@@ -333,11 +362,13 @@ export const useGame = create<GameState>()((set, get) => ({
     const cached = await cachedProfile(playerId);
     if (cached) {
       const mahalle = await cachedMahalle(playerId);
+      await restoreKariyer(playerId);
       set({ mode: 'online', auth: 'in', mahalle, mahalleReady: mahalle !== null });
       showProfile(cached);
       void connect().then(() => get().refreshMahalle());
       return;
     }
+    await restoreKariyer(playerId);
     await connect();
     await get().refreshMahalle();
     set({ auth: 'in' });
@@ -351,7 +382,7 @@ export const useGame = create<GameState>()((set, get) => ({
 
   async signedIn() {
     // Whatever was cached belonged to the session before; the server has the truth.
-    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, account: null, owned: [], character: null });
+    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null, owned: [], character: null });
     await connect(true);
     await get().refreshMahalle();
     set({ auth: 'in' });
@@ -428,8 +459,11 @@ export const useGame = create<GameState>()((set, get) => ({
         if (profile) set({ coins: profile.coin, gems: profile.gem });
       }
       set({ career: await loadCareer() });
+      void saveKariyer();
     } catch (e) {
       console.warn('Could not load the career', e);
+    } finally {
+      set({ careerTried: true });
     }
   },
 
@@ -438,10 +472,13 @@ export const useGame = create<GameState>()((set, get) => ({
     try {
       const k = await kariyerDurum();
       set({ kariyer: k, coins: k.coin });
+      void saveKariyer();
       // What happened since the last visit is shown once by the hub.
       if (k.settled.length > 0 || k.unlocked.length > 0) set({ kariyerNews: { settled: k.settled, unlocked: k.unlocked } });
     } catch (e) {
       console.warn('Could not load the career features', e);
+    } finally {
+      set({ kariyerTried: true });
     }
   },
 
@@ -488,10 +525,10 @@ export const useGame = create<GameState>()((set, get) => ({
 
   async forget() {
     // The device forgets this player: the session, the saved profile and every local cache.
-    await AsyncStorage.multiRemove([PROFILE_KEY, CHARACTER_KEY, MAHALLE_KEY, INVITE_KEY]).catch(() => {});
+    await AsyncStorage.multiRemove([PROFILE_KEY, CHARACTER_KEY, MAHALLE_KEY, INVITE_KEY, KARIYER_KEY]).catch(() => {});
     set({
       auth: 'none', mode: 'online', offlineReason: null, name: 'Efe Yılmaz', character: null, tutorial: false,
-      mahalle: null, mahalleReady: false, mahalleToday: null, blocked: [], career: null, kariyer: null, account: null,
+      mahalle: null, mahalleReady: false, mahalleToday: null, blocked: [], career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null,
       careerNews: null, kariyerNews: null, seasonSummary: null, pendingInvite: null, club: t('club.home'), level: 1, xp: 0, coins: 0, gems: 0,
       stats: { sut: 40, pas: 40, hiz: 40, fizik: 40 }, drillProgress: { sut: 0, pas: 0, hiz: 0, fizik: 0 }, form: [],
       owned: [], catalog: [], match: null, post: null,

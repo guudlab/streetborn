@@ -12,6 +12,7 @@ import { Icon } from './Icon.tsx';
 import { buzz, Cta, H3, T, Track } from './kit.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
 import { Dot, Ico, Tile, type IconAsset } from './sade.tsx';
+import { Skeleton } from './motion.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // Form, morale, the day's pre-match choice, injuries and achievements: the small
@@ -82,7 +83,9 @@ export function RatingChips({ ratings }: { ratings: number[] }) {
 /** The hub's form line: form mark, form name and the morale bar. A lime dot means today's prep is open. */
 export function FormStrip() {
   const c = useGame(s => s.kariyer);
-  if (!c) return null;
+  const loading = useGame(s => s.mode === 'online' && !s.kariyerTried);
+  // First launch: hold the strip's place until the server answers.
+  if (!c) return loading ? <Skeleton height={56} radius={18} /> : null;
   if (c.injury) return <InjuryStrip c={c} />;
   const label = t(`form.${c.form.level}` as Key);
   return (
