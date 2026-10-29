@@ -4,6 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DRILLS, ovr, type StatKey } from '../../game/rules.ts';
+import { markHint } from '../../game/hints.ts';
 import { useGame, type TrainResult } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { openEnergySheet } from '../../ui/energy.tsx';
@@ -14,6 +15,7 @@ import { buzz, Caps, CoachFace, Cta, H1, T, Track } from '../../ui/kit.tsx';
 import { PressableScale } from '../../ui/motion.tsx';
 import { Amount, Ico, Segments, Tile, type IconAsset } from '../../ui/sade.tsx';
 import { TimingBar, type TimingBarHandle } from '../../ui/TimingBar.tsx';
+import { HintBubble } from '../../ui/hint.tsx';
 import { t } from '../../i18n/index.ts';
 
 const KEYS = Object.keys(DRILLS) as StatKey[];
@@ -53,6 +55,7 @@ export default function Gelisim() {
     buzz(r.grade === 'mukemmel' || r.grade === 'ozel' ? 'success' : 'light');
     sfx(r.ups ? 'levelup' : r.grade === 'mukemmel' || r.statUp ? 'unlock' : r.grade === 'kacti' ? 'error' : 'coin');
     setLast(r);
+    markHint('jobTrain');
   };
   const tapBar = async () => {
     const q = bar.current?.stop() ?? 0;
@@ -79,6 +82,7 @@ export default function Gelisim() {
           <T w={700} size={30}>{ovr(g.stats)}</T>
         </View>
       </View>
+      <HintBubble id="trainTab" text={t('hint.trainTab')} />
 
       {running ? (
         <View style={{ flex: 1, minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: 6 }}>

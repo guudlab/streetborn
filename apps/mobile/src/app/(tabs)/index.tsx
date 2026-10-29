@@ -15,6 +15,7 @@ import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T } from '../../ui/kit.tsx';
+import { JobsChip, useJobs } from '../../ui/hint.tsx';
 import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { ProfileButton, SoundButton } from '../../ui/settings.tsx';
@@ -36,6 +37,10 @@ export default function Hub() {
     if (online && g.auth === 'in') { void useGame.getState().refreshCareer(); void useGame.getState().refreshKariyer(); }
   }, [online, g.auth]);
   useKariyerNews();
+  // When the last job is done the server pays the one-time coin; ask it right away.
+  const jobsDone = useJobs();
+  const allJobs = !jobsDone.next && jobsDone.online;
+  useEffect(() => { if (allJobs && g.auth === 'in') void useGame.getState().refreshCareer(); }, [allJobs, g.auth]);
   // The browser plays the 3D match: fetch its models once the hub's own model is in.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -50,6 +55,7 @@ export default function Hub() {
       useGame.setState({ seasonSummary: news.seasonEnded });
       router.push('/sezon-ozeti');
     }
+    else if (news.jobs > 0) toast(t('jobs.paid', { n: news.jobs }));
     else if (news.salary > 0) toast(t('career.salaryPaid', { n: news.salary }));
     else if (news.gems?.coin) toast(t('career.welcomeGems', { coin: news.gems.coin, gem: news.gems.gem }));
     else if (news.gems?.levels.length) toast(t('career.levelGems', { level: news.gems.levels[news.gems.levels.length - 1]!, gem: news.gems.gem }));
@@ -129,6 +135,7 @@ export default function Hub() {
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>
+        <JobsChip />
         <FormStrip />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {g.mahalle && (

@@ -1,13 +1,16 @@
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from 'expo-router';
 import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Easing, Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { setAmbience, setMusic, sfx } from '../../audio/audio.ts';
 import { colors, motion } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
+import { markHint, useHint } from '../../game/hints.ts';
+import { useGame } from '../../game/store.ts';
+import { Spotlight, type Rect } from '../../ui/hint.tsx';
 import { buzz, T } from '../../ui/kit.tsx';
 import { t } from '../../i18n/index.ts';
 
@@ -29,6 +32,18 @@ const resize = LinearTransition.springify().damping(motion.snappy.damping).stiff
 const APressable = Animated.createAnimatedComponent(Pressable);
 
 function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
+  // Burak abi's only spotlight: after the first match, on the Gelişim tab (veterans skip it).
+  const ready = useGame(s => !!s.character && !s.tutorial && s.level <= 3);
+  const spot = useHint('spotTrain') && ready && state.index === 0;
+  const trainTab = useRef<{ measureInWindow(cb: (x: number, y: number, w: number, h: number) => void): void } | null>(null);
+  const [rect, setRect] = useState<Rect | null>(null);
+  useEffect(() => {
+    if (!spot) { setRect(null); return; }
+    // Wait for the tab bar's own layout animation to settle before measuring it.
+    const id = setTimeout(() => trainTab.current?.measureInWindow((x, y, w, h) => { if (w > 0) setRect({ x, y, w, h }); }), 700);
+    return () => clearTimeout(id);
+  }, [spot]);
+  const trainRoute = state.routes.find(r => r.name === 'gelisim');
   return (
     <View
       pointerEvents="box-none"
@@ -51,7 +66,7 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
             const on = state.index === i;
             return (
               <APressable
-                key={route.key} layout={resize}
+                key={route.key} layout={resize} ref={route.name === 'gelisim' ? (r: unknown) => { trainTab.current = r as typeof trainTab.current; } : undefined}
                 accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected: on }}
                 onPress={() => { if (!on) { buzz(); sfx('tab'); navigateToTab(route.key); } }}
                 style={{
@@ -70,6 +85,13 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
           })}
         </BlurView>
       </Animated.View>
+      {spot && rect && trainRoute && (
+        <Spotlight
+          rect={rect} text={t('hint.spotTrain')}
+          onSkip={() => markHint('spotTrain')}
+          onTarget={() => { markHint('spotTrain'); navigateToTab(trainRoute.key); }}
+        />
+      )}
     </View>
   );
 }

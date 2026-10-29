@@ -9,6 +9,7 @@ import { Icon } from '../../ui/Icon.tsx';
 import { Cta, H1, H3, T } from '../../ui/kit.tsx';
 import { closeSheet, openSheet, SheetText } from '../../ui/overlay.tsx';
 import { Amount, Ico, Tile, type IconAsset } from '../../ui/sade.tsx';
+import { HintBubble } from '../../ui/hint.tsx';
 import { t, type Key } from '../../i18n/index.ts';
 
 // Yaşam: the house, ride and land the player shows off (GDD v3.1 section 8.1). Status only,
@@ -59,6 +60,7 @@ export default function Yasam() {
           <Amount icon="coin" size={26}>{num(coins)}</Amount>
         </View>
       </View>
+      <HintBubble id="lifeTab" text={t('hint.lifeTab')} />
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {ITEMS.map(i => {
