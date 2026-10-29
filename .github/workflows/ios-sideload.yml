@@ -11,6 +11,11 @@ jobs:
   ios:
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      # app.json sets the web baseUrl to /streetborn, which would make Metro copy
+      # assets into STREETBORN.app/streetborn/. macOS is case-insensitive, so that
+      # path collides with the STREETBORN executable (ENOTDIR). Native needs no baseUrl.
+      EXPO_BASE_URL: ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
