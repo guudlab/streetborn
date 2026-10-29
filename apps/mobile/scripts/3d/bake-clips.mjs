@@ -55,9 +55,9 @@ function wave(base, c) {
     root.updateMatrixWorld(true);
     const side = c.side === 'left' ? 1 : -1;
     const P = c.side === 'left' ? 'Left' : 'Right';
-    aimBone(b[P + 'Arm'], b[P + 'ForeArm'], new THREE.Vector3(side * 0.85, 0.2, 0.35), e);
-    const sw = Math.sin(t * Math.PI * 2 * 1.7) * 0.45;
-    aimBone(b[P + 'ForeArm'], b[P + 'Hand'], new THREE.Vector3(side * (0.1 + sw), 1, 0.25), e);
+    aimBone(b[P + 'Arm'], b[P + 'ForeArm'], new THREE.Vector3(side * 0.5, -0.4, 0.5), e);
+    const sw = Math.sin(t * Math.PI * 2 * 1.7) * 0.4;
+    aimBone(b[P + 'ForeArm'], b[P + 'Hand'], new THREE.Vector3(side * (0.15 + sw), 1, 0.2), e);
     root.updateMatrixWorld(true);
     // head tilts a little toward the camera
     rotateWorld(b.Head, new THREE.Vector3(0, 0, 1), side * -0.08 * e);
@@ -79,6 +79,7 @@ const r = doc.getRoot();
 const buf = r.listBuffers()[0];
 const keep = new Set(job.keep ?? []);
 for (const a of r.listAnimations()) {
+  if (keep.has(a.getName())) continue;
   if (job.rename && keep.size === 0) { a.setName(job.rename); continue; }
   a.dispose();
 }

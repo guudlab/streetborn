@@ -28,6 +28,7 @@ export const en: Record<Key, string> = {
 
   'login.tapA11y': 'Tap to start',
   'login.haveAccount': 'I have an account',
+  'login.err': 'Could not connect, try again.',
   'login.entering': 'WALKING ONTO THE PITCH…',
   'login.tap': 'TAP TO START',
   'login.slogan1': 'Born on the street.', 'login.slogan2': 'Made in the stadium.',
