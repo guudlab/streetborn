@@ -49,7 +49,9 @@ export const SFX = {
 
 /** Looping beds. Only one music track and one ambience play at a time. */
 export const LOOPS = {
-  menu: { src: require('../../assets/audio/menu_loop.m4a'), gain: 0.45 },
+  // "Mahalle funk" from ElevenLabs Music (112 BPM), cut by scripts/loop-music.py into an
+  // 86 s loop; it is mastered louder than the old synthesized loop, hence the low gain.
+  menu: { src: require('../../assets/audio/menu_loop.m4a'), gain: 0.28 },
   match: { src: require('../../assets/audio/match_loop.m4a'), gain: 0.32 },
   // The stand chant from the trailer (fragman/ses/tribun-tezahurat-2.mp3), cut into a seamless
   // 9.9 s loop; crowd_loop.m4a is the older synthesized bed.
