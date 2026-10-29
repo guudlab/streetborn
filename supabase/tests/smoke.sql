@@ -381,3 +381,44 @@ do $$ begin
   raise notice 'career feature rls: ok';
 end $$;
 reset role;
+
+-- Account deletion: every per-player row goes, the captaincy moves on, store events stay without a name.
+insert into auth.users values ('00000000-0000-0000-0000-000000000401'), ('00000000-0000-0000-0000-000000000402');
+set role service_role;
+do $$
+declare
+  p uuid := '00000000-0000-0000-0000-000000000401';
+  q uuid := '00000000-0000-0000-0000-000000000402';
+  m uuid;
+begin
+  select id into m from create_mahalle(p, 'Silinecek', 'shield', 'lime', false);
+  perform join_mahalle(q, (select code from mahalle where id = m), null);
+  perform grant_currency(p, 'coin', 100, 'test', 'x', 'delete-test');
+  insert into ad_events (transaction_id, player_id) values ('delete-test-ad', p);
+  perform basarim_ac(p, '[{"key":"first_goal","coin":50}]');
+  perform report_player(q, p, 'spam');
+
+  if not delete_account(p) then raise exception 'account not deleted'; end if;
+  if delete_account(p) then raise exception 'deleted twice'; end if;
+  if exists (select 1 from players where id = p) or exists (select 1 from wallets where player_id = p)
+    or exists (select 1 from ledger where player_id = p) or exists (select 1 from basarimlar where player_id = p)
+    or exists (select 1 from mahalle_uye where player_id = p) or exists (select 1 from reports where target_id = p) then
+    raise exception 'player rows left behind';
+  end if;
+  if (select captain_id from mahalle where id = m) <> q then raise exception 'captain not handed over on delete'; end if;
+  if (select player_id from ad_events where transaction_id = 'delete-test-ad') is not null then raise exception 'ad event still names the player'; end if;
+  if not exists (select 1 from players where id = q) then raise exception 'other player touched'; end if;
+
+  -- The last member deleting closes the mahalle.
+  perform delete_account(q);
+  if exists (select 1 from mahalle where id = m) then raise exception 'empty mahalle left open'; end if;
+  raise notice 'account delete: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000302';
+do $$ begin
+  begin perform delete_account('00000000-0000-0000-0000-000000000301'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'account delete rls: ok';
+end $$;
+reset role;

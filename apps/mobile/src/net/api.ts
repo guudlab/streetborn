@@ -304,3 +304,6 @@ export interface Kariyer {
 export const kariyerDurum = () => call<Kariyer>('oyuncu', { action: 'durum' });
 export const kariyerSec = (choice: Choice) => call<{ ok: true }>('oyuncu', { action: 'sec', choice });
 export const kariyerMasaj = () => call<{ ok: true; coin: number }>('oyuncu', { action: 'masaj' });
+
+/** Deletes the account and all its game data on the server. Cannot be undone. */
+export const deleteAccount = () => call<{ ok: true }>('account-delete', { confirm: true });

@@ -20,10 +20,11 @@ export function Shell({ label, title, right, back = true, children, footer }: { 
       >
         {(back || label || title) && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
+            {/* Opened straight from a link (web), there is nothing to go back to: go home. */}
             {back && (
               <Pressable
                 accessibilityRole="button" accessibilityLabel={t('mahalle.back')} hitSlop={6}
-                onPress={() => { buzz(); router.back(); }}
+                onPress={() => { buzz(); if (router.canGoBack()) router.back(); else router.replace('/'); }}
                 style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Icon name="back" color={colors.g100} />

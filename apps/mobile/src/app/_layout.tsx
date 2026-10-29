@@ -133,8 +133,10 @@ export default function RootLayout() {
               <Stack.Screen name="kupalar" options={slide} />
               <Stack.Screen name="sakatlik" options={slide} />
               <Stack.Screen name="sezon-ozeti" options={fade} />
+              <Stack.Screen name="hesap-sil" options={slide} />
             </Stack.Protected>
             <Stack.Screen name="hesap" options={fade} />
+            <Stack.Screen name="gizlilik" options={slide} />
           </Stack>
           <OverlayHost />
         </View>
