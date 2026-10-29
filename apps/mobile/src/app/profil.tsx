@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, drillBadge, xpNeed } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../game/character.ts';
 import { num } from '../game/format.ts';
@@ -15,7 +15,7 @@ import { buzz, Caps, Cta, Danger, Ghost, H3, T, Track } from '../ui/kit.tsx';
 import { Badge } from '../ui/drills/common.tsx';
 import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
-import { Skeleton } from '../ui/motion.tsx';
+import { PressableScale, Skeleton } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { Ico, Tile, type IconAsset } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
@@ -152,13 +152,13 @@ export default function Profil() {
 
       {online && <SignOut />}
       {online && (
-        <Pressable
+        <PressableScale
           accessibilityRole="button" hitSlop={8} onPress={() => { buzz(); router.push('/hesap-sil'); }}
           style={{ alignSelf: 'center', minHeight: 44, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
         >
           <Icon name="trash" size={16} color={colors.bad} />
           <T w={600} size={14} color={colors.bad}>{t('delete.link')}</T>
-        </Pressable>
+        </PressableScale>
       )}
     </Shell>
   );

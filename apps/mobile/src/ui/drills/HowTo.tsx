@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useEffect, type ReactNode } from 'react';
 import { View, type ViewStyle } from 'react-native';
 import Animated, {
-  cancelAnimation, Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue,
+  cancelAnimation, Easing, Extrapolation, interpolate, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
@@ -31,7 +31,8 @@ const kf = (p: number, [at, v]: Frames) => {
 function useLoop(ms: number) {
   const p = useSharedValue(0);
   useEffect(() => {
-    p.value = withRepeat(withTiming(1, { duration: ms, easing: Easing.linear }), -1, false);
+    // The demo teaches the controls, so it plays even with Reduce Motion on (it is slow and starts on a tap).
+    p.value = withRepeat(withTiming(1, { duration: ms, easing: Easing.linear, reduceMotion: ReduceMotion.Never }), -1, false, undefined, ReduceMotion.Never);
     return () => cancelAnimation(p);
   }, [p, ms]);
   return p;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { Platform, Pressable, Share, View } from 'react-native';
+import { Platform, Share, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
 import { INVITE_BASE } from '../net/config.ts';
@@ -13,6 +13,7 @@ import { openPlayerMenu } from '../ui/player-menu.tsx';
 import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
+import { PressableScale } from '../ui/motion.tsx';
 
 // The player's mahalle: squad, invite code and link, leave.
 
@@ -59,10 +60,10 @@ export default function Mahalle() {
     <Shell
       title={mahalle.name} onRefresh={pull}
       right={free > 0 ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share} hitSlop={6}
+        <PressableScale accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share} hitSlop={6}
           style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}>
           <Ico name="davet" size={34} />
-        </Pressable>
+        </PressableScale>
       ) : undefined}
     >
       <View style={{ alignItems: 'center', marginTop: -6 }}>
@@ -81,7 +82,7 @@ export default function Mahalle() {
             const nick = blocked.includes(m.playerId) ? t('report.blockedName') : (m.nick ?? t('mahalle.home.newPlayer'));
             const captain = m.playerId === mahalle.captainId;
             return (
-              <Pressable
+              <PressableScale
                 key={m.playerId} disabled={m.playerId === me} onPress={() => openPlayerMenu(m.playerId, m.nick)}
                 accessibilityRole="button" accessibilityLabel={`${nick}, ${t('mahalle.home.level', { n: m.level })}${captain ? `, ${t('mahalle.home.captain')}` : ''}`}
                 style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 18, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: m.playerId === me ? colors.l600 : 'transparent' }}
@@ -92,33 +93,33 @@ export default function Mahalle() {
                 </View>
                 <T w={700} size={13} numberOfLines={1} style={{ maxWidth: '90%' }}>{nick}</T>
                 <T w={600} size={11} color={colors.g300}>{t('mahalle.home.level', { n: m.level })}</T>
-              </Pressable>
+              </PressableScale>
             );
           })}
           {free > 0 && (
-            <Pressable
+            <PressableScale
               accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share}
               style={{ width: '31%', flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.g400 }}
             >
               <Icon name="plus" size={26} color={colors.l600} />
               <T w={700} size={13} color={colors.g200}>{t('mahalle.invite.free', { n: free })}</T>
-            </Pressable>
+            </PressableScale>
           )}
         </View>
       </View>
 
       {free > 0 && (
-        <Pressable accessibilityRole="button" accessibilityLabel={`${t('mahalle.home.code')} ${mahalle.code}. ${t('mahalle.home.share')}`} onPress={share}
+        <PressableScale accessibilityRole="button" accessibilityLabel={`${t('mahalle.home.code')} ${mahalle.code}. ${t('mahalle.home.share')}`} onPress={share}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900 }}>
           <Ico name="anahtar" size={40} />
           <T w={700} size={26} style={{ flex: 1, letterSpacing: 5 }}>{mahalle.code}</T>
           <Icon name="share" size={22} color={colors.l600} />
-        </Pressable>
+        </PressableScale>
       )}
 
-      <Pressable accessibilityRole="button" onPress={confirmLeave} hitSlop={8} style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center' }}>
+      <PressableScale accessibilityRole="button" onPress={confirmLeave} hitSlop={8} style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center' }}>
         <T w={600} size={14} color={colors.g300}>{t('mahalle.home.leave')}</T>
-      </Pressable>
+      </PressableScale>
     </Shell>
   );
 }

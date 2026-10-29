@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
@@ -11,6 +11,7 @@ import { Caps, Cta, T } from './kit.tsx';
 import { Amount, Ico } from './sade.tsx';
 import { toast } from './overlay.tsx';
 import { t } from '../i18n/index.ts';
+import { PressableScale } from './motion.tsx';
 
 const SLOTS = 7;
 const PHRASES = ['mahalle.cheer.0', 'mahalle.cheer.1', 'mahalle.cheer.2', 'mahalle.cheer.3', 'mahalle.cheer.4'] as const;
@@ -77,14 +78,14 @@ export function TodayCard() {
                 </View>
                 <T w={700} size={14} color={c.rating >= 70 ? colors.l500 : colors.g100} style={{ minWidth: 30, textAlign: 'right' }}>{num(c.rating, 1)}</T>
                 {c.playerId !== today.me && (
-                  <Pressable
+                  <PressableScale
                     accessibilityRole="button" accessibilityLabel={t('mahalle.cheer.a11y', { name: c.nick ?? '' })}
                     disabled={c.cheered || today.cheersLeft === 0 || blocked.includes(c.playerId)} onPress={() => cheer(c.playerId, i)}
                     hitSlop={8}
                     style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.cheered ? colors.l900 : colors.s3, opacity: !c.cheered && today.cheersLeft === 0 ? 0.4 : 1 }}
                   >
                     <Icon name="star" size={18} color={c.cheered ? colors.l500 : colors.g100} />
-                  </Pressable>
+                  </PressableScale>
                 )}
               </View>
             ))}

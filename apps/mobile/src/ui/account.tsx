@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
 import { ApiError } from '../net/api.ts';
 import { EMAIL, linkEmail, linkProvider, sendEmailCode, signInProvider, verifyEmailCode, type Provider } from '../net/auth.ts';
-import { colors } from '../theme.ts';
+import { colors, MAX_FONT_SCALE } from '../theme.ts';
 import { Icon } from './Icon.tsx';
 import { buzz, Cta, Ghost, H3, T } from './kit.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
 import { t, type Key } from '../i18n/index.ts';
+import { PressableScale } from './motion.tsx';
 
 // Account sheets: link the guest account (email, Google, Apple) so progress
 // survives a new phone, or sign in to an existing account ("Hesabım var").
@@ -39,15 +40,15 @@ export const accountError = (e: unknown) => t(ERRORS[e instanceof ApiError ? e.c
 function ProviderButtons({ onPick }: { onPick(p: Provider | 'email'): void }) {
   return (
     <View style={{ gap: 10 }}>
-      <Pressable onPress={() => onPick('apple')} accessibilityRole="button" style={{ height: 52, borderRadius: 26, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+      <PressableScale onPress={() => onPick('apple')} accessibilityRole="button" style={{ height: 52, borderRadius: 26, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
         <T w={600} size={15} color={colors.ink}>{t('account.apple')}</T>
-      </Pressable>
-      <Pressable onPress={() => onPick('google')} accessibilityRole="button" style={{ height: 52, borderRadius: 26, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+      </PressableScale>
+      <PressableScale onPress={() => onPick('google')} accessibilityRole="button" style={{ height: 52, borderRadius: 26, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
         <T w={600} size={15}>{t('account.google')}</T>
-      </Pressable>
-      <Pressable onPress={() => onPick('email')} accessibilityRole="button" style={{ height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.g400, alignItems: 'center', justifyContent: 'center' }}>
+      </PressableScale>
+      <PressableScale onPress={() => onPick('email')} accessibilityRole="button" style={{ height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.g400, alignItems: 'center', justifyContent: 'center' }}>
         <T w={600} size={15}>{t('account.email')}</T>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -58,7 +59,7 @@ function Field({ value, onChange, placeholder, label, error, onSubmit, code }: {
   return (
     <View style={{ gap: 6 }}>
       <View style={{ height: 52, borderRadius: 14, backgroundColor: colors.s2, borderWidth: 1, borderColor: error ? colors.bad : colors.l600, justifyContent: 'center', paddingHorizontal: 14 }}>
-        <TextInput
+        <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
           value={value} onChangeText={onChange} autoFocus autoCorrect={false} autoCapitalize="none"
           keyboardType={code ? 'number-pad' : 'email-address'} autoComplete={code ? 'one-time-code' : 'email'} textContentType={code ? 'oneTimeCode' : 'emailAddress'}
           maxLength={code ? 8 : 120} returnKeyType="done" onSubmitEditing={onSubmit}
@@ -249,7 +250,7 @@ export function AccountRow() {
     : account.pendingEmail ? t('account.pending', { email: account.pendingEmail })
     : t('account.guest');
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button" disabled={!!linked || !account} onPress={() => { buzz(); openLinkSheet(); }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2 }}
     >
@@ -259,6 +260,6 @@ export function AccountRow() {
         <T size={13} color={colors.g200} numberOfLines={1}>{label}</T>
       </View>
       {!linked && account ? <T w={600} size={14} color={colors.l600}>{t('account.linkCta')}</T> : null}
-    </Pressable>
+    </PressableScale>
   );
 }

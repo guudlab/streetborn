@@ -29,6 +29,12 @@ export const fonts = {
 
 export type Weight = keyof typeof fonts;
 
+/**
+ * Largest system text scale (Dynamic Type) the UI follows. Bigger accessibility sizes are
+ * capped here so 56 px buttons and icon tiles stay readable instead of clipping.
+ */
+export const MAX_FONT_SCALE = 1.35;
+
 /** Space reserved at the bottom of tab screens for the floating tab bar. */
 export const TAB_BAR_SPACE = 120;
 

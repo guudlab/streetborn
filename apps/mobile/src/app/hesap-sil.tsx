@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
-import { colors } from '../theme.ts';
+import { colors, MAX_FONT_SCALE } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, Danger, Ghost, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
@@ -58,7 +58,7 @@ export default function HesapSil() {
             <View style={{ gap: 8, marginBottom: 4 }}>
               <T w={600} size={14}>{t('delete.type', { word: t('delete.word') })}</T>
               <View style={{ height: 52, borderRadius: 14, backgroundColor: colors.s2, borderWidth: 1, borderColor: ok ? colors.bad : colors.line, justifyContent: 'center', paddingHorizontal: 14 }}>
-                <TextInput
+                <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
                   value={word} onChangeText={setWord} autoCorrect={false} autoCapitalize="characters" autoComplete="off"
                   maxLength={12} returnKeyType="done" onSubmitEditing={() => void run()} editable={!busy}
                   placeholder={t('delete.word')} placeholderTextColor={colors.g400} selectionColor={colors.bad}

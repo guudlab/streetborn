@@ -7,18 +7,22 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 
 import { sfx } from '../audio/audio.ts';
-import { colors, fonts, type Weight } from '../theme.ts';
+import { colors, fonts, MAX_FONT_SCALE, motion, type Weight } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
-import { PressableScale } from './motion.tsx';
+import { PressableScale, useReduceMotion } from './motion.tsx';
 import { t } from '../i18n/index.ts';
 
 /* ---------- Text ---------- */
 
 type TProps = TextProps & { w?: Weight; size?: number; color?: string };
 
-/** Inter text. Custom fonts need one family per weight on native, so weight goes through `w`. */
-export function T({ w = 400, size = 15, color = colors.g100, style, ...rest }: TProps) {
-  return <Text {...rest} style={[{ fontFamily: fonts[w], fontSize: size, color, fontVariant: ['tabular-nums'] }, style]} />;
+/**
+ * Inter text. Custom fonts need one family per weight on native, so weight goes through `w`.
+ * Text follows the system text size (Dynamic Type) up to MAX_FONT_SCALE, so the larger
+ * accessibility sizes still fit the game's fixed-size tiles and pills.
+ */
+export function T({ w = 400, size = 15, color = colors.g100, style, maxFontSizeMultiplier = MAX_FONT_SCALE, ...rest }: TProps) {
+  return <Text {...rest} maxFontSizeMultiplier={maxFontSizeMultiplier} style={[{ fontFamily: fonts[w], fontSize: size, color, fontVariant: ['tabular-nums'] }, style]} />;
 }
 
 export const Caps = ({ children, style, color = colors.g200 }: { children: ReactNode; style?: StyleProp<TextStyle>; color?: string }) => (
@@ -42,7 +46,7 @@ export function Cta({ children, style, off, disabled, busy, onPress, ...rest }: 
       accessibilityRole="button" disabled={disabled || busy} accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
       onPress={(e) => { tap(); onPress?.(e); }} {...rest}
       style={[{
-        height: 56, borderRadius: 28, backgroundColor: dim ? colors.s3 : colors.l600, flexDirection: 'row',
+        minHeight: 56, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 28, backgroundColor: dim ? colors.s3 : colors.l600, flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center', gap: 10,
         ...(dim ? {} : { shadowColor: colors.l600, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } }),
       }, style]}
@@ -59,7 +63,7 @@ export function Ghost({ children, style, disabled, busy, onPress, ...rest }: Btn
       accessibilityRole="button" disabled={disabled || busy} accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
       onPress={(e) => { tap(); onPress?.(e); }} {...rest}
       style={[{
-        height: 48, borderRadius: 24, borderWidth: 1, borderColor: colors.line, flexDirection: 'row',
+        minHeight: 48, paddingVertical: 6, paddingHorizontal: 16, borderRadius: 24, borderWidth: 1, borderColor: colors.line, flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center', gap: 8, opacity: disabled && !busy ? 0.45 : 1,
       }, style]}
     >
@@ -81,7 +85,7 @@ export function Danger({ children, style, off, disabled, busy, solid, onPress, .
       accessibilityRole="button" disabled={disabled || off || busy} accessibilityState={{ disabled: !!(disabled || off || busy), busy: !!busy }}
       onPress={(e) => { tap(); onPress?.(e); }} {...rest}
       style={[{
-        height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.bad, flexDirection: 'row', gap: 8,
+        minHeight: 52, paddingVertical: 6, paddingHorizontal: 16, borderRadius: 26, borderWidth: 1.5, borderColor: colors.bad, flexDirection: 'row', gap: 8,
         backgroundColor: solid && !dim ? colors.bad : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: dim ? 0.45 : 1,
       }, style]}
     >
@@ -95,7 +99,7 @@ export function Pill({ icon, iconColor, image, children, onPress, label }: { ico
   return (
     <PressableScale
       accessibilityRole="button" accessibilityLabel={label} onPress={onPress && (() => { tap(); onPress(); })}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingLeft: 8, paddingRight: 12, borderRadius: 22, backgroundColor: colors.s2, minWidth: 44 }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingLeft: 8, paddingRight: 12, borderRadius: 22, backgroundColor: colors.s2, minWidth: 44 }}
     >
       {image ? <Image source={image} style={{ width: 28, height: 28, marginLeft: -4, marginVertical: -4 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /> : <Icon name={icon!} size={20} color={iconColor} />}
       {children}
@@ -175,8 +179,12 @@ export function Ring({ size, stroke, value, children }: { size: number; stroke: 
 export function Track({ value, color = colors.l600, height = 8, reset }: { value: number; color?: string; height?: number; reset?: number }) {
   const a = useRef(new Animated.Value(value)).current;
   const [w, setW] = useState(0);
+  const still = useReduceMotion();
   useEffect(() => { if (reset !== undefined) a.setValue(reset); }, [reset, a]);
-  useEffect(() => { Animated.timing(a, { toValue: value, duration: 700, useNativeDriver: false }).start(); }, [value, a]);
+  useEffect(() => {
+    if (still) a.setValue(value);
+    else Animated.timing(a, { toValue: value, duration: 700, useNativeDriver: false }).start();
+  }, [value, a, still]);
   return (
     <View onLayout={e => setW(e.nativeEvent.layout.width)} style={{ height, borderRadius: height / 2, backgroundColor: colors.s3, overflow: 'hidden' }}>
       <Animated.View style={{ height: '100%', borderRadius: height / 2, backgroundColor: color, width: a.interpolate({ inputRange: [0, 1], outputRange: [0, w] }) }} />
@@ -197,7 +205,11 @@ export function CoachFace({ size = 40 }: { size?: number }) {
 /** One contextual coach line; fades in whenever the text changes. */
 export function CoachLine({ text }: { text: string }) {
   const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => { a.setValue(0); Animated.timing(a, { toValue: 1, duration: 300, useNativeDriver: true }).start(); }, [text, a]);
+  const still = useReduceMotion();
+  useEffect(() => {
+    if (still) { a.setValue(1); return; }
+    a.setValue(0); Animated.timing(a, { toValue: 1, duration: motion.base, useNativeDriver: true }).start();
+  }, [text, a, still]);
   return (
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <CoachFace />

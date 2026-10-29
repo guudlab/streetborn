@@ -1,7 +1,7 @@
 import { Model3D, preloadModels } from '../../ui/Model3D.tsx';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
@@ -19,7 +19,7 @@ import { JobsChip, useJobs } from '../../ui/hint.tsx';
 import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { ProfileButton, SoundButton } from '../../ui/settings.tsx';
-import { Skeleton } from '../../ui/motion.tsx';
+import { PressableScale, Skeleton } from '../../ui/motion.tsx';
 import { FormStrip, useKariyerNews } from '../../ui/kariyer.tsx';
 import { PhoneRow } from '../../ui/telefon.tsx';
 import { t } from '../../i18n/index.ts';
@@ -128,13 +128,13 @@ export default function Hub() {
           {phone ? <PhoneRow p={phone} /> : <Bubble text={line} size={36} />}
         </View>
         <View style={{ position: 'absolute', right: 16, top: 14, gap: 10 }}><ProfileButton /><SoundButton /></View>
-        <Pressable
+        <PressableScale
           accessibilityRole="button" accessibilityLabel={t('hub.ovrA11y', { n: ovr(g.stats) })} onPress={() => router.navigate('/gelisim')}
           style={{ position: 'absolute', right: 20, bottom: 24, alignItems: 'flex-end' }}
         >
           <T w={700} size={44} style={{ lineHeight: 46, letterSpacing: -1 }}>{ovr(g.stats)}</T>
           <Caps>{t('hub.ovr')}</Caps>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>

@@ -318,7 +318,7 @@ function Match2D() {
         {shooting && target && !card && !busy && (
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
             <SkillBar key={`shot${m?.i}${assisted}`} ref={bar} locked={assisted} label={t('match.bar.power')} hint={assisted ? t('match.bar.assisted') : t('match.bar.perfectShot')} />
-            <Cta style={{ width: 104, height: 48 }} onPress={() => void shoot(target)}>{t('match.shoot')}</Cta>
+            <Cta style={{ width: 104, height: 48, minHeight: 48 }} onPress={() => void shoot(target)}>{t('match.shoot')}</Cta>
           </View>
         )}
         {moment?.kind === 'pass' && !card && !busy && finishing === 'no' && (
@@ -338,8 +338,8 @@ function Match2D() {
           {shooting && !card && finishing === 'no' ? (
             <AssistToggle on={assisted} nudge={nudge} onPress={() => { if (busy) return; setTarget(null); setNudge(false); useGame.getState().setAssisted(!assisted); }} />
           ) : <View />}
-          {card && finishing === 'no' && <Cta style={{ width: 150, height: 48 }} onPress={next}>{t('common.continue')}</Cta>}
-          {finishing === 'failed' && <Cta style={{ width: 170, height: 48 }} onPress={finish}>{t('match.retry')}</Cta>}
+          {card && finishing === 'no' && <Cta style={{ width: 150, height: 48, minHeight: 48 }} onPress={next}>{t('common.continue')}</Cta>}
+          {finishing === 'failed' && <Cta style={{ width: 170, height: 48, minHeight: 48 }} onPress={finish}>{t('match.retry')}</Cta>}
         </View>
       </View>
     </View>

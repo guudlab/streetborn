@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors } from '../theme.ts';
-import { CoachFace, T, tap } from './kit.tsx';
+import { sfx } from '../audio/audio.ts';
+import { buzz, CoachFace, T, tap } from './kit.tsx';
 import { PressableScale } from './motion.tsx';
 
 // Building blocks of the simplified "Tek odak" UI (Kaan, 2026-10-24): icon tiles
@@ -81,7 +82,7 @@ export function Tile({ children, onPress, selected, disabled, label, role = 'but
   return (
     <PressableScale
       accessibilityRole={role} accessibilityLabel={label} accessibilityState={{ selected: !!selected, disabled: !!disabled }}
-      disabled={disabled || !onPress} onPress={() => { tap(); onPress?.(); }} to={0.97}
+      disabled={disabled || !onPress} onPress={() => { if (role === 'radio') { buzz('select'); sfx('tap'); } else tap(); onPress?.(); }} to={0.97}
       style={[{
         borderRadius: 22, borderWidth: 1.5, borderColor: selected ? colors.l600 : colors.line,
         backgroundColor: selected ? 'rgba(63,77,24,.38)' : colors.s2,

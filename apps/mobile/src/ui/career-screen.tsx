@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
 import { leagueToday, multiplierLabel, standings, tierName } from '../game/career.ts';
@@ -12,7 +12,7 @@ import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
 import { Shell } from './mahalle.tsx';
-import { Skeleton } from './motion.tsx';
+import { PressableScale, Skeleton } from './motion.tsx';
 import { ErrorState } from './states.tsx';
 import { Amount, Bubble, Ico } from './sade.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
@@ -168,7 +168,7 @@ function Contract() {
             <Tag lime>{multiplierLabel(contract.tier)}</Tag>
           </View>
         </View>
-        <Pressable
+        <PressableScale
           accessibilityRole="button" accessibilityLabel={`${t('career.trust')} ${career.trust}`}
           onPress={() => openSheet(<><H3>{t('career.trust')}</H3><SheetText>{t('career.trustHint')}</SheetText><Cta onPress={closeSheet}>{t('common.ok')}</Cta></>)}
           style={{ gap: 6 }}
@@ -180,7 +180,7 @@ function Contract() {
             <Icon name="info" size={16} color={colors.g300} />
           </View>
           <Track value={career.trust / 100} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       {table && (
