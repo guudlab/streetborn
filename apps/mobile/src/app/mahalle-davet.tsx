@@ -9,6 +9,7 @@ import { Emblem } from '../ui/emblem.tsx';
 import { Cta, Ghost, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
 import { Amount, Bubble } from '../ui/sade.tsx';
+import { SetupBar } from '../ui/setup.tsx';
 import { t } from '../i18n/index.ts';
 
 // Shown when the player opened an invite link: who invited, how many are in, one button.
@@ -17,6 +18,7 @@ export default function MahalleDavet() {
   const invite = useGame(s => s.pendingInvite);
   const joinMahalle = useGame(s => s.joinMahalle);
   const setPendingInvite = useGame(s => s.setPendingInvite);
+  const signOut = useGame(s => s.signOut);
   const [preview, setPreview] = useState<MahallePreview | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +45,13 @@ export default function MahalleDavet() {
 
   return (
     <Shell
-      back={false} label={t('mahalle.invite.label')}
+      back={false}
       footer={<>
         {usable && <Cta busy={busy} onPress={join}>{t('mahalle.invite.join')}</Cta>}
         <Ghost onPress={other}>{t('mahalle.invite.other')}</Ghost>
       </>}
     >
+      <SetupBar label={t('mahalle.invite.label')} onBack={() => { setPendingInvite(null); void signOut(); }} />
       {preview === undefined && <ActivityIndicator size="large" color={colors.l600} style={{ marginTop: 80 }} />}
       {preview === null && <T color={colors.g200} style={{ textAlign: 'center', marginTop: 80 }}>{t('mahalle.invite.bad')}</T>}
       {preview && (

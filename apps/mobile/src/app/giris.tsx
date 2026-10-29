@@ -9,6 +9,7 @@ import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { openSignInSheet } from '../ui/account.tsx';
 import { buzz, Cta, T } from '../ui/kit.tsx';
+import { toast } from '../ui/overlay.tsx';
 import { Model3D, preloadModels } from '../ui/Model3D.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -45,7 +46,10 @@ export default function Giris() {
     sfx('whistle_start');
     setBusy(true);
     // The anonymous account starts here; the mahalle and character steps follow (see _layout).
-    try { await startAnonymous(); } finally { setBusy(false); }
+    try { await startAnonymous(); } catch (e) {
+      console.warn('Could not start', e);
+      toast(t('login.err'));
+    } finally { setBusy(false); }
   }
 
   return (

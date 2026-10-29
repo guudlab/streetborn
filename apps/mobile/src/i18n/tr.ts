@@ -27,6 +27,7 @@ export const tr = {
 
   'login.tapA11y': 'Başlamak için dokun',
   'login.haveAccount': 'Hesabım var',
+  'login.err': 'Bağlanamadık, tekrar dene.',
   'login.entering': 'SAHAYA ÇIKIYORSUN…',
   'login.tap': 'BAŞLAMAK İÇİN DOKUN',
   'login.slogan1': 'Mahallede doğdu.', 'login.slogan2': 'Stadyumda büyüdü.',

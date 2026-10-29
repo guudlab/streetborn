@@ -18,11 +18,14 @@ export default function MahalleAcik() {
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     let live = true;
+    setList(null); setError(null);
     listOpenMahalle().then((l) => { if (live) setList(l); }).catch((e) => { if (live) { setList([]); setError(mahalleError(e)); } });
     return () => { live = false; };
-  }, []);
+  }, [attempt]);
 
   async function join(id: string) {
     if (joining) return;
@@ -34,6 +37,7 @@ export default function MahalleAcik() {
   return (
     <Shell title={t('mahalle.open.title')} footer={<Ghost onPress={() => router.replace('/mahalle-kur')}>{t('mahalle.open.create')}</Ghost>}>
       {error && <T w={500} size={14} color={colors.bad} accessibilityLiveRegion="polite">{error}</T>}
+      {error && list?.length === 0 && <Ghost onPress={() => setAttempt(n => n + 1)}>{t('match.retry')}</Ghost>}
       {list === null && <ActivityIndicator size="large" color={colors.l600} style={{ marginTop: 24 }} />}
       {list?.length === 0 && !error && (
         <View style={{ alignItems: 'center', gap: 10, paddingTop: 30 }}>

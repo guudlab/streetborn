@@ -18,6 +18,7 @@ import { buzz, Cta, T, tap } from '../ui/kit.tsx';
 import { Enter, PressableScale } from '../ui/motion.tsx';
 import { Bubble, Ico, Segments, Tile, type IconAsset } from '../ui/sade.tsx';
 import { Model3D, preloadModels } from '../ui/Model3D.tsx';
+import { SetupBack, SetupBar } from '../ui/setup.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // New-player flow, shown after the first tap on the sign-in screen:
@@ -48,13 +49,14 @@ export default function Karakter() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (step === 0) return false;
-      setStep(step - 1);
+      if (!busy) setStep(step - 1);
       return true;
     });
     return () => sub.remove();
-  }, [step]);
+  }, [step, busy]);
 
   const next = () => setStep(s => Math.min(LAST, s + 1));
+  const back = () => { if (!busy) { setError(null); setStep(s => Math.max(0, s - 1)); } };
   async function finish() {
     if (busy || nick.trim().length < NICK_MIN) return;
     const problem = checkName(nick, 'nick');
@@ -74,6 +76,7 @@ export default function Karakter() {
   if (step === 0) {
     return (
       <View style={[{ flex: 1, paddingHorizontal: 20, gap: 18 }, pad]}>
+        <SetupBar />
         <View style={{ flex: 1, minHeight: 260 }}>
           <Glow width={260} />
           <Model3D model={BURAK_MODEL} fallback={BURAK} clip="idle" intro="wave" fidget={BURAK_FIDGET} headroom={0.12} style={{ flex: 1 }} label={t('coach.name')} />
@@ -87,7 +90,7 @@ export default function Karakter() {
   if (step === 4) {
     return (
       <View style={[{ flex: 1, paddingHorizontal: 20, gap: 14 }, pad]}>
-        <Steps n={step} />
+        <Steps n={step} onBack={back} />
         <Look c={c} onChange={setC} />
         <Cta onPress={() => { buzz(); next(); }}>{t('common.continue')}</Cta>
       </View>
@@ -96,7 +99,7 @@ export default function Karakter() {
 
   return (
     <View style={[{ flex: 1, paddingHorizontal: 20, gap: 16 }, pad]}>
-      <Steps n={step} />
+      <Steps n={step} onBack={back} />
       {step === 5 ? (
         <Nick nick={nick} onChange={(s) => { setNick(s); setError(null); }} busy={busy} onDone={finish} error={error} />
       ) : (
@@ -108,8 +111,13 @@ export default function Karakter() {
 
 /* ---------- Steps ---------- */
 
-function Steps({ n }: { n: number }) {
-  return <View accessible accessibilityLabel={t('char.step', { n })}><Segments n={n} of={LAST} /></View>;
+function Steps({ n, onBack }: { n: number; onBack: () => void }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <SetupBack onPress={onBack} />
+      <View accessible accessibilityLabel={t('char.step', { n })} style={{ flex: 1 }}><Segments n={n} of={LAST} /></View>
+    </View>
+  );
 }
 
 function Glow({ width }: { width: number }) {

@@ -9,14 +9,17 @@ import { T } from '../ui/kit.tsx';
 import { Enter } from '../ui/motion.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Bubble, Ico, Tile } from '../ui/sade.tsx';
+import { SetupBar } from '../ui/setup.tsx';
 import { t } from '../i18n/index.ts';
 
 // First step after the sign-in tap: Burak abi asks which mahalle the player is from.
 // A player who arrived through an invite link goes straight to that invite.
+// Back leaves the setup and returns to the start screen; "Hesabım var" signs in to an old account.
 // Once a mahalle is set, _layout swaps this group for character creation.
 
 export default function MahalleSecim() {
   const invite = useGame(s => s.pendingInvite);
+  const signOut = useGame(s => s.signOut);
   useEffect(() => { setMusic('menu'); }, []);
   useEffect(() => {
     if (invite) router.replace('/mahalle-davet');
@@ -24,6 +27,8 @@ export default function MahalleSecim() {
 
   return (
     <Shell back={false}>
+      {/* Back returns to the first screen; the empty guest account is simply dropped. */}
+      <SetupBar onBack={() => void signOut()} />
       <Enter style={{ gap: 18, paddingTop: 8 }}>
         <Bubble text={t('mahalle.pick.title')} size={56} />
       </Enter>
