@@ -459,20 +459,55 @@ function unstain(mesh, dom, oldIx, newIx) {
 
 /**
  * Keeps a character's skin out of the turf: after the pose is final, finds the lowest point
- * of the skinned mesh (a sample of its vertices) and lifts the model by what is under the
- * floor. Call once per frame with the model at its unlifted height.
+ * of the skinned mesh and lifts the model by what is under the floor. Call once per frame
+ * with the model at its unlifted height.
+ *
+ * Only a few hundred vertices are skinned on the CPU: for each bone, the vertices it carries
+ * that stick out furthest in 26 directions of the bone's own frame (a segment moves rigidly
+ * with its bone, so its lowest point is one of these), plus the extremes of the whole body.
+ * Their bind data is unpacked once, so a frame is four dot products per vertex.
  */
+const DIRS = []; for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) if (x || y || z) DIRS.push([x, y, z]);
 export class GroundClamp {
-  constructor(model, { every = 11, floor = -0.012 } = {}) {
-    this.model = model; this.floor = floor; this.v = new THREE.Vector3();
+  constructor(model, { floor = -0.012 } = {}) {
+    this.model = model; this.floor = floor;
     model.traverse((o) => { if (o.isSkinnedMesh && !this.mesh) this.mesh = o; });
-    const n = this.mesh.geometry.attributes.position.count;
-    this.idx = []; for (let i = 0; i < n; i += every) this.idx.push(i);
+    const m = this.mesh, g = m.geometry, P = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = P.count;
+    const inv = m.skeleton.boneInverses, nb = inv.length, nd = DIRS.length, v = new THREE.Vector3(), lb = new THREE.Vector3();
+    // best[k * nd + d]: the vertex furthest along direction d, in bone k's frame (k = nb: the whole body)
+    const score = new Float32Array((nb + 1) * nd).fill(-Infinity), best = new Int32Array((nb + 1) * nd).fill(-1);
+    for (let i = 0; i < n; i++) {
+      let dom = 0, dw = -1;
+      for (let j = 0; j < 4; j++) { const w = sw.getComponent(i, j); if (w > dw) { dw = w; dom = si.getComponent(i, j); } }
+      v.fromBufferAttribute(P, i).applyMatrix4(m.bindMatrix);
+      lb.copy(v).applyMatrix4(inv[dom]);
+      for (let d = 0; d < nd; d++) {
+        const [x, y, z] = DIRS[d], sb = x * lb.x + y * lb.y + z * lb.z, sa = x * v.x + y * v.y + z * v.z;
+        if (sb > score[dom * nd + d]) { score[dom * nd + d] = sb; best[dom * nd + d] = i; }
+        if (sa > score[nb * nd + d]) { score[nb * nd + d] = sa; best[nb * nd + d] = i; }
+      }
+    }
+    const idx = [...new Set(best)].filter((i) => i >= 0);
+    this.count = idx.length;
+    this.pos = new Float32Array(idx.length * 3); this.bone = new Uint16Array(idx.length * 4); this.w = new Float32Array(idx.length * 4);
+    idx.forEach((i, c) => {
+      v.fromBufferAttribute(P, i).applyMatrix4(m.bindMatrix); this.pos.set([v.x, v.y, v.z], c * 3);
+      for (let j = 0; j < 4; j++) { this.bone[c * 4 + j] = si.getComponent(i, j); this.w[c * 4 + j] = sw.getComponent(i, j); }
+    });
+    this.row = new Float32Array(inv.length * 4); this.A = new THREE.Matrix4();
   }
   lowest() {
-    const m = this.mesh, v = this.v; let y = Infinity;
-    m.updateMatrixWorld(true); m.skeleton.update();
-    for (const i of this.idx) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); if (v.y < y) y = v.y; }
+    const m = this.mesh, sk = m.skeleton, bm = sk.boneMatrices, row = this.row;
+    m.updateMatrixWorld(true); sk.update();
+    // world y of a skinned vertex = row 1 of (matrixWorld · bindMatrixInverse · boneMatrix) · bind position
+    const a = this.A.multiplyMatrices(m.matrixWorld, m.bindMatrixInverse).elements, a0 = a[1], a1 = a[5], a2 = a[9], a3 = a[13];
+    for (let j = 0, nb = sk.bones.length; j < nb; j++) for (let k = 0; k < 4; k++) { const o = j * 16 + k * 4; row[j * 4 + k] = a0 * bm[o] + a1 * bm[o + 1] + a2 * bm[o + 2] + a3 * bm[o + 3]; }
+    const pos = this.pos, bone = this.bone, w = this.w; let y = Infinity;
+    for (let c = 0; c < this.count; c++) {
+      const x = pos[c * 3], yy = pos[c * 3 + 1], z = pos[c * 3 + 2]; let s = 0;
+      for (let j = 0; j < 4; j++) { const wt = w[c * 4 + j]; if (wt === 0) continue; const r = bone[c * 4 + j] * 4; s += wt * (row[r] * x + row[r + 1] * yy + row[r + 2] * z + row[r + 3]); }
+      if (s < y) y = s;
+    }
     return y;
   }
   apply() {

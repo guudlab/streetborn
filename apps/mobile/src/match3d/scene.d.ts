@@ -2,6 +2,7 @@
 import type { AnimationClip, Group, Object3D } from 'three';
 
 import type { SfxId } from '../audio/audio.ts';
+import type { Tint } from '../ui/Model3D.tsx';
 
 export interface Gltf { scene: Group; animations: AnimationClip[] }
 
@@ -29,12 +30,18 @@ export interface MatchEnv {
   host: HTMLElement;
   G: {
     hero: Gltf; keeper: Gltf; rival: Gltf; ball: Gltf; mates: Gltf[];
+    /** More of their players (lime-kit models the scene dresses in graphite). */
+    opps?: Gltf[];
     'anim-street-idle': Gltf; 'anim-kick': Gltf; 'anim-cheer': Gltf; 'anim-run': Gltf; 'anim-slide': Gltf; 'anim-leap': Gltf;
   };
-  /** Recolours a model's kit (our player and the teammates). */
-  tint(root: Object3D): void;
-  /** Text on the advertising boards. */
+  /** Recolours a model's kit: our colours when `tint` is left out. */
+  tint(root: Object3D, tint?: Tint): void;
+  /** Text on the advertising boards and our banner. */
   board: string;
+  /** Our kit colour (#rrggbb), for the crowd and the banners. */
+  kit?: string;
+  /** Their name, for their banner. */
+  away?: string;
   on: {
     phase(p: ScenePhase): void;
     /** The player touched the goal for the first time in this moment. */
@@ -63,8 +70,12 @@ export interface MatchScene {
   tackle(side: 1 | -1, timing: number, outcome: 'stopped' | 'conceded' | 'survived'): void;
   passTo(side: 'left' | 'right', outcome: 'assist' | 'lost'): void;
   setPaused(p: boolean): void;
+  /** Resolves once every shader is compiled and the scene is drawing. */
+  ready: Promise<void>;
   /** Test hook: steps the game clock and draws once. */
   sim(sec: number): void;
+  /** Test hook: what the last frame drew. */
+  stats(): { calls: number; triangles: number; programs: number; textures: number; geometries: number };
   dispose(): void;
 }
 

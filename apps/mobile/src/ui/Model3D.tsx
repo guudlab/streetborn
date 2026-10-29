@@ -23,8 +23,8 @@ const load3d = () => import('./three3d.ts');
 type Three = Awaited<ReturnType<typeof load3d>>;
 type Gltf = { scene: import('three').Group; animations: import('three').AnimationClip[] };
 
-/** Jersey tint: target hue in degrees, 'white', or null for the lime kit as modelled. */
-export type Tint = number | 'white' | null;
+/** Jersey tint: target hue in degrees, 'white', 'graphite' (the other mahalle's kit), or null for the lime kit as modelled. */
+export type Tint = number | 'white' | 'graphite' | null;
 
 interface Props {
   /** The bundled .glb, from require('../../assets/models/x.glb'). */
@@ -61,6 +61,10 @@ interface Scene {
   play(name: string): void;
   setTint(t: Tint): void;
   setPaused(p: boolean): void;
+  /** Off screen (scrolled away): stop drawing, like a paused scene. */
+  setHidden(h: boolean): void;
+  /** Resolves once the shaders are compiled and the first frame is drawn. */
+  ready: Promise<void>;
   drag(dx: number): void;
   release(vx: number): void;
   dispose(): void;
@@ -213,6 +217,7 @@ function WebCanvas({ model, opts, onReady, onFail }: CanvasProps) {
     const el = host.current as unknown as HTMLElement | null;
     if (!el) return;
     let s: Scene | undefined;
+    let io: IntersectionObserver | undefined;
     let cancelled = false;
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y';
@@ -227,12 +232,21 @@ function WebCanvas({ model, opts, onReady, onFail }: CanvasProps) {
       renderer.setSize(width, height, false);
       try {
         const gltf = await modelGltf(three, model);
-        if (cancelled) { renderer.dispose(); return; }
+        if (cancelled) { renderer.dispose(); renderer.forceContextLoss(); return; }
         s = build(three, renderer, gltf, width, height, opts.current!);
+        await s.ready;
+        if (cancelled) return;
         onReady(s);
-      } catch (e) { renderer.dispose(); throw e; }
+        // A model scrolled out of view stops drawing.
+        if (typeof IntersectionObserver === 'function') {
+          io = new IntersectionObserver((entries) => { for (const e of entries) s?.setHidden(!e.isIntersecting); });
+          io.observe(el);
+        }
+      } catch (e) { renderer.dispose(); renderer.forceContextLoss(); throw e; }
     })().catch((e: unknown) => { if (!cancelled) onFail(e); });
-    return () => { cancelled = true; s?.dispose(); canvas.remove(); };
+    return () => {
+      cancelled = true; io?.disconnect(); s?.dispose(); canvas.remove();
+    };
   }, [model]); // eslint-disable-line react-hooks/exhaustive-deps
   return <View ref={host} style={{ flex: 1 }} />;
 }
@@ -339,13 +353,13 @@ function build(
 
   // Turning by hand: angle follows the finger, then coasts and settles back to 0.
   let angle = 0, base = 0, vel = 0, dragging = false, idleFor = 0;
-  let paused = false;
+  let paused = false, hidden = false, disposed = false;
   let frame = 0;
   const clock = new THREE.Clock();
   const tick = () => {
     frame = requestAnimationFrame(tick);
     const dt = Math.min(clock.getDelta(), 0.1);
-    if (paused) return;
+    if (paused || hidden) return;
     if (once && once.time > once.getClip().duration - BLEND) backToLoop();
     mixer.update(dt);
     if (opt.spin) pivot.rotation.y += dt * 0.5;
@@ -365,7 +379,11 @@ function build(
     renderer.render(scene, camera);
     present?.();
   };
-  tick();
+  // Compile the shaders before the first frame: in the browser they compile in parallel
+  // (KHR_parallel_shader_compile) instead of freezing the screen that opens the model.
+  const ready = (Platform.OS === 'web' && renderer.extensions.has('KHR_parallel_shader_compile') ? renderer.compileAsync(scene, camera) : Promise.resolve())
+    .catch(() => {})
+    .then(() => { if (!disposed) { clock.getDelta(); tick(); } });
 
   return {
     setClip(name) { loopName = name; if (!once) backToLoop(); },
@@ -377,6 +395,8 @@ function build(
     },
     setTint: tint,
     setPaused(p) { paused = p; if (!p) clock.getDelta(); },
+    setHidden(h) { hidden = h; if (!h) clock.getDelta(); },
+    ready,
     drag(dx) {
       if (!dragging) { dragging = true; base = angle; vel = 0; }
       angle = base + dx * TURN_SPEED;
@@ -389,9 +409,13 @@ function build(
       idleFor = 0;
     },
     dispose() {
+      disposed = true;
       cancelAnimationFrame(frame);
       mixer.stopAllAction();
       renderer.dispose();
+      // Browsers keep only ~16 WebGL contexts and drop the oldest past that (a model that
+      // goes blank); a context is otherwise freed only whenever the canvas is collected.
+      if (Platform.OS === 'web') renderer.forceContextLoss();
     },
   };
 }
@@ -414,7 +438,7 @@ function bounds(THREE: Three['THREE'], gltf: Gltf) {
  * Each model gets its own materials, so two players can wear different colours.
  */
 function tintMaterials(THREE: Three['THREE'], root: import('three').Object3D) {
-  const uniform = { value: new THREE.Vector2(0, 0) }; // x: hue 0..1, y: 0 off, 1 hue, 2 white
+  const uniform = { value: new THREE.Vector2(0, 0) }; // x: hue 0..1, y: 0 off, 1 hue, 2 white, 3 graphite
   root.traverse((o) => {
     const mesh = o as import('three').Mesh;
     if (!mesh.isMesh) return;
@@ -434,6 +458,7 @@ function tintMaterials(THREE: Three['THREE'], root: import('three').Object3D) {
   return (t: Tint) => {
     if (t === null) uniform.value.set(0, 0);
     else if (t === 'white') uniform.value.set(0, 2);
+    else if (t === 'graphite') uniform.value.set(0, 3);
     else uniform.value.set(t / 360, 1);
   };
 }
@@ -459,7 +484,9 @@ if (uTint.y > 0.5) {
   vec3 srgb = pow(max(diffuseColor.rgb, 0.0), vec3(1.0 / 2.2));
   vec3 hsv = kitHsv(srgb);
   if (hsv.x >= 42.0 / 360.0 && hsv.x <= 115.0 / 360.0 && hsv.y > 0.18) {
-    vec3 o = uTint.y > 1.5
+    vec3 o = uTint.y > 2.5
+      ? vec3(0.23, 0.24, 0.255) * min(1.0, hsv.z * 1.1)
+      : uTint.y > 1.5
       ? vec3(0.95, 0.95, 0.97) * min(1.0, hsv.z * 1.05)
       : kitRgb(vec3(uTint.x, min(1.0, max(hsv.y, 0.2) * 1.7), hsv.z));
     diffuseColor.rgb = pow(o, vec3(2.2));

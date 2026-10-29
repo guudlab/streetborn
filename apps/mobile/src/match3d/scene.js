@@ -18,6 +18,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { rigInfo, retarget, mirror, subclip, rotateWorld, lockYaw, PoseGuard, cleanSkin, GroundClamp, FootLock, rigFor } from './rig.js';
 import { Keeper } from './keeper.js';
+import { buildStands } from './stands.js';
 
 // ---------------------------------------------------------------- constants
 const GOAL_Z = 7.5;          // the goal we attack (and defend); the first shot spot is at z = 0
@@ -82,7 +83,8 @@ function shotTarget(outcome, x, y) {
 /**
  * Builds the scene into `host` (a DOM element) and starts drawing.
  * env: { host, G: parsed glTFs { hero, keeper, rival, ball, mates[], anim-* }, tint(root),
- *        board: text on the advertising boards, on: event handlers, sfx(id, gain) }
+ *        board: text on the advertising boards, kit: our colour (#rrggbb), away?: their name,
+ *        on: event handlers, sfx(id, gain) }
  */
 export function createMatch(env) {
   const { host, G, on } = env;
@@ -92,11 +94,17 @@ export function createMatch(env) {
   const size = () => ({ w: Math.max(1, host.clientWidth), h: Math.max(1, host.clientHeight) });
 
   // -------------------------------------------------------------- renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
-  renderer.setPixelRatio(DPR);
+  // No MSAA on the canvas: the composer draws the scene into its own target, so it only
+  // cost memory. Phones with 3x screens draw at 1.5x at most; the governor below goes lower
+  // on a phone that cannot keep up.
+  const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+  const DPR_MAX = Math.min(window.devicePixelRatio || 1, 1.5);
+  const QUALITY = [DPR_MAX, 1.25, 1, 0.85].filter((d, i, a) => d <= DPR_MAX && a.indexOf(d) === i);
+  let quality = 0;
+  renderer.setPixelRatio(QUALITY[0]);
   let { w: W, h: H } = size();
   renderer.setSize(W, H);
+  renderer.info.autoReset = false;   // counted per frame (all passes), for the stats() test hook
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -111,6 +119,7 @@ export function createMatch(env) {
   { const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.32; pm.dispose(); }
 
   const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(QUALITY[0]);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(V2(W / 2, H / 2), 0.42, 0.5, 0.96);
   composer.addPass(bloom);
@@ -139,7 +148,7 @@ export function createMatch(env) {
   scene.add(new THREE.HemisphereLight(0x9fb2d8, 0x1a2a0e, 0.5));
   const key = new THREE.DirectionalLight(0xf4ffe8, 2.4);
   key.position.set(-6, 14, -6); key.target.position.set(0, 0, -2);
-  key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+  key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
   Object.assign(key.shadow.camera, { left: -11, right: 11, top: 17, bottom: -17, near: 1, far: 45 });
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight(0xdfffb0, 1.0); rim.position.set(6, 6, 16); scene.add(rim);
@@ -201,6 +210,8 @@ export function createMatch(env) {
   const netBase = backNet.geometry.attributes.position.array.slice();
   const net = { amp: 0, vel: 0, x: 0, y: 1 };
   function updateNet(dt) {
+    if (Math.abs(net.amp) < 1e-4 && Math.abs(net.vel) < 1e-3) { if (net.amp) { net.amp = 0; net.vel = 0; } else if (net.flat) return; }
+    net.flat = net.amp === 0;
     net.vel += (-90 * net.amp - 7 * net.vel) * dt; net.amp += net.vel * dt;
     const p = backNet.geometry.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -255,6 +266,9 @@ export function createMatch(env) {
     });
   }
 
+  // terraces and crowd behind the fences (stands.js)
+  const stands = buildStands(scene, { goalZ: GOAL_Z, goal2Z: GOAL2_Z, kit: env.kit || '#CFFD5C', board: env.board, away: env.away, canvasTex, seed: 5 });
+
   // -------------------------------------------------------------- particles: confetti + trail + cue ring
   const CONF = 320;
   const confMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.07, 0.04), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }), CONF);
@@ -262,14 +276,19 @@ export function createMatch(env) {
   { const cols = [0xCFFD5C, 0xDEFE83, 0xffffff, 0x9BBF43]; for (let i = 0; i < CONF; i++) confMesh.setColorAt(i, new THREE.Color(cols[i % 4])); }
   confMesh.frustumCulled = false; scene.add(confMesh);
   const dummy = new THREE.Object3D();
+  let confLive = 0;   // seconds until the last piece has landed and faded; 0 = nothing to update
+  const HIDDEN = V(0, -10, 0);
   function burst(at, n = CONF, up = 6) {
+    confLive = 4;
     for (let i = 0; i < n; i++) { const c = confData[i]; c.p.copy(at); c.v.set((Math.random() - 0.5) * 7, up * (0.6 + Math.random() * 0.8), (Math.random() - 0.5) * 7); c.w.set(Math.random() * 12, Math.random() * 12, Math.random() * 12); c.life = 2.6 + Math.random(); }
   }
   function updateConfetti(dt) {
+    if (confLive <= 0) return;
+    confLive -= dt;
     for (let i = 0; i < CONF; i++) {
       const c = confData[i];
       if (c.life > 0) { c.life -= dt; c.v.y -= 6 * dt; c.v.multiplyScalar(1 - 1.6 * dt); c.p.addScaledVector(c.v, dt); c.r.x += c.w.x * dt; c.r.y += c.w.y * dt; c.r.z += c.w.z * dt; if (c.p.y < 0.02) { c.p.y = 0.02; c.v.set(0, 0, 0); } }
-      dummy.position.copy(c.life > 0 ? c.p : V(0, -10, 0)); dummy.rotation.copy(c.r); dummy.updateMatrix(); confMesh.setMatrixAt(i, dummy.matrix);
+      dummy.position.copy(c.life > 0 ? c.p : HIDDEN); dummy.rotation.copy(c.r); dummy.updateMatrix(); confMesh.setMatrixAt(i, dummy.matrix);
     }
     confMesh.instanceMatrix.needsUpdate = true;
   }
@@ -308,11 +327,19 @@ export function createMatch(env) {
   });
   // every model is a copy: the parsed files are shared with the rest of the app
   const copy = (g) => SkeletonUtils.clone(g.scene);
-  const heroM = copy(G.hero), rivalM = copy(G.rival), keeperM = copy(G.keeper);
+  // a bone by name, looked up once (getObjectByName walks the whole model every call)
+  const boneCache = new WeakMap();
+  const bone = (model, name) => {
+    let m = boneCache.get(model); if (!m) boneCache.set(model, (m = {}));
+    return m[name] || (m[name] = model.getObjectByName(name));
+  };
+  const heroM = copy(G.hero), keeperM = copy(G.keeper);
   const mateMs = (G.mates || []).map(copy);
+  // their players: rival.glb, then the starters nobody on our side plays, in their graphite kit
+  const rivalMs = [copy(G.rival), ...(G.opps || []).map(copy)];
   // rest data before anything animates
-  const R = { street: rigInfo(heroM), rival: rigInfo(rivalM), streetSrc: rigInfo(G['anim-street-idle'].scene), keeperSrc: rigInfo(G['anim-slide'].scene) };
-  const mateRigs = mateMs.map(rigInfo);
+  const R = { street: rigInfo(heroM), streetSrc: rigInfo(G['anim-street-idle'].scene), keeperSrc: rigInfo(G['anim-slide'].scene) };
+  const mateRigs = mateMs.map(rigInfo), rivalRigs = rivalMs.map(rigInfo);
   const clip = (f) => G[f].animations[0];
   // idle and cheer turn the body around on the spot; lock their facing so characters stay put
   const C = { idle: lockYaw(clip('anim-street-idle')), kick: clip('anim-kick'), cheer: lockYaw(clip('anim-cheer')), run: clip('anim-run'), slide: clip('anim-slide'), leap: clip('anim-leap') };
@@ -340,7 +367,7 @@ export function createMatch(env) {
   }
 
   // hero: our player in his kit. Street clips are retargeted from the street rig, keeper clips from the keeper's
-  env.tint(heroM); mateMs.forEach((m) => env.tint(m));
+  env.tint(heroM); mateMs.forEach((m) => env.tint(m)); rivalMs.slice(1).forEach((m) => env.tint(m, 'graphite'));
   prep(heroM); scene.add(heroM);
   const kickClip = lockYaw(C.kick, { hips: false, inPlace: false });
   const heroSlide = retarget(lockYaw(C.slide, { hips: false, inPlace: false }), R.keeperSrc, R.street, { name: 'slide' });
@@ -363,14 +390,28 @@ export function createMatch(env) {
     return { m, a, rig, foot: boneAt(m, rig, a.A.kick.getClip(), KICK_CONTACT, 'RightToeBase'), feet: new FootLock(rig), ground: new GroundClamp(m) };
   });
 
-  // rival: the other mahalle's forward (also the marker in pass moments)
-  prep(rivalM); scene.add(rivalM);
-  const rt = (c, src, name, o = {}) => retarget(c, src, R.rival, { name, ...o });
-  const rival = new Actor(rivalM, {
-    idle: rt(C.idle, R.streetSrc, 'idle'), run: rt(C.run, R.streetSrc, 'run'), kick: rt(kickClip, R.streetSrc, 'kick'),
-    cheer: rt(C.cheer, R.streetSrc, 'cheer'), hurdle: rt(subclip(C.leap, 0.3, 1.5, 'hurdle'), R.keeperSrc, 'hurdle', { inPlace: true }),
+  // rivals: the other mahalle's forward in a defense moment, the marker in a pass moment. A
+  // different one each time (useRival); only one is on the pitch at once
+  const RUN_SPEED = 4.4;                        // the forward's carry speed, m/s
+  const hurdleSrc = subclip(C.leap, 0.3, 1.5, 'hurdle');
+  const rivals = rivalMs.map((m, i) => {
+    prep(m); m.visible = false; scene.add(m);
+    const rig = rivalRigs[i], rt = (c, src, name, o = {}) => retarget(c, src, rig, { name, ...o });
+    const a = new Actor(m, {
+      idle: rt(C.idle, R.streetSrc, 'idle'), run: rt(C.run, R.streetSrc, 'run'), kick: rt(kickClip, R.streetSrc, 'kick'),
+      cheer: rt(C.cheer, R.streetSrc, 'cheer'), hurdle: rt(hurdleSrc, R.keeperSrc, 'hurdle', { inPlace: true }),
+    });
+    const run = runCycle(m, rig, a.A.run.getClip());
+    return { m, a, rig, run, RUN: RUN_SPEED / run.ground, foot: boneAt(m, rig, a.A.kick.getClip(), KICK_CONTACT, 'RightToeBase'), feet: new FootLock(rig), ground: new GroundClamp(m) };
   });
-  const rivalFoot = boneAt(rivalM, R.rival, rival.A.kick.getClip(), KICK_CONTACT, 'RightToeBase');
+  // the one on the pitch: his model, actor, kick foot, run cycle, clip speed that makes his boots grip, foot lock, ground clamp
+  let rivalM, rival, rivalFoot, rivalRun, RIVAL_RUN, rivalFeet, rivalGround;
+  function useRival(i) {
+    rivals.forEach((x) => (x.m.visible = false));
+    ({ m: rivalM, a: rival, foot: rivalFoot, run: rivalRun, RUN: RIVAL_RUN, feet: rivalFeet, ground: rivalGround } = rivals[i % rivals.length]);
+    rivalFeet.reset();
+  }
+  useRival(0);
   // the hurdle is a standing jump: start it as the boots leave the turf and run on from the
   // landing, so the feet never stand still on a body that keeps running
   const HURDLE_OFF = 0.26, HURDLE_LAND = 0.93;
@@ -394,44 +435,51 @@ export function createMatch(env) {
     const touch = sam.reduce((b, s) => (s.R.z > b.R.z ? s : b));
     return { dur: c.duration, ground: (push('R') + push('L')) / 2, touchT: touch.t, toe: touch.R.clone() };
   }
-  const heroGround = new GroundClamp(heroM), rivalGround = new GroundClamp(rivalM);   // skin never under the turf
-  const heroFeet = new FootLock(R.street), rivalFeet = new FootLock(R.rival);          // planted boots do not skate
-  const RUN_SPEED = 4.4;                        // the forward's carry speed, m/s
-  const rivalRun = runCycle(rivalM, R.rival, rival.A.run.getClip());
+  const heroGround = new GroundClamp(heroM);       // skin never under the turf
+  const heroFeet = new FootLock(R.street);         // planted boots do not skate
   const heroRun = runCycle(heroM, R.street, hero.A.run.getClip());
-  const RIVAL_RUN = RUN_SPEED / rivalRun.ground; // clip speed that makes his boots grip the pitch
 
   // keeper (Meshy kaleci-v2): procedural dives on its own rig
   prep(keeperM);
   const keeper = new Keeper(keeperM, retarget(C.leap, R.keeperSrc, rigInfo(keeperM), { name: 'leap' }));
   scene.add(keeper.root);
 
-  // free kick wall: three of their players, standing
+  // free kick wall: three of their players, standing, no two alike
   const wall = [0, 1, 2].map((i) => {
-    const m = SkeletonUtils.clone(rivalM); prep(m); m.visible = false; scene.add(m);
-    const a = new Actor(m, { idle: rival.A.idle.getClip() }); a.play('idle', { from: i * 1.3, speed: 0.9 + i * 0.07 });
-    return { m, a, feet: new FootLock(rigFor(m, R.rival)) };
+    const r = rivals[i % rivals.length];
+    const m = SkeletonUtils.clone(r.m); prep(m); m.visible = false; scene.add(m);
+    const a = new Actor(m, { idle: r.a.A.idle.getClip() }); a.play('idle', { from: i * 1.3, speed: 0.9 + i * 0.07 });
+    return { m, a, feet: new FootLock(rigFor(m, r.rig)) };
   });
 
-  // fans behind the fences: clones share meshes and textures
+  // fans behind the fences: copies of every player model, ours in our kit (one in two of the
+  // younger ones in a white shirt), theirs in graphite. Clones share meshes and textures
   const fans = [];
   {
-    const fanClips = { us: { idle: hero.A.idle.getClip(), cheer: hero.A.cheer.getClip() }, them: { idle: rival.A.idle.getClip(), cheer: rival.A.cheer.getClip() } };
-    const spots = [[-4.6, GOAL_Z + 5.4, 'us'], [-2.9, GOAL_Z + 5.7, 'them'], [-1.2, GOAL_Z + 5.3, 'us'], [1.4, GOAL_Z + 5.6, 'us'], [3.3, GOAL_Z + 5.3, 'them'], [5.2, GOAL_Z + 5.6, 'us'],
-      [-3.6, GOAL2_Z - 4, 'them'], [-0.6, GOAL2_Z - 4.3, 'us'], [2.6, GOAL2_Z - 4, 'them']];
+    const src = {
+      us: [{ m: heroM, rig: R.street, a: hero }, ...mates.map((x) => ({ m: x.m, rig: x.rig, a: x.a }))],
+      them: rivals.map((x) => ({ m: x.m, rig: x.rig, a: x.a })),
+    };
+    // six, not more: each is a full skinned character, and the terraces behind them are full
+    const spots = [[-4.6, GOAL_Z + 5.4, 'us'], [-2.9, GOAL_Z + 5.7, 'them'], [1.4, GOAL_Z + 5.6, 'us'], [3.6, GOAL_Z + 5.3, 'us'],
+      [-3.6, GOAL2_Z - 4, 'them'], [2.6, GOAL2_Z - 4, 'them']];
+    const n = { us: 0, them: 0 };
     spots.forEach(([x, z, team], i) => {
-      const m = SkeletonUtils.clone(team === 'us' ? heroM : rivalM); prep(m, false);
+      const k = n[team]++, f = src[team][k % src[team].length];
+      const m = SkeletonUtils.clone(f.m); prep(m, false);
+      if (team === 'us' && k % 2 === 1) env.tint(m, 'white');
       m.position.set(x, 0, z); m.rotation.y = Math.atan2(-x * 0.3, (z > 0 ? -1 : 1));
       scene.add(m);
-      const a = new Actor(m, fanClips[team]); a.play('idle', { from: (i * 0.9) % 4, speed: 0.8 + (i % 3) * 0.12 });
-      fans.push({ a, team, feet: new FootLock(rigFor(m, team === 'us' ? R.street : R.rival)) });
+      const a = new Actor(m, { idle: f.a.A.idle.getClip(), cheer: f.a.A.cheer.getClip() }); a.play('idle', { from: (i * 0.9) % 4, speed: 0.8 + (i % 3) * 0.12 });
+      m.visible = true;
+      fans.push({ a, team, feet: new FootLock(rigFor(m, f.rig)) });
     });
   }
   // The cheer clip starts and ends with the arms down and has them overhead in between. Fans
   // play it once from the start and go back to idle only once the arms are down again: a
   // crossfade between arms-up and arms-down (~170° apart) flips the shoulders mid-blend.
   const CHEER_DOWN = 6.5;
-  function fansCheer(team) { fans.forEach((f, i) => { if (f.team !== team || f.a.cur === f.a.A.cheer) return; f.a.play('cheer', { fade: 0.3, loop: false, from: (i * 0.11) % 0.3, speed: 1.2 + (i % 3) * 0.08 }); }); }
+  function fansCheer(team, amount = 1) { stands.cheer(team, amount); fans.forEach((f, i) => { if (f.team !== team || f.a.cur === f.a.A.cheer) return; f.a.play('cheer', { fade: 0.3, loop: false, from: (i * 0.11) % 0.3, speed: 1.2 + (i % 3) * 0.08 }); }); }
   function fansCalm() { fans.forEach((f, i) => { if (f.a.cur === f.a.A.cheer && f.a.cur.time > CHEER_DOWN) f.a.play('idle', { fade: 0.6, from: i % 4, speed: 0.8 + (i % 3) * 0.12 }); }); }
 
   const ball = copy(G.ball); prep(ball);
@@ -452,7 +500,7 @@ export function createMatch(env) {
   function camTo(pos, look, k = 2.6) { camTarget.pos.copy(pos); camTarget.look.copy(look); camTarget.k = k; }
 
   // -------------------------------------------------------------- moment state
-  const S = { phase: 'menu', t: 0, shots: 0, freekicks: 0, defenses: 0, first: true };
+  const S = { phase: 'menu', t: 0, shots: 0, freekicks: 0, defenses: 0, marks: 0, first: true };
   const flight = { active: false, u: 0, D: 0.6, p0: V(), c: V(), p1: V(), vel: V(), mode: 'curve', outcome: null, resolved: false, spin: V(), held: false, by: 'us' };
   const shot = { B0: V(), dir: V(), right: V(), R: V(), start: V(), ctrl: V(), yaw: 0 };
   const setPhase = (p) => { S.phase = p; on.phase(p); };
@@ -650,7 +698,7 @@ export function createMatch(env) {
       }
     } else if (kind === 'save') {
       sfx('save'); buzz(25); shake = reduced ? 0 : 0.07;
-      if (ours) { sfx('crowd_groan', 0.7); fansCheer('them'); } else { sfx('crowd_cheer', 0.7); fansCheer('us'); }
+      if (ours) { sfx('crowd_groan', 0.7); fansCheer('them', 0.6); } else { sfx('crowd_cheer', 0.7); fansCheer('us', 0.7); }
       const kp = keeper.b.Hips.getWorldPosition(V()), side = flight.p1.x > keeper.root.position.x ? 1 : -1;
       camTo(V(kp.x + side * 2.2, 1.35, GOAL_Z - 4.2), V(kp.x, 0.6, GOAL_Z - 0.3), 2.2);
     } else if (kind === 'post') {
@@ -698,6 +746,7 @@ export function createMatch(env) {
     // the marker stands goal-side of the marked mate, a step toward the ball, facing it
     const marked = m.openSide === 'left' ? 'right' : 'left', ms = MATE_SPOTS[marked];
     const mk = ms.clone().lerp(V(B0.x, 0, B0.z), 0.16); mk.x += Math.sign(ms.x) * -0.15;
+    useRival(++S.marks);
     rivalM.visible = true; rivalM.position.copy(mk); rivalM.rotation.set(0, Math.atan2(B0.x - mk.x, B0.z - mk.z), 0);
     rival.snap('idle', { from: 1.1 }); rivalFeet.reset();
     P.marker = mk.clone(); markRing.position.set(mk.x, 0.02, mk.z); markRing.visible = true;
@@ -773,7 +822,7 @@ export function createMatch(env) {
     setPhase('resolved');
     on.result({ kind: 'lost', by: 'us', marked: P.side !== P.open });
     if (P.side !== P.open) { // the marker cuts it out and clears it back up the pitch
-      sfx('kick', 0.6); sfx('crowd_cheer', 0.5); fansCheer('them');
+      sfx('kick', 0.6); sfx('crowd_cheer', 0.5); fansCheer('them', 0.5);
       P.loose = V((Math.random() - 0.5) * 3, 2.4, -7);
     } else { // overhit: past the mate toward the touchline
       sfx('crowd_groan', 0.6);
@@ -791,6 +840,7 @@ export function createMatch(env) {
     Object.assign(D, { active: true, t: 0, s, lane: (Math.random() - 0.5) * 0.8, speed: RUN_SPEED, z: DEF_Z - ATT_START - 0.9 * RUN_SPEED, x: 0, dip: 0, cut: 0, cutDir: s, tapped: false, side: 0, timing: 0, result: null, after: null, skip: m.skip, phase: 'approach', slideT: -1, past: false, shotQueued: false, touchPhase: 0, contact: false, hurdle: false, yaw: 0, hurdleT: -1, cutT: 0, brake: undefined, free: false, bvel: null, kick: null, shooting: false, slide: null, shot: null, reverse: false, revCam: false, vel: null, ballV: null });
     D.x = D.lane;
     heroM.position.set(0, 0, DEF_Z); heroM.rotation.set(0, Math.PI, 0); hero.snap('jockey', { from: 0 });
+    useRival(S.defenses++);
     rivalM.visible = true; rivalM.position.set(D.x, 0, D.z); rivalM.rotation.set(0, 0, 0); rival.snap('run', { speed: RIVAL_RUN, from: rivalRun.touchT });
     ballHolder.position.set(D.x + 0.1, BALL_R, D.z + 0.6);
     keeper.reset(0, GOAL_Z - 0.35, V(0, 0, 0));
@@ -902,11 +952,11 @@ export function createMatch(env) {
     if (D.result === 'beaten' && D.side === D.s && !D.hurdle && d < 1.2) { D.hurdle = true; D.hurdleT = 0; rival.play('hurdle', { fade: 0.1, loop: false, speed: 1.5, from: HURDLE_OFF }); later((HURDLE_LAND - HURDLE_OFF) / 1.5, () => rival.play('run', { fade: 0.15, speed: RIVAL_RUN, from: (rivalRun.touchT + D.touchPhase * 2 * rivalRun.dur) % rivalRun.dur }), true); }
     if (D.past && !D.shotQueued && D.z > GOAL_Z - 8.6) { D.shotQueued = true; rivalShot(); }
     // cue ring over the dropping shoulder
-    const sh = rival.model.getObjectByName(D.s > 0 ? 'LeftArm' : 'RightArm');
+    const sh = bone(rivalM, D.s > 0 ? 'LeftArm' : 'RightArm');
     if (sh) { sh.getWorldPosition(cue.position); cue.material.opacity = D.tapped ? 0 : D.dip * 0.9 * (0.75 + 0.25 * Math.sin(D.t * 12)); }
     // camera: behind the defender, then with the forward
     // beaten: the moment the forward is about to leave the shot, cut to the reverse angle behind him
-    if (D.result === 'beaten' && !D.revCam) { const p = rivalM.getObjectByName('Hips').getWorldPosition(camAvoid).project(camera); if (Math.abs(p.x) > 0.75 || p.z > 1) D.revCam = D.reverse = true; }
+    if (D.result === 'beaten' && !D.revCam) { const p = bone(rivalM, 'Hips').getWorldPosition(camAvoid).project(camera); if (Math.abs(p.x) > 0.75 || p.z > 1) D.revCam = D.reverse = true; }
     if (D.contact) camTo(V(D.side * 2.6, 2.3, DEF_Z + 3.6), V(heroM.position.x * 0.5, 0.5, DEF_Z - 1.5), 1.8);
     else if (!D.revCam && !D.shooting) { const cz = Math.max(heroM.position.z, DEF_Z) + 4.0; camTo(V(0.35 + D.x * 0.2, 2.05, cz), V(D.x * 0.5, 0.55, D.z + 1.5), D.tapped ? 3 : 2.2); }
     else if (D.revCam && !D.shooting) {
@@ -917,12 +967,12 @@ export function createMatch(env) {
   }
   // the defender's body on the ground plane (follows the slide), and the push that keeps the
   // forward outside it; legs are skipped while he hurdles them
-  function heroBody() { const h = heroM.getObjectByName('Hips').getWorldPosition(V()); return { x: h.x, z: h.z }; }
+  function heroBody() { const h = bone(heroM, 'Hips').getWorldPosition(tmp3); return { x: h.x, z: h.z }; }
   const BODY = [['Hips', 0.68], ['Spine02', 0.66], ['Head', 0.55]], LEGS = [['LeftLeg', 0.5], ['RightLeg', 0.5], ['LeftFoot', 0.46], ['RightFoot', 0.46]];
   function separate() {
     const air = D.hurdleT >= 0 && D.hurdleT < 0.5;
     for (const [n, r] of air ? BODY : BODY.concat(LEGS)) {
-      const p = heroM.getObjectByName(n).getWorldPosition(V());
+      const p = bone(heroM, n).getWorldPosition(tmp3);
       const dx = D.x - p.x, dz = D.z - p.z;
       if (dx * dx + dz * dz >= r * r) continue;
       // slide sideways to the edge (keeps his run line), toward the side he is already on
@@ -933,7 +983,7 @@ export function createMatch(env) {
   // pose layer for the forward: shoulder drop (after the mixer)
   function poseRival() {
     if (!D.active || !rivalM.visible || D.dip <= 0) return;
-    const b = (n) => rivalM.getObjectByName(n);
+    const b = (n) => bone(rivalM, n);
     const fwd = V(0, 0, 1).applyQuaternion(rivalM.quaternion);
     const a = D.dip * 0.32 * D.s;   // + s drops toward +x
     rotateWorld(b('Spine01'), fwd, -a * 0.6); rotateWorld(b('Spine'), fwd, -a * 0.5); rotateWorld(b('neck'), fwd, a * 0.5);
@@ -941,7 +991,7 @@ export function createMatch(env) {
   function defenseStopped() {
     setPhase('resolved');
     on.result({ kind: 'stopped', by: 'us' });
-    sfx('crowd_cheer', 0.7); fansCheer('us');
+    sfx('crowd_cheer', 0.7); fansCheer('us', 0.8);
     later(2.6, done);
   }
   function rivalShot() {
@@ -972,7 +1022,7 @@ export function createMatch(env) {
   }
 
   // -------------------------------------------------------------- per-frame
-  const tmp = V(), tmp2 = V();
+  const tmp = V(), tmp2 = V(), tmp3 = V();
   function bez(u, out) { const a = 1 - u; return out.set(0, 0, 0).addScaledVector(flight.p0, a * a).addScaledVector(flight.c, 2 * a * u).addScaledVector(flight.p1, u * u); }
   function bezD(u, out) { return out.copy(flight.c).sub(flight.p0).multiplyScalar(2 * (1 - u)).addScaledVector(tmp2.copy(flight.p1).sub(flight.c), 2 * u); }
 
@@ -1047,9 +1097,25 @@ export function createMatch(env) {
   function frame() {
     if (disposed) return;
     raf = requestAnimationFrame(frame);
-    const rdt = Math.min(clock.getDelta(), 1 / 20);
+    const raw = clock.getDelta(), rdt = Math.min(raw, 1 / 20);
     if (paused) return;
-    step(rdt); composer.render();
+    step(rdt); renderer.info.reset(); composer.render();
+    govern(raw);
+  }
+  // Quality governor: a phone that keeps missing frames draws fewer pixels, then drops the
+  // bloom. Only ever steps down, so it cannot flicker between two levels.
+  const gov = { t: 0, n: 0, wait: 2 };
+  function govern(raw) {
+    if (raw > 0.25 || cut.dir) return;                 // a background tab or a TV cut is not the phone being slow
+    if ((gov.wait -= raw) > 0) return;
+    gov.t += raw; gov.n++;
+    if (gov.n < 90) return;
+    const avg = gov.t / gov.n; gov.t = 0; gov.n = 0;
+    if (avg < 1 / 45) return;
+    if (quality < QUALITY.length - 1) { quality++; renderer.setPixelRatio(QUALITY[quality]); composer.setPixelRatio(QUALITY[quality]); resize(); }
+    else if (bloom.enabled) bloom.enabled = false;
+    else return;
+    gov.wait = 1.5;
   }
   function step(rdt) {
     simTime += rdt; const time = simTime;
@@ -1067,7 +1133,7 @@ export function createMatch(env) {
     for (const x of mates) if (x.m.visible) x.a.update(dt);
     for (const x of wall) if (x.m.visible) x.a.update(dt);
     for (const f of fans) f.a.update(dt);
-    fansCalm();
+    fansCalm(); stands.update(dt, worldTime);
     updateKick(dt); updateDefense(dt); updatePass(dt); poseRival();
     if (S.phase === 'pass') on.ring(tri(P.t, PASS_PERIOD));
     keeper.update(dt, time, flight.active ? ballHolder.position : null);
@@ -1090,7 +1156,7 @@ export function createMatch(env) {
     camPos.lerp(camTarget.pos, k); camLook.lerp(camTarget.look, k);
     // the camera never passes through a player: it slides round him
     for (const m of [heroM, rivalM, ...mates.map((x) => x.m)]) if (m.visible) {
-      const h = m.getObjectByName('Hips').getWorldPosition(camAvoid), dx = camPos.x - h.x, dz = camPos.z - h.z, d = Math.hypot(dx, dz);
+      const h = bone(m, 'Hips').getWorldPosition(camAvoid), dx = camPos.x - h.x, dz = camPos.z - h.z, d = Math.hypot(dx, dz);
       if (camPos.y < 2.1 && d < CAM_CLEAR && d > 1e-4) { camPos.x = h.x + (dx * CAM_CLEAR) / d; camPos.z = h.z + (dz * CAM_CLEAR) / d; }
       // chasing the ball past the striker: go over his shoulder, not past his ear
       if (flight.active && !flight.resolved && d < 2.6) camPos.y = Math.max(camPos.y, 1.55 + (1 - Math.max(d, CAM_CLEAR) / 2.6) * 1.2);
@@ -1109,8 +1175,26 @@ export function createMatch(env) {
   ro?.observe(host);
 
   // pre-match scenery: keeper in goal, our player by the ball, the camera circling
-  shot.B0.set(0, BALL_R, 0); ballHolder.position.copy(shot.B0); heroM.position.set(0.6, 0, -1.8); heroM.rotation.set(0, 0, 0); hero.snap('idle'); rivalM.visible = false; keeper.reset(0, GOAL_Z - 0.35, shot.B0);
-  frame();
+  shot.B0.set(0, BALL_R, 0); ballHolder.position.copy(shot.B0); heroM.position.set(0.6, 0, -1.8); heroM.rotation.set(0, 0, 0); hero.snap('idle'); keeper.reset(0, GOAL_Z - 0.35, shot.B0);
+
+  // Warm-up, behind the loading screen: compile every shader and upload every texture now,
+  // with whatever only shows up later (teammates, the wall, rings, the reticle) switched on,
+  // so the first pass moment or the first goal does not stall a frame to do it. The
+  // shaders compile in parallel where the browser can (KHR_parallel_shader_compile), so the
+  // page keeps drawing the loading bar meanwhile.
+  // Shaders depend on the render target (the composer's has no tone mapping), so they are
+  // compiled against it; the first frame also draws what is outside the camera's view.
+  const hidden = [], culled = [];
+  scene.traverse((o) => { if (!o.visible) { hidden.push(o); o.visible = true; } if (o.frustumCulled) { culled.push(o); o.frustumCulled = false; } });
+  renderer.setRenderTarget(composer.readBuffer);
+  const compiling = renderer.extensions.has('KHR_parallel_shader_compile') ? renderer.compileAsync(scene, camera) : Promise.resolve(renderer.compile(scene, camera));
+  renderer.setRenderTarget(null);
+  const ready = compiling.catch(() => {}).then(() => {
+    if (disposed) return;
+    composer.render();   // shadow and post-processing shaders, texture uploads
+    hidden.forEach((o) => (o.visible = false)); culled.forEach((o) => (o.frustumCulled = true)); rivalM.visible = false;
+    clock.getDelta(); frame();
+  });
 
   return {
     /** Sets up a moment: { kind, attackSide?, openSide?, skip? }. The first one opens without a cut. */
@@ -1125,8 +1209,12 @@ export function createMatch(env) {
     tackle,
     passTo,
     setPaused(p) { paused = !!p; if (!paused) clock.getDelta(); },
+    /** Resolves once every shader is compiled and the scene is drawing. */
+    ready,
     /** Test hook: steps the game clock by `sec` at 60 fps and draws once. */
-    sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); composer.render(); },
+    sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); renderer.info.reset(); composer.render(); },
+    /** Test hook: what the last frame drew. */
+    stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, programs: renderer.info.programs.length, textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries }),
     dispose() {
       disposed = true; cancelAnimationFrame(raf); ro?.disconnect();
       canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);

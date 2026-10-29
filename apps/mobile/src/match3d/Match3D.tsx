@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audio.ts';
 import { crestCode } from '../game/career.ts';
-import { DEFAULT_CHARACTER, HERO_MODEL, jerseyTint, STARTERS, type Hero } from '../game/character.ts';
+import { DEFAULT_CHARACTER, HERO_MODEL, JERSEYS, jerseyTint, STARTERS, type Hero } from '../game/character.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { AssistToggle } from '../ui/AssistToggle.tsx';
@@ -40,9 +40,11 @@ const MODELS = {
 
 /** Our two teammates in pass moments: the starters the player did not pick. */
 const matesOf = (hero: Hero) => STARTERS.filter(h => h !== hero).slice(0, 2);
+/** Their players besides rival.glb: the models nobody on our side wears (in their kit), so no two look alike. */
+const oppsOf = (hero: Hero) => ([...STARTERS, 'pro'] as Hero[]).filter(h => h !== hero && !matesOf(hero).includes(h)).slice(0, 2);
 
 /** Every file the 3D match loads, so the hub can fetch them before kick-off. */
-export const matchModels = (hero: Hero) => [HERO_MODEL[hero], ...matesOf(hero).map(h => HERO_MODEL[h]), ...Object.values(MODELS)];
+export const matchModels = (hero: Hero) => [HERO_MODEL[hero], ...matesOf(hero).map(h => HERO_MODEL[h]), ...oppsOf(hero).map(h => HERO_MODEL[h]), ...Object.values(MODELS)];
 
 /** Can stands on the left, Mert on the right, as in the 2D match. */
 const NAME: Record<Side, string> = { left: 'Can', right: 'Mert' };
@@ -212,6 +214,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       const files: [string, number][] = [
         ['hero', HERO_MODEL[ch.hero]],
         ...matesOf(ch.hero).map((h, i): [string, number] => [`mate${i}`, HERO_MODEL[h]]),
+        ...oppsOf(ch.hero).map((h, i): [string, number] => [`opp${i}`, HERO_MODEL[h]]),
         ...Object.entries(MODELS),
       ];
       let n = 0;
@@ -222,13 +225,16 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       ]);
       if (cancelled) return;
       const byKey = Object.fromEntries(parsed) as Record<string, Gltf>;
-      const G = { ...byKey, mates: [byKey.mate0!, byKey.mate1!].filter(Boolean) } as MatchEnv['G'];
+      const G = { ...byKey, mates: [byKey.mate0!, byKey.mate1!].filter(Boolean), opps: [byKey.opp0!, byKey.opp1!].filter(Boolean) } as MatchEnv['G'];
       const tint = jerseyTint(ch.jersey);
       const kind = s.match?.kind;
       const board = (kind === 'league' ? s.career?.contract?.clubName : s.mahalle?.name) ?? t('club.home');
+      const away = s.match?.opponentName;
       sc = createMatch({
         host: el, G, board: board.toLocaleUpperCase('tr'),
-        tint: (root) => tinter(root, tint),
+        kit: JERSEYS.find(j => j.key === ch.jersey)?.color ?? colors.l600,
+        away: away ? away.toLocaleUpperCase('tr') : undefined,
+        tint: (root, t) => tinter(root, t === undefined ? tint : t),
         sfx: (id, gain) => sfx(id, gain),
         on: {
           phase: setPhase,
@@ -245,6 +251,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       });
       scene.current = sc;
       (window as unknown as { __match3d?: MatchScene }).__match3d = sc; // test hook (sim)
+      // The loading bar stays up while the shaders compile, so no frame stalls mid-match.
+      await sc.ready;
+      if (cancelled) return;
       setReady(true);
       begin();
     })().catch((e: unknown) => { if (!cancelled) onFail(e); });

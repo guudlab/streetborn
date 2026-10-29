@@ -27,7 +27,9 @@ export const SFX = {
 export const LOOPS = {
   menu: { src: require('../../assets/audio/menu_loop.m4a'), gain: 0.45 },
   match: { src: require('../../assets/audio/match_loop.m4a'), gain: 0.32 },
-  crowd: { src: require('../../assets/audio/crowd_loop.m4a'), gain: 0.4 },
+  // The stand chant from the trailer (fragman/ses/tribun-tezahurat-2.mp3), cut into a seamless
+  // 9.9 s loop; crowd_loop.m4a is the older synthesized bed.
+  crowd: { src: require('../../assets/audio/crowd_chant.m4a'), gain: 0.42 },
 } as const;
 
 export type SfxId = keyof typeof SFX;
