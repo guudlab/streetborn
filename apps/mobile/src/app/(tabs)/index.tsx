@@ -21,6 +21,7 @@ import { toast } from '../../ui/overlay.tsx';
 import { ProfileButton, SoundButton } from '../../ui/settings.tsx';
 import { Skeleton } from '../../ui/motion.tsx';
 import { FormStrip, useKariyerNews } from '../../ui/kariyer.tsx';
+import { PhoneRow } from '../../ui/telefon.tsx';
 import { t } from '../../i18n/index.ts';
 import { matchModels } from '../../match3d/Match3D.tsx';
 
@@ -94,6 +95,7 @@ export default function Hub() {
 
   const contract = online && g.career?.contract?.active ? g.career.contract : null;
   const duel = online ? g.kariyer?.duel : undefined;
+  const phone = online && g.kariyer?.phone && g.kariyer.phone.answer === null ? g.kariyer.phone : null;
   const offers = online ? (g.career?.offers.filter(o => o.status !== 'trial_failed').length ?? 0) : showOffers ? 2 : 0;
 
   return (
@@ -121,8 +123,9 @@ export default function Hub() {
           style={{ flex: 1 }} label={t('hub.heroLabel', { name: g.name })}
         />
 
-        <View pointerEvents="none" style={{ position: 'absolute', left: 16, right: 76, top: 14 }}>
-          <Bubble text={line} size={36} />
+        {/* A waiting phone message takes Burak abi's place; answered, his line comes back. */}
+        <View pointerEvents={phone ? 'box-none' : 'none'} style={{ position: 'absolute', left: 16, right: 76, top: 14 }}>
+          {phone ? <PhoneRow p={phone} /> : <Bubble text={line} size={36} />}
         </View>
         <View style={{ position: 'absolute', right: 16, top: 14, gap: 10 }}><ProfileButton /><SoundButton /></View>
         <Pressable

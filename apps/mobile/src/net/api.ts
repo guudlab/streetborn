@@ -300,9 +300,14 @@ export interface Kariyer {
   achievements: AchievementView[];
   unlocked: { key: string; coin: number }[];
   totals: { matches: number; goals: number; assists: number };
+  /** The day's phone event; missing from older servers. */
+  phone?: PhoneView | null;
 }
+export interface PhoneFx { morale: number; respect: number; trust: number; coin: number }
+export interface PhoneView { day: string; key: string; from: string; a: PhoneFx; b: PhoneFx; answer: 0 | 1 | null }
 export const kariyerDurum = () => call<Kariyer>('oyuncu', { action: 'durum' });
 export const kariyerSec = (choice: Choice) => call<{ ok: true }>('oyuncu', { action: 'sec', choice });
+export const kariyerTelefon = (key: string, answer: 0 | 1) => call<{ ok: true }>('oyuncu', { action: 'telefon', key, answer });
 export const kariyerMasaj = () => call<{ ok: true; coin: number }>('oyuncu', { action: 'masaj' });
 
 /** Deletes the account and all its game data on the server. Cannot be undone. */
