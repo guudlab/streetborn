@@ -86,8 +86,8 @@ export const Teneke = forwardRef<DrillGameHandle, DrillGameProps>(function Tenek
     setHit(r.hit);
     fly.setValue(0);
     Animated.timing(fly, { toValue: 1, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => {
-      if (r.hit.hit !== null) { sfx('post'); buzz('medium'); }
-      else if (r.hit.window) { sfx('error'); buzz('medium'); setFlash(t('talim.window')); }
+      if (r.hit.hit !== null) { sfx('can_hit'); buzz('medium'); }
+      else if (r.hit.window) { sfx('glass_crack'); buzz('medium'); setFlash(t('talim.window')); }
       setState(r.state);
       live.current.onScore(r.state.down.filter(Boolean).length);
       setTimeout(() => {
@@ -106,6 +106,7 @@ export const Teneke = forwardRef<DrillGameHandle, DrillGameProps>(function Tenek
     onPanResponderGrant: () => {
       live.current.holdStart = Date.now();
       live.current.aim = { ...live.current.ball };
+      sfx('sling_pull');
       setFlash(null);
       setAim(live.current.aim);
     },

@@ -32,6 +32,8 @@ export const DuvarPasi = forwardRef<DrillGameHandle, DrillGameProps>(function Du
   const [flash, setFlash] = useState<{ text: string; side: 0 | 1; color: string } | null>(null);
   const taps = useRef<Tap[]>([]);
   const missAt = useRef(0);
+  /** The beat whose wall bounce was last heard. */
+  const thud = useRef(0);
   // Taps can come faster than renders: the logic reads these.
   const live = useRef({ idx: 0, score: 0, over: false });
 
@@ -46,10 +48,14 @@ export const DuvarPasi = forwardRef<DrillGameHandle, DrillGameProps>(function Du
     setTimeout(() => onDone(taps.current), 900);
   };
 
-  // A beat left alone is a miss too.
+  // The ball hits the garage door halfway to the next beat; a beat left alone is a miss.
   useEffect(() => {
     const { idx: i, over: done } = live.current;
     if (!running || done || i >= beats.length) return;
+    if (i > 0 && thud.current !== i && now >= (beats[i - 1]!.t + beats[i]!.t) / 2) {
+      thud.current = i;
+      sfx('wall_thud');
+    }
     if (now > beats[i]!.t + good) {
       setFlash({ text: t('talim.miss'), side: beats[i]!.s, color: colors.bad });
       end('miss');

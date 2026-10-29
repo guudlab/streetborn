@@ -4,6 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sfx } from '../../audio/audio.ts';
+import type { SfxId } from '../../audio/sounds.ts';
 import { useGame } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
@@ -42,14 +43,14 @@ function buyWithGems(id: string, name: string, price: number) {
   );
 }
 
-function buy(name: string, price: string) {
+function buy(name: string, price: string, sound: SfxId = 'coin') {
   openSheet(
     <>
       <H3>{name}</H3>
       <SheetText>{t('shop.priceLabel')}<T w={600} color={colors.g100}>{price}</T>{t('shop.priceTail')}</SheetText>
       <Cta onPress={() => {
         openSheet(<><H3>{t('shop.waiting')}</H3><Spinner /><SheetText>{t('shop.waitingStore')}</SheetText></>);
-        setTimeout(() => { sfx('coin'); openSheet(
+        setTimeout(() => { sfx(sound); openSheet(
           <>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}><Icon name="check" color={colors.l600} /><H3 color={colors.l600}>{t('shop.done')}</H3></View>
             <SheetText>{t('shop.prototype')}</SheetText>
@@ -257,7 +258,7 @@ export default function Dukkan() {
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {GEM_PACKS.map(([n, pk, size]) => (
-          <Tile key={n} label={t('shop.gemPackA11y', { n, price: t(pk) })} onPress={() => buy(t('shop.gemPack', { n }), t(pk))} style={{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }}>
+          <Tile key={n} label={t('shop.gemPackA11y', { n, price: t(pk) })} onPress={() => buy(t('shop.gemPack', { n }), t(pk), 'gem_sparkle')} style={{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
             <T w={700} size={18}>{n}</T>
             <T w={600} size={12} color={colors.g200}>{t(pk)}</T>

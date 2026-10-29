@@ -37,7 +37,7 @@ export default function MacSonu() {
     sfx(r.result === 'L' ? 'defeat_sting' : 'victory_sting');
     (async () => {
       await wait(250); if (!live) return; setStep(1);
-      await wait(800); if (!live) return; sfx('coin'); setStep(2);
+      await wait(800); if (!live) return; if (r.coins > 0) sfx('coin_count'); setStep(2);
       await wait(700); if (!live) return; buzz(); sfx('tab'); setStep(3);
       if (r.ups) { await wait(900); if (!live) return; buzz('success'); sfx('levelup'); setStep(4); }
       await wait(250); if (!live) return; setStep(5);

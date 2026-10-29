@@ -33,7 +33,7 @@ function useEnergyActions(onDone?: () => void) {
     refillOff: busy || gems < cost || energy >= energyMax || refillsLeft <= 0,
     watchAd() {
       openSheet(<><H3>{t('energy.adPlaying')}</H3><Spinner /><SheetText>{t('energy.adPlaceholder')}</SheetText></>);
-      setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) { toast(t('energy.plusOne')); sfx('unlock'); } onDone?.(); }, 2000);
+      setTimeout(() => { closeSheet(); if (useGame.getState().watchAd()) { toast(t('energy.plusOne')); sfx('energy_charge'); } onDone?.(); }, 2000);
     },
     refill() {
       // The bar fills at once (see gemRefill); only a refusal from the server comes back.
@@ -42,7 +42,7 @@ function useEnergyActions(onDone?: () => void) {
         setBusy(false);
         if (r !== 'ok') toast(t(REFILL_ERROR[r]));
       });
-      toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock');
+      toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('energy_charge');
       closeSheet(); onDone?.();
     },
   };

@@ -40,12 +40,12 @@ export const BakkalaKos = forwardRef<DrillGameHandle, DrillGameProps>(function B
     if (!running || run.over) return;
     const next = kosAdvance(obstacles, moves.current, run, now);
     if (next.next === run.next) return;
-    if (next.hits > run.hits) { sfx('error'); buzz('medium'); shake.shake(); setFlash(t('talim.bump')); setTimeout(() => setFlash(null), 600); }
+    if (next.hits > run.hits) { sfx('crate_bump'); buzz('medium'); shake.shake(); setFlash(t('talim.bump')); setTimeout(() => setFlash(null), 600); }
     if (next.passed > run.passed) onScore(next.passed);
     setRun(next);
     if (next.over && !done.current) {
       done.current = true;
-      if (next.hits < KOS_LIVES) sfx('unlock');
+      if (next.hits < KOS_LIVES) sfx('shop_bell');
       setTimeout(() => onDone(moves.current), 800);
     }
   }, [now]);
@@ -53,7 +53,9 @@ export const BakkalaKos = forwardRef<DrillGameHandle, DrillGameProps>(function B
   const move = (d: -1 | 1) => {
     if (!running || done.current) return;
     moves.current.push({ t: at(), d });
-    lane.current = Math.max(0, Math.min(KOS_LANES - 1, lane.current + d));
+    const to = Math.max(0, Math.min(KOS_LANES - 1, lane.current + d));
+    if (to !== lane.current) sfx('lane_whoosh');
+    lane.current = to;
     Animated.timing(laneX, { toValue: lane.current, duration: KOS_SWITCH_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
   };
 
