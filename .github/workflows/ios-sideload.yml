@@ -23,6 +23,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Bundle the 3D match for the WebView
+        run: npm run build:match-webview --workspace apps/mobile
       - name: Generate the native iOS project (not committed)
         working-directory: apps/mobile
         run: npx expo prebuild -p ios

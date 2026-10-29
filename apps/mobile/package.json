@@ -32,6 +32,7 @@
     "react-native-screens": "~4.30.0",
     "react-native-svg": "15.16.0",
     "react-native-web": "~0.21.4",
+    "react-native-webview": "14.0.1",
     "react-native-worklets": "^0.13.0",
     "three": "^0.170.0",
     "zustand": "^5.0.15"
@@ -39,15 +40,20 @@
   "devDependencies": {
     "@types/react": "~19.3.0",
     "@types/three": "^0.170.0",
+    "esbuild": "^0.28.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "build:match-webview": "node scripts/build-match-webview.mjs",
+    "prestart": "npm run build:match-webview",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "build:web": "expo export -p web"
+    "build:web": "expo export -p web",
+    "preandroid": "npm run build:match-webview",
+    "preios": "npm run build:match-webview"
   },
   "private": true
 }
