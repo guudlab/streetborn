@@ -1,11 +1,12 @@
 // The player's own shop actions: `refill` fills energy for gems (twice a day),
-// `buy` buys a catalog item at its catalog price, `equip` wears or takes off an
-// owned item. Prices and limits come from the server; the client sends none.
+// `buy` buys a catalog item at its catalog price, `boots` buys a pair of krampon
+// at its config price (coin only, from its unlock level), `equip` wears or takes
+// off an owned item. Prices and limits come from the server; the client sends none.
 import { currentEnergy } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
 import { admin, loadEconomyConfig, requirePlayer } from '../_shared/supabase.ts';
 
-const SQL_ERRORS: Record<string, number> = { limit: 429, no_gem: 402, no_coin: 402, owned: 409, not_for_sale: 404, not_owned: 404 };
+const SQL_ERRORS: Record<string, number> = { limit: 429, no_gem: 402, no_coin: 402, owned: 409, not_for_sale: 404, not_owned: 404, locked: 403 };
 const ITEM = /^[a-z0-9_]{1,40}$/;
 
 function fail(error: { message: string; code?: string } | null) {
@@ -44,6 +45,16 @@ Deno.serve(handle(async (req) => {
 
   if (body.action === 'buy') {
     const { data, error } = await admin.rpc('buy_item', { p_player: playerId, p_item: itemId });
+    fail(error);
+    return json(data);
+  }
+
+  if (body.action === 'boots') {
+    const boots = (await loadEconomyConfig()).training.boots.find((b) => b.id === itemId);
+    if (!boots) throw new HttpError(404, 'not_for_sale');
+    const { data, error } = await admin.rpc('buy_boots', {
+      p_player: playerId, p_item: itemId, p_price: boots.price, p_uses: boots.uses, p_min_level: boots.unlockLevel,
+    });
     fail(error);
     return json(data);
   }

@@ -440,3 +440,85 @@ do $$ declare p uuid := '00000000-0000-0000-0000-000000000950'; coin0 bigint; be
   raise notice 'first jobs: ok';
 end $$;
 reset role;
+
+-- Mini game drills: a session spends the drill at start, finishes once, keeps the record.
+insert into auth.users values ('00000000-0000-0000-0000-000000000960');
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000960'; w record; s1 bigint; s2 bigint; s3 bigint; r jsonb; begin
+  select * into w from wallets where player_id = p;
+  s1 := start_drill(p, 'shooting', 'free', 1, 11, 0::smallint, w.version, w.energy, w.energy_updated_at);
+  begin perform start_drill(p, 'passing', 'free', 1, 12, 0::smallint, w.version, w.energy, w.energy_updated_at); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'limit' then raise; end if; end;
+  begin perform start_drill(p, 'passing', 'energy', null, 12, 0::smallint, w.version + 5, 4::smallint, now()); raise exception 'should have failed';
+  exception when serialization_failure then null; end;
+  s2 := start_drill(p, 'passing', 'energy', null, 12, 0::smallint, w.version, (w.energy - 1)::smallint, now());
+  if (select energy from wallets where player_id = p) <> w.energy - 1 then raise exception 'drill energy not spent'; end if;
+
+  r := finish_drill(p, s1, 6, 3::smallint, 'perfect', 40::smallint, 0::smallint, 40::smallint, 2::smallint, 2::smallint, 30, 1, null, null, 0::smallint);
+  if r <> '{"best": 6, "previous": null}'::jsonb then raise exception 'first record wrong: %', r; end if;
+  begin perform finish_drill(p, s1, 6, 3::smallint, 'perfect', 40::smallint, 2::smallint, 40::smallint, 4::smallint, 2::smallint, 30, 1, null, null, 0::smallint); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'finished' then raise; end if; end;
+  begin perform finish_drill('00000000-0000-0000-0000-000000000950', s2, 1, 0::smallint, 'miss', 40::smallint, 0::smallint, 40::smallint, 0::smallint, 0::smallint, 8, 1, null, null, 0::smallint); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_session' then raise; end if; end;
+  begin perform finish_drill(p, s2, 30, 2::smallint, 'good', 41::smallint, 0::smallint, 41::smallint, 1::smallint, 1::smallint, 20, 1, null, null, 0::smallint); raise exception 'should have failed';
+  exception when serialization_failure then null; end;
+  perform finish_drill(p, s2, 30, 2::smallint, 'good', 40::smallint, 0::smallint, 40::smallint, 1::smallint, 1::smallint, 20, 1, null, null, 0::smallint);
+  if (select ap_shooting from player_stats where player_id = p) <> 2 or (select ap_passing from player_stats where player_id = p) <> 1
+     or (select xp from players where id = p) <> 50 then raise exception 'drill result not applied'; end if;
+
+  select * into w from wallets where player_id = p;
+  s3 := start_drill(p, 'shooting', 'energy', null, 13, 1::smallint, w.version, (w.energy - 1)::smallint, now());
+  r := finish_drill(p, s3, 4, 2::smallint, 'good', 40::smallint, 2::smallint, 41::smallint, 0::smallint, 1::smallint, 20, 1, null, null, 0::smallint);
+  if r <> '{"best": 6, "previous": 6}'::jsonb or (select best from drill_records where player_id = p and stat = 'shooting') <> 6 then raise exception 'record lowered: %', r; end if;
+  if (select score from training_log where id = s3) <> 4 or (select stars from training_log where id = s3) <> 2 or (select finished_at from training_log where id = s3) is null then
+    raise exception 'drill session not closed';
+  end if;
+  raise notice 'drills: ok';
+
+  -- Boots: level gate, coin, one pair per tier until it wears out, worn by finish_drill.
+  begin perform buy_boots(p, 'krampon_mahalle', 500, 25::smallint, 3); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'locked' then raise; end if; end;
+  update players set level = 3 where id = p;
+  begin perform buy_boots(p, 'krampon_mahalle', 500, 25::smallint, 3); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_coin' then raise; end if; end;
+  begin perform buy_boots(p, 'forma_sonbahar', 1, 25::smallint, 1); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  begin perform buy_item(p, 'krampon_mahalle'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  perform grant_currency(p, 'coin', 1100, 'test', 'x', 'test:boots');
+  r := buy_boots(p, 'krampon_mahalle', 500, 2::smallint, 3);
+  if r->>'balance' <> '600' or r->>'usesLeft' <> '2' then raise exception 'buy_boots wrong: %', r; end if;
+  if (select source from inventory where player_id = p and item_id = 'krampon_mahalle') <> 'coin' then raise exception 'boots source not coin'; end if;
+  begin perform buy_boots(p, 'krampon_mahalle', 500, 2::smallint, 3); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'owned' then raise; end if; end;
+
+  select * into w from wallets where player_id = p;
+  s1 := start_drill(p, 'pace', 'energy', null, 14, 0::smallint, w.version, (w.energy - 1)::smallint, now());
+  begin perform finish_drill(p, s1, 24, 3::smallint, 'perfect', 40::smallint, 0::smallint, 41::smallint, 0::smallint, 3::smallint, 30, 3, 'krampon_mahalle', 5::smallint, 1::smallint); raise exception 'should have failed';
+  exception when serialization_failure then null; end;
+  perform finish_drill(p, s1, 24, 3::smallint, 'perfect', 40::smallint, 0::smallint, 41::smallint, 0::smallint, 3::smallint, 30, 3, 'krampon_mahalle', 2::smallint, 1::smallint);
+  if (select uses_left from inventory where player_id = p and item_id = 'krampon_mahalle') <> 1 or (select boot_ap from training_log where id = s1) <> 1 then
+    raise exception 'boots not worn';
+  end if;
+  update inventory set uses_left = 0 where player_id = p and item_id = 'krampon_mahalle';
+  r := buy_boots(p, 'krampon_mahalle', 500, 25::smallint, 3);
+  if r->>'balance' <> '100' or (select uses_left from inventory where player_id = p and item_id = 'krampon_mahalle') <> 25 then raise exception 'boots rebuy wrong: %', r; end if;
+  if (select count(*) from ledger where player_id = p and reason = 'boots') <> 2 then raise exception 'boots ledger wrong'; end if;
+  raise notice 'boots: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000960';
+do $$ declare r jsonb := antrenman_bugun(); d jsonb := dukkan_bugun(); begin
+  if (r->>'free')::int <> 1 or (r->>'energy')::int <> 3 or r->'stars' <> '{"shooting": 3, "passing": 2, "pace": 3}'::jsonb
+     or r->'records' <> '{"shooting": 6, "passing": 30, "pace": 24}'::jsonb or r->'boots' <> '{"id": "krampon_mahalle", "usesLeft": 25}'::jsonb then
+    raise exception 'antrenman_bugun wrong: %', r;
+  end if;
+  if d->'items'->0->>'usesLeft' <> '25' then raise exception 'dukkan_bugun boots wrong: %', d; end if;
+  if (select count(*) from drill_records) <> 0 or (select count(*) from training_log) <> 0 then raise exception 'RLS leak: drill tables readable'; end if;
+  begin perform start_drill('00000000-0000-0000-0000-000000000960', 'pace', 'free', 3, 1, 0::smallint, 0, 0::smallint, now()); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform buy_boots('00000000-0000-0000-0000-000000000960', 'krampon_pro', 0, 150::smallint, 1); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'drill rls: ok';
+end $$;
+reset role;

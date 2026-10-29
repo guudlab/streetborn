@@ -9,7 +9,6 @@ import {
   apNeed,
   applyAp,
   drillGain,
-  drillGrade,
   privateCost,
   statCap,
   checkName,
@@ -296,12 +295,10 @@ describe('training', () => {
     expect([45, 55, 60, 65].map((s) => privateCost(s, tc))).toEqual([140, 220, 260, 300]);
   });
 
-  it('grades drills and ignores implausibly fast ones', () => {
-    expect(drillGrade(90, 2000, tc)).toBe('perfect');
-    expect(drillGrade(60, 2000, tc)).toBe('good');
-    expect(drillGrade(20, 2000, tc)).toBe('miss');
-    expect(drillGrade(100, 100, tc)).toBe('miss');
+  it('pays the grades', () => {
     expect(drillGain('perfect', tc)).toEqual({ ap: 2, xp: 30 });
+    expect(drillGain('good', tc)).toEqual({ ap: 1, xp: 20 });
+    expect(drillGain('miss', tc)).toEqual({ ap: 0, xp: 8 });
   });
 
   it('turns AP into points and holds them at the cap', () => {
