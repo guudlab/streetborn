@@ -12,6 +12,9 @@ import { STAT_NAMES, type DrillGrade, type StatName } from './training.ts';
 // are milliseconds from the moment the game starts.
 
 export type Tier = 0 | 1 | 2;
+/** Every mini game: one per stat, plus omuz oku (defense), which trains no stat (decision 2A). */
+export type DrillName = StatName | 'defense';
+export const DRILL_NAMES: readonly DrillName[] = [...STAT_NAMES, 'defense'];
 
 // ---------------------------------------------------------------------------
 // Teneke devirme: six cans on a crate; aim, then stop the power bar. Field x runs
@@ -291,10 +294,43 @@ export function merdivenScore(_seed: number, tier: Tier, taps: readonly Tap[]): 
 // Shared: inputs, score, stars and the grade that pays the existing AP and XP.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Omuz oku: Kerem runs at you with the ball and drops a shoulder; slide to that
+// side as the ring closes, the match's defense moment. Five reps judged with duvar
+// pası's windows; a miss does not end the run.
+// ---------------------------------------------------------------------------
+
+export const OMUZ_REPS = 5;
+/** A tap this close to a rep is its answer (the first one counts); others are ignored. */
+export const OMUZ_REACH = 500;
+const OMUZ_GAP = [2200, 1900, 1600] as const;
+
+export function omuzReps(seed: number, tier: Tier): Beat[] {
+  const next = rng(`omuz:${seed}`);
+  return Array.from({ length: OMUZ_REPS }, (_, i) => ({ t: 1500 + i * OMUZ_GAP[tier] + next(400), s: next(2) as 0 | 1 }));
+}
+
+/** The first tap near a rep, if any. */
+export const omuzAnswer = (rep: Beat, taps: readonly Tap[]) => taps.find((x) => Math.abs(x.t - rep.t) <= OMUZ_REACH);
+
+/** 2 for a perfect read, 1 for a good one, out of 10. */
+export function omuzScore(seed: number, tier: Tier, taps: readonly Tap[]): number {
+  let score = 0;
+  for (const rep of omuzReps(seed, tier)) {
+    const tap = omuzAnswer(rep, taps);
+    const j = tap ? pasJudge(rep, tap, tier) : 'miss';
+    score += j === 'perfect' ? 2 : j === 'good' ? 1 : 0;
+  }
+  return score;
+}
+
+/** Omuz oku trains no stat, so it gets harder with the level instead. */
+export const defenseTier = (level: number): Tier => (level >= 20 ? 2 : level >= 10 ? 1 : 0);
+
 export type DrillInputs = TenekeShot[] | Tap[] | Move[];
 
-const MAX_INPUTS: Record<StatName, number> = { shooting: TENEKE_BALLS, passing: PAS_BEATS + 8, pace: 200, stamina: 400 };
-const LAST_T: Record<StatName, number> = { shooting: 120_000, passing: 40_000, pace: 30_000, stamina: MERDIVEN_MS + 2000 };
+const MAX_INPUTS: Record<DrillName, number> = { shooting: TENEKE_BALLS, passing: PAS_BEATS + 8, pace: 200, stamina: 400, defense: 40 };
+const LAST_T: Record<DrillName, number> = { shooting: 120_000, passing: 40_000, pace: 30_000, stamina: MERDIVEN_MS + 2000, defense: 20_000 };
 
 const int = (v: unknown, lo: number, hi: number): v is number => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
 
@@ -302,7 +338,7 @@ const int = (v: unknown, lo: number, hi: number): v is number => Number.isIntege
  * Checks the shape of the inputs the app sent for a drill. Times must not go
  * backwards (and teneke shots come one after another). Null when anything is off.
  */
-export function parseDrillInputs(stat: StatName, raw: unknown): DrillInputs | null {
+export function parseDrillInputs(stat: DrillName, raw: unknown): DrillInputs | null {
   if (!Array.isArray(raw) || raw.length > MAX_INPUTS[stat]) return null;
   let last = -1;
   const out: (TenekeShot | Tap | Move)[] = [];
@@ -326,12 +362,13 @@ export function parseDrillInputs(stat: StatName, raw: unknown): DrillInputs | nu
 /** The last input time, for the server's "was there time to play this" check. */
 export const lastInputAt = (inputs: DrillInputs) => (inputs.length ? inputs[inputs.length - 1]!.t : 0);
 
-export function drillScore(stat: StatName, seed: number, tier: Tier, inputs: DrillInputs): number {
+export function drillScore(stat: DrillName, seed: number, tier: Tier, inputs: DrillInputs): number {
   switch (stat) {
     case 'shooting': return tenekeScore(seed, tier, inputs as TenekeShot[]);
     case 'passing': return pasScore(seed, tier, inputs as Tap[]);
     case 'pace': return kosScore(seed, tier, inputs as Move[]);
     case 'stamina': return merdivenScore(seed, tier, inputs as Tap[]);
+    case 'defense': return omuzScore(seed, tier, inputs as Tap[]);
   }
 }
 
@@ -340,7 +377,7 @@ export function drillTier(statValue: number, cfg: TrainingConfig): Tier {
   return statValue >= cfg.drillTierFrom[1] ? 2 : statValue >= cfg.drillTierFrom[0] ? 1 : 0;
 }
 
-export function drillStars(stat: StatName, score: number, cfg: TrainingConfig): 0 | 1 | 2 | 3 {
+export function drillStars(stat: DrillName, score: number, cfg: TrainingConfig): 0 | 1 | 2 | 3 {
   const [one, two, three] = cfg.drillStars[stat];
   return score >= three ? 3 : score >= two ? 2 : score >= one ? 1 : 0;
 }
@@ -352,7 +389,7 @@ export const starsGrade = (stars: number): DrillGrade => (stars >= 3 ? 'perfect'
  * Kerem's best at this drill, the friendly target on the result screen: the
  * 2-star score at level 0, growing to the 3-star score by level 20.
  */
-export function keremRecord(stat: StatName, level: number, cfg: TrainingConfig): number {
+export function keremRecord(stat: DrillName, level: number, cfg: TrainingConfig): number {
   const [, two, three] = cfg.drillStars[stat];
   return two + Math.trunc(((three - two) * Math.min(Math.max(level, 0), 20)) / 20);
 }
@@ -363,3 +400,8 @@ export function keremRecord(stat: StatName, level: number, cfg: TrainingConfig):
  * and, at a club, add coach trust once.
  */
 export const dailyDrill = (day: string): StatName => STAT_NAMES[rng(`gunun-talimi:${day}`)(STAT_NAMES.length)]!;
+
+/** Usta badge a best score has earned: 0 none, 1 bronze, 2 silver, 3 gold. Only for show. */
+export function drillBadge(drill: DrillName, best: number | null | undefined, cfg: TrainingConfig): 0 | 1 | 2 | 3 {
+  return cfg.drillBadges[drill].filter((at) => (best ?? -1) >= at).length as 0 | 1 | 2 | 3;
+}

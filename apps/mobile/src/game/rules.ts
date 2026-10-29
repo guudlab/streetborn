@@ -7,10 +7,12 @@ import { t } from '../i18n/index.ts';
 
 export type StatKey = 'sut' | 'pas' | 'hiz' | 'fizik';
 export type Stats = Record<StatKey, number>;
+/** The mini games: one per stat, plus omuz oku (defense), which trains no stat. */
+export type DrillKey = StatKey | 'omuz';
 
-const drill = (k: StatKey) => ({ stat: t(`drill.${k}.stat`), name: t(`drill.${k}.name`), place: t(`drill.${k}.place`) });
-export const DRILLS: Record<StatKey, { stat: string; name: string; place: string }> = {
-  sut: drill('sut'), pas: drill('pas'), hiz: drill('hiz'), fizik: drill('fizik'),
+const drill = (k: DrillKey) => ({ stat: t(`drill.${k}.stat`), name: t(`drill.${k}.name`), place: t(`drill.${k}.place`) });
+export const DRILLS: Record<DrillKey, { stat: string; name: string; place: string }> = {
+  sut: drill('sut'), pas: drill('pas'), hiz: drill('hiz'), fizik: drill('fizik'), omuz: drill('omuz'),
 };
 
 export interface Offer {

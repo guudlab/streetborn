@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import type { DrillKey } from '../../game/rules.ts';
 import { colors } from '../../theme.ts';
 import { T } from '../kit.tsx';
+import { Ico, type IconAsset } from '../sade.tsx';
 
 // Shared pieces of Burak abi's mini games (talim.tsx). The rules and the scoring
 // live in packages/economy/src/drills.ts, the same code the server runs; these
@@ -95,6 +97,18 @@ export function Flash({ text, color = colors.l600, x, y }: { text: string | null
   return (
     <View pointerEvents="none" style={{ position: 'absolute', left: x - 90, top: y - 14, width: 180, alignItems: 'center' }}>
       <T w={700} size={18} color={color} accessibilityLiveRegion="polite">{text}</T>
+    </View>
+  );
+}
+
+export const DRILL_ICON: Record<DrillKey, IconAsset> = { sut: 'sut', pas: 'pas', hiz: 'hiz', fizik: 'fizik', omuz: 'calim' };
+
+/** Bronze, silver and gold usta badge for a drill record; level 0 is the empty slot. Shows the drill's icon when given. */
+const BADGE_METAL = ['#3A3A3A', '#C98A4B', '#C9CED6', '#F2C94C'] as const;
+export function Badge({ level, size = 28, drill }: { level: 0 | 1 | 2 | 3; size?: number; drill?: DrillKey }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: BADGE_METAL[level], backgroundColor: level ? 'rgba(255,255,255,.06)' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+      {drill ? <Ico name={DRILL_ICON[drill]} size={size * 0.66} dim={!level} /> : <Star size={size * 0.62} on={level > 0} color={BADGE_METAL[level]} />}
     </View>
   );
 }

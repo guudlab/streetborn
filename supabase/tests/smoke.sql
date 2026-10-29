@@ -543,6 +543,26 @@ do $$ declare p uuid := '00000000-0000-0000-0000-000000000962'; s1 bigint; s2 bi
 end $$;
 reset role;
 
+-- Omuz oku moves no stat but keeps stars and the record; three days in a row add a free drill.
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000962'; w record; s1 bigint; r jsonb; before jsonb; begin
+  select to_jsonb(ps) into before from player_stats ps where player_id = p;
+  select * into w from wallets where player_id = p;
+  s1 := start_drill(p, 'defense', 'energy', null, 31, 0::smallint, w.version, (w.energy - 1)::smallint, now());
+  r := finish_drill(p, s1, 9, 3::smallint, 'perfect', null, null, null, null, 0::smallint, 30, 1, null, null, 0::smallint);
+  if r <> '{"best": 9, "previous": null, "trust": 0}'::jsonb or (select to_jsonb(ps) from player_stats ps where player_id = p) <> before
+     or (select stars from training_log where id = s1) <> 3 then
+    raise exception 'defense drill wrong: %', r;
+  end if;
+  if talim_serisi(p, mahalle_today()) then raise exception 'streak without three days'; end if;
+  insert into training_log (player_id, day, kind, stat, ap, xp) select p, mahalle_today() - d, 'free', 'pace', 0, 0 from generate_series(1, 3) d;
+  if not talim_serisi(p, mahalle_today()) then raise exception 'three days in a row not a streak'; end if;
+  delete from training_log where player_id = p and day = mahalle_today() - 2;
+  if talim_serisi(p, mahalle_today()) then raise exception 'streak with a gap'; end if;
+  raise notice 'defense drill and streak: ok';
+end $$;
+reset role;
+
 -- Phone events: one answer a day, effects applied once, a cost above the balance refused.
 insert into auth.users values ('00000000-0000-0000-0000-000000000961');
 set role service_role;

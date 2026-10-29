@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { DrillInputs, Tier } from '@streetborn/economy';
+import type { DrillInputs, DrillName, Tier } from '@streetborn/economy';
 import type { ChanceInput, MatchResult, MatchSetup } from '@streetborn/engine';
 
 import type { Character } from '../game/character.ts';
@@ -254,7 +254,8 @@ export interface DrillTicket {
 }
 export interface DrillFinish {
   score: number; stars: number; grade: 'perfect' | 'good' | 'miss'; ap: number; bootAp: number; xp: number;
-  stat: { name: ServerStat; before: number; after: number; ap: number };
+  /** Null for omuz oku, which trains no stat. */
+  stat: { name: ServerStat; before: number; after: number; ap: number } | null;
   player: { xp: number; level: number; coin: number };
   record: { best: number; previous: number | null };
   boots: Boots | null;
@@ -262,16 +263,18 @@ export interface DrillFinish {
   trust: number;
 }
 /** Spends today's free drill (then 1 energy) and returns the seed of the mini game. */
-export const startDrill = (stat: ServerStat) => call<DrillTicket>('train', { action: 'start', stat });
+export const startDrill = (stat: DrillName) => call<DrillTicket>('train', { action: 'start', stat });
 /** Sends what the player did; the server scores it with the same rules and pays. */
 export const finishDrill = (session: number, inputs: DrillInputs) => call<DrillFinish>('train', { action: 'finish', session, inputs });
 
 export interface TrainingToday {
   free: number; energy: number; private: number;
   /** Today's best stars and the best score ever, per drill. */
-  stars: Partial<Record<ServerStat, number>>;
-  records: Partial<Record<ServerStat, number>>;
+  stars: Partial<Record<DrillName, number>>;
+  records: Partial<Record<DrillName, number>>;
   boots: Boots | null;
+  /** Trained the three days before: one more free drill today. */
+  streak: boolean;
 }
 
 /** Today's training counts, stars and records, and the boots in use. */

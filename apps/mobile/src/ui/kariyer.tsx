@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
-import { delta, num } from '../game/format.ts';
+import { effectText, num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import type { AchievementView, Choice, FormLevel, InjuryKind, Kariyer } from '../net/api.ts';
 import { colors } from '../theme.ts';
@@ -41,9 +41,9 @@ export const CHOICE_ICON: Record<Choice, IconAsset> = { rest: 'enerji', work: 's
 type Fx = { text: string; good: boolean };
 /** What each choice does, as small chips: green when it helps, red when it costs. */
 const CHOICE_FX: Record<Choice, () => Fx[]> = {
-  rest: () => [{ text: t('choice.fx.morale', { n: delta(k.restMorale, 0) }), good: true }, { text: t('choice.fx.injury'), good: true }],
-  work: () => [{ text: t('choice.fx.shoot', { n: delta(k.workShoot, 0) }), good: true }, { text: t('choice.fx.morale', { n: delta(k.workMorale, 0) }), good: k.workMorale >= 0 }],
-  hang: () => [{ text: t('choice.fx.morale', { n: delta(k.hangMorale, 0) }), good: true }, { text: t('choice.fx.respect', { n: delta(k.hangRespect, 0) }), good: true }],
+  rest: () => [{ text: effectText('morale', k.restMorale), good: true }, { text: t('choice.fx.injury'), good: true }],
+  work: () => [{ text: effectText('shoot', k.workShoot), good: true }, { text: effectText('morale', k.workMorale), good: k.workMorale >= 0 }],
+  hang: () => [{ text: effectText('morale', k.hangMorale), good: true }, { text: effectText('respect', k.hangRespect), good: true }],
 };
 const fxLabel = (c: Choice) => CHOICE_FX[c]().map(f => f.text).join(', ');
 export const choiceName = (c: Choice) => t(`choice.${c}` as Key);
@@ -167,7 +167,7 @@ function FormSheet() {
           backgroundColor: shoot > 0 ? colors.l900 : shoot < 0 ? '#3A1D19' : colors.s3,
         }}>
           <T w={700} size={13} color={shoot > 0 ? colors.l500 : shoot < 0 ? colors.bad : colors.g200}>
-            {shoot === 0 ? t('form.effect.none') : t('form.effect', { n: delta(shoot, 0) })}
+            {shoot === 0 ? t('form.effect.none') : t(shoot > 0 ? 'form.effect.up' : 'form.effect.down')}
           </T>
         </View>
         <T size={12} color={colors.g300} style={{ flex: 1, lineHeight: 16 }}>{t('form.explainShort')}</T>
