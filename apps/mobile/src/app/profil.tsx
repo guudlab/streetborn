@@ -14,6 +14,7 @@ import { Icon } from '../ui/Icon.tsx';
 import { buzz, Caps, Cta, Danger, Ghost, H3, T, Track } from '../ui/kit.tsx';
 import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
+import { Skeleton } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { Ico, Tile, type IconAsset } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
@@ -34,6 +35,7 @@ export default function Profil() {
   const contract = g.career?.contract?.active ? g.career.contract : null;
   const totals = g.kariyer?.totals;
   const trophies = g.kariyer?.achievements;
+  const loading = online && !g.kariyerTried && !g.kariyer;
   const unlockedCount = trophies?.filter(a => a.unlocked).length ?? 0;
 
   useEffect(() => {
@@ -95,6 +97,11 @@ export default function Profil() {
             <Count label={t('profile.assists')} value={totals.assists} />
           </View>
         )}
+        {loading && (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {[0, 1, 2].map(i => <Skeleton key={i} width="auto" height={72} radius={18} style={{ flex: 1 }} />)}
+          </View>
+        )}
         <Tile row label={t('profile.club')} onPress={() => router.push('/teklifler')} style={{ minHeight: 64 }}>
           <Ico name="kulup" size={44} />
           <View style={{ flex: 1 }}>
@@ -111,6 +118,7 @@ export default function Profil() {
           </View>
           {g.mahalle && <Icon name="chev" size={18} color={colors.g300} />}
         </Tile>
+        {loading && <Skeleton height={64} radius={22} />}
         {trophies && (
           <Tile row label={t('profile.trophies')} onPress={() => router.push('/kupalar')} style={{ minHeight: 64 }}>
             <Ico name="cup" size={44} />

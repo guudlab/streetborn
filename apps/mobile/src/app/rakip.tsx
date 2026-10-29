@@ -8,6 +8,7 @@ import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, Ghost, T } from '../ui/kit.tsx';
+import { Skeleton } from '../ui/motion.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Amount, Bubble } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
@@ -20,8 +21,10 @@ export default function Rakip() {
   const name = useGame(s => s.name);
   const level = useGame(s => s.level);
   const hasMahalle = useGame(s => s.mahalle !== null);
+  const tried = useGame(s => s.kariyerTried);
   useEffect(() => { void useGame.getState().refreshKariyer(); }, []);
   const d = k?.duel;
+  if (!d && !tried) return <RakipSkeleton />;
   if (!d) return <Shell title={t('duel.title')}><T size={14} color={colors.g200}>{t('duel.failed')}</T></Shell>;
 
   const npc = d.rival.kind === 'npc';
@@ -69,6 +72,22 @@ export default function Rakip() {
       {d.record.win + d.record.lose + d.record.draw > 0 && (
         <T w={500} size={13} color={colors.g200} style={{ textAlign: 'center' }}>{t('duel.record', { w: d.record.win, l: d.record.lose })}</T>
       )}
+    </Shell>
+  );
+}
+
+/** The duel screen's shape while the first answer is on its way. */
+function RakipSkeleton() {
+  return (
+    <Shell title={t('duel.title')}>
+      <Skeleton width={120} height={14} radius={7} style={{ alignSelf: 'center' }} />
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 44 }}>
+        <Skeleton width={88} height={128} radius={26} />
+        <Skeleton width={88} height={128} radius={26} />
+      </View>
+      <Skeleton height={194} radius={20} />
+      <Skeleton height={56} radius={18} />
+      <Skeleton height={120} radius={20} />
     </Shell>
   );
 }

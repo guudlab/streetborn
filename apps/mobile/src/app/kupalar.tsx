@@ -7,6 +7,7 @@ import { colors } from '../theme.ts';
 import { achDesc, achIcon, achName, achProgress } from '../ui/kariyer.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, H3, T, Track } from '../ui/kit.tsx';
+import { Skeleton } from '../ui/motion.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 import { Amount, Ico, Tile } from '../ui/sade.tsx';
@@ -19,18 +20,35 @@ const GROUPS = ['match', 'mahalle', 'club'] as const;
 
 export default function Kupalar() {
   const list = useGame(s => s.kariyer?.achievements);
+  const loading = useGame(s => !s.kariyerTried) && !list;
   useEffect(() => { void useGame.getState().refreshKariyer(); }, []);
   const done = list?.filter(a => a.unlocked).length ?? 0;
 
   return (
-    <Shell title={t('ach.title')} right={<T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list?.length ?? 0 })}</T>}>
+    <Shell title={t('ach.title')} right={list ? <T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
       {list && (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
           <Ico name="cup" size={96} dim={done === 0} />
           <View style={{ width: '70%' }}><Track value={list.length ? done / list.length : 0} /></View>
         </View>
       )}
-      {GROUPS.map(g => (
+      {loading && (
+        <>
+          <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
+            <Skeleton width={96} height={96} radius={30} />
+            <Skeleton width="70%" height={8} radius={4} />
+          </View>
+          {GROUPS.map(g => (
+            <View key={g} style={{ gap: 10 }}>
+              <Caps>{t(`ach.group.${g}` as Key)}</Caps>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                {[0, 1, 2].map(i => <Skeleton key={i} width="31%" height={132} radius={22} />)}
+              </View>
+            </View>
+          ))}
+        </>
+      )}
+      {!loading && GROUPS.map(g => (
         <View key={g} style={{ gap: 10 }}>
           <Caps>{t(`ach.group.${g}` as Key)}</Caps>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>

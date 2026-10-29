@@ -18,6 +18,7 @@ import { Caps, Cta, T } from '../../ui/kit.tsx';
 import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { ProfileButton, SoundButton } from '../../ui/settings.tsx';
+import { Skeleton } from '../../ui/motion.tsx';
 import { FormStrip, useKariyerNews } from '../../ui/kariyer.tsx';
 import { t } from '../../i18n/index.ts';
 import { matchModels } from '../../match3d/Match3D.tsx';
@@ -139,8 +140,10 @@ export default function Hub() {
             </Chip>
           )}
           <Chip label={offers ? t('hub.offersBannerN', { n: offers }) : t('offers.title')} onPress={() => router.push('/teklifler')} dot={offers > 0} icon={<Ico name="kulup" size={38} />}>
-            {contract ? <T w={700} size={15}>{multiplierLabel(contract.tier)}</T> : <T w={700} size={15}>{offers}</T>}
+            {online && !g.career && !g.careerTried ? <Skeleton width={28} height={16} radius={6} style={{ backgroundColor: colors.s3 }} />
+              : contract ? <T w={700} size={15}>{multiplierLabel(contract.tier)}</T> : <T w={700} size={15}>{offers}</T>}
           </Chip>
+          {online && !g.kariyer && !g.kariyerTried && <Skeleton width="auto" height={58} radius={18} style={{ flex: 1 }} />}
           {duel && (
             <Chip
               label={t('duel.chipA11y', { me: duel.me.score, them: duel.them.score, name: duel.rival.kind === 'npc' ? t('duel.npc') : duel.rival.nick ?? t('duel.friend') })}
