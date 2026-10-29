@@ -9,9 +9,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audio.ts';
 import { crestCode } from '../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_MODEL, JERSEYS, jerseyTint, STARTERS, type Hero } from '../game/character.ts';
+import { markHint, useHints } from '../game/hints.ts';
+import type { HowToKind } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { AssistToggle } from '../ui/AssistToggle.tsx';
+import { HowTo } from '../ui/drills/HowTo.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
 import { kitTinter, loadMatchScene, loadModel } from '../ui/Model3D.tsx';
@@ -103,6 +106,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const [ticker, setTicker] = useState<string | null>(null);
   const [nudge, setNudge] = useState(false);
   const [finishing, setFinishing] = useState<'no' | 'sending' | 'failed'>('no');
+  const [demo, setDemo] = useState<HowToKind | null>(null);
 
   const say = useCallback((key: Key, vars?: Record<string, string | number>) => setCoach({ text: t(key, vars), id: Date.now() }), []);
   const pop = useCallback((key: Key, tone: Tone) => setBig({ text: t(key), tone, id: Date.now() }), []);
@@ -142,6 +146,13 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     const sc = scene.current;
     if (!m || !sc) return;
     const mo = m.plan.moments[m.i]!;
+    // The first shot, pass and defense moment of a player's life opens with a short hand demo.
+    const howto: HowToKind = mo.kind === 'pass' ? 'mPass' : mo.kind === 'defense' ? 'mDefense' : 'mShot';
+    if (!useHints.getState().seen[`howto_${howto}`]) {
+      sc.setPaused(true);
+      setDemo(howto);
+      return;
+    }
     acted.current = -1; lastSide.current = null; lastTiming.current = 0;
     setAimed(false); setNudge(false);
     setBanner({ text: t(BANNER[mo.kind], { minute: mo.minute }), def: mo.kind === 'defense', id: Date.now() });
@@ -453,6 +464,19 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
         </View>
       </View>
 
+      {demo && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(13,13,13,.96)' }}>
+          <HowTo
+            drill={demo} name={t(`howto.${demo}.title` as Key)}
+            onDone={() => {
+              markHint(`howto_${demo}`);
+              setDemo(null);
+              scene.current?.setPaused(false);
+              begin();
+            }}
+          />
+        </View>
+      )}
       {!ready && finishing === 'no' && <Loading progress={progress} />}
       {finishing !== 'no' && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, backgroundColor: 'rgba(13,13,13,.86)' }}>

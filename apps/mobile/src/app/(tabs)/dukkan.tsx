@@ -224,7 +224,7 @@ export default function Dukkan() {
 
   const jerseyAction = () => {
     if (!online) return buy(t('shop.jersey'), t('shop.gemPack', { n: jerseyPrice }));
-    if (jersey) return void useGame.getState().equip(JERSEY, !jersey.equipped).catch(() => toast(t('shop.buyFailed')));
+    if (jersey) return void useGame.getState().equip(JERSEY, !jersey.equipped).catch(() => toast(t('shop.buyFailed'), 'error'));
     buyWithGems(JERSEY, t('shop.jersey'), jerseyPrice);
   };
 
