@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 
 import { colors } from '../theme.ts';
 import { Caps, T } from '../ui/kit.tsx';
@@ -27,7 +27,13 @@ export default function Gizlilik() {
       ))}
       <View style={{ gap: 8, paddingBottom: 8 }}>
         <Caps>{t('privacy.contact')}</Caps>
-        <T size={14} color={colors.g200} style={{ lineHeight: 21 }} selectable>{PRIVACY_CONTACT ?? t('privacy.contactSoon')}</T>
+        {PRIVACY_CONTACT
+          ? (
+            <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(`mailto:${PRIVACY_CONTACT}`)} hitSlop={6} style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}>
+              <T w={600} size={15} color={colors.l500} style={{ textDecorationLine: 'underline' }}>{PRIVACY_CONTACT}</T>
+            </Pressable>
+          )
+          : <T size={14} color={colors.g200} style={{ lineHeight: 21 }}>{t('privacy.contactSoon')}</T>}
       </View>
     </Shell>
   );

@@ -4,8 +4,8 @@ import type { Lang } from '../i18n/index.ts';
 // listings link to). Keep it true to what the code collects: when ads (AdMob), purchases
 // (RevenueCat) or analytics are added, this text changes in the same pull request.
 
-/** Where players write about their data. TODO(Kaan): set the support address before store submission. */
-export const PRIVACY_CONTACT: string | null = null;
+/** Where players write about their data. */
+export const PRIVACY_CONTACT: string | null = 'support@streetborn.app';
 
 export type Policy = { updated: string; intro: string; sections: { title: string; body: string[] }[] };
 
