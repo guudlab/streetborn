@@ -1,18 +1,20 @@
 import { apNeed, dailyDrill, DEFAULT_CONFIG, drillBadge, istanbulDay, type DrillInputs } from '@streetborn/economy';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sfx } from '../audio/audio.ts';
 import { DRILLS } from '../game/rules.ts';
-import { markHint } from '../game/hints.ts';
+import { markHint, useHints } from '../game/hints.ts';
 import { SERVER_DRILL, useGame, type DrillOutcome, type LiveDrill } from '../game/store.ts';
 import { t, type Key } from '../i18n/index.ts';
 import { colors } from '../theme.ts';
 import { BakkalaKos } from '../ui/drills/BakkalaKos.tsx';
-import { Badge, DRILL_ICON, Star, StarTrack, type DrillGameHandle } from '../ui/drills/common.tsx';
+import { DRILL_ICON, Star, StarTrack, type DrillGameHandle } from '../ui/drills/common.tsx';
+import { BadgeCard, ResultBackdrop, RewardCard, Sparkles } from '../ui/drills/reward.tsx';
 import { DuvarPasi } from '../ui/drills/DuvarPasi.tsx';
+import { HowTo, HowToSteps } from '../ui/drills/HowTo.tsx';
 import { Merdiven } from '../ui/drills/Merdiven.tsx';
 import { Omuz } from '../ui/drills/Omuz.tsx';
 import { Teneke } from '../ui/drills/Teneke.tsx';
@@ -32,12 +34,16 @@ const GAMES = { sut: Teneke, pas: DuvarPasi, hiz: BakkalaKos, fizik: Merdiven, o
 const GRADE_KEY = { mukemmel: 'train.grade.mukemmel', iyi: 'train.grade.iyi', kacti: 'train.grade.kacti' } as const;
 const COUNT_MS = 700;
 
-type Phase = 'count' | 'play' | 'saving' | 'result';
+type Phase = 'howto' | 'count' | 'play' | 'saving' | 'result';
 
 export default function Talim() {
   const insets = useSafeAreaInsets();
   const [drill, setDrill] = useState<LiveDrill | null>(() => useGame.getState().drill);
-  const [phase, setPhase] = useState<Phase>('count');
+  // A game's first round starts with its demo card; later rounds go straight to 3, 2, 1.
+  const [phase, setPhase] = useState<Phase>(() => {
+    const d = useGame.getState().drill;
+    return d && !useHints.getState().seen[`howto_${d.key}`] ? 'howto' : 'count';
+  });
   const [count, setCount] = useState(3);
   const [score, setScore] = useState(0);
   const [result, setResult] = useState<DrillOutcome | null>(null);
@@ -69,7 +75,7 @@ export default function Talim() {
   };
 
   const quit = () => {
-    if (phase === 'count' || phase === 'play') void finish(game.current?.inputs() ?? []);
+    if (phase === 'howto' || phase === 'count' || phase === 'play') void finish(game.current?.inputs() ?? []);
     else if (phase === 'result') router.back();
   };
 
@@ -112,6 +118,14 @@ export default function Talim() {
             <Icon name="x" size={20} color={colors.g100} />
           </PressableScale>
           <T w={700} size={17} accessibilityRole="header" style={{ flex: 1 }}>{DRILLS[key].name}</T>
+          {phase === 'count' && (
+            <PressableScale
+              accessibilityRole="button" accessibilityLabel={t('howto.help')} onPress={() => setPhase('howto')} hitSlop={8}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <T w={700} size={20} color={colors.g100}>?</T>
+            </PressableScale>
+          )}
         </View>
         <StarTrack
           score={score} stars={drill.stars}
@@ -125,7 +139,12 @@ export default function Talim() {
         {phase === 'count' && (
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 18, backgroundColor: 'rgba(13,13,13,.55)', paddingHorizontal: 24 }}>
             <Pop key={count}><T w={700} size={72} color={colors.l600}>{Math.max(1, count)}</T></Pop>
-            <Bubble text={t(`talim.rule.${key}` as Key)} />
+            <HowToSteps drill={key} />
+          </View>
+        )}
+        {phase === 'howto' && (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center', backgroundColor: 'rgba(13,13,13,.96)' }}>
+            <HowTo drill={key} name={DRILLS[key].name} onDone={() => { markHint(`howto_${key}`); setCount(3); setPhase('count'); }} />
           </View>
         )}
         {phase === 'saving' && (
@@ -156,48 +175,52 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
   // Online the AP per point grows with the stat (GDD v3.1); the offline prototype keeps 3.
   const need = g.mode === 'online' ? apNeed(r.after, DEFAULT_CONFIG.training) : 3;
 
+  const omuz = r.key === 'omuz';
+  const xp = (
+    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+      <T w={700} size={14} color={colors.l500}>XP</T>
+    </View>
+  );
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.ink, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24, paddingHorizontal: 20, alignItems: 'center', gap: 18 }}>
+    <View style={{ flex: 1, backgroundColor: colors.ink, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24, paddingHorizontal: 20, alignItems: 'center', gap: 16 }}>
       <View style={{ flex: 1 }} />
       <View accessible accessibilityLabel={t('talim.stars', { n: r.stars })} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 100 }}>
+        <ResultBackdrop stars={r.stars} />
         {[0, 1, 2].map(i => (
           <Pop key={i} delay={150 + i * 180} style={{ transform: [{ rotate: i === 0 ? '-14deg' : i === 2 ? '14deg' : '0deg' }, { translateY: i === 1 ? -18 : -4 }] }}>
             <Star size={i === 1 ? 96 : 66} on={i < r.stars} />
           </Pop>
         ))}
+        {r.stars >= 3 && <Sparkles />}
       </View>
       <View style={{ alignItems: 'center', gap: 10 }}>
         <H1 accessibilityRole="header" style={{ fontSize: 34, lineHeight: 38 }}>{t(GRADE_KEY[r.grade])}</H1>
         <View style={{ backgroundColor: newRecord ? colors.l900 : colors.s2, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
           <T w={700} size={14} color={newRecord ? colors.l500 : colors.g200}>{chip}</T>
         </View>
-        {newBadge > 0 && (
-          <Pop delay={700} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Badge level={newBadge} size={28} />
-            <T w={700} size={15} color={colors.g100}>{t('badge.new', { name: t(`badge.${newBadge}` as Key), drill: stat })}</T>
-          </Pop>
+      </View>
+
+      {/* What the drill paid, as cards: the stat and its steps to the next point, XP, then the extras. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 4 }}>
+        {!omuz && (
+          <RewardCard
+            icon={<Ico name={DRILL_ICON[r.key]} size={44} />} value={r.statUp ? `+${r.statUp}` : `${r.after}`}
+            label={r.statUp ? `${stat} ${r.after}` : stat} lime={r.statUp > 0} shine={r.statUp > 0} delay={600}
+          >
+            {!r.statUp && <Segments n={r.progress} of={need} height={5} gap={3} style={{ width: 64, marginBottom: 2 }} />}
+          </RewardCard>
         )}
+        {r.bootAp > 0 && <RewardCard icon={<Ico name={bootIcon(g.boots?.id)} size={44} />} value={`+${r.bootAp}`} label={t('talim.boots')} lime delay={700} />}
+        <RewardCard icon={xp} value={`+${r.xp}`} label={t('talim.xp')} delay={800} />
+        {prep && <RewardCard icon={<Ico name="sut" size={44} />} value={t('talim.prepValue')} label={t('talim.prepLabel')} lime shine delay={900} />}
+        {r.trust > 0 && <RewardCard icon={<CoachFace size={44} />} value={`+${r.trust}`} label={t('career.trust')} lime shine delay={1000} />}
       </View>
-
-      <View style={{ alignSelf: 'stretch', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 8, gap: 4, marginTop: 6 }}>
-        {r.key !== 'omuz' && <Row icon={<Ico name={DRILL_ICON[r.key]} size={38} />} label={stat} value={`+${r.ap - r.bootAp} AP`} />}
-        {r.bootAp > 0 && <Row icon={<Ico name={bootIcon(g.boots?.id)} size={38} />} label={t('talim.boots')} value={`+${r.bootAp} AP`} lime />}
-        {prep && <Row icon={<Ico name="sut" size={38} />} label={t('talim.prep')} value={t('choice.fx.shoot', { n: `+${DEFAULT_CONFIG.kariyer.workShoot}` })} lime />}
-        {r.trust > 0 && <Row icon={<CoachFace size={38} />} label={t('career.trust')} value={`+${r.trust}`} lime />}
-        <Row icon={<View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}><T w={700} size={12} color={colors.g200}>XP</T></View>} label={t('talim.xp')} value={`+${r.xp} XP`} />
-      </View>
-
-      {r.key === 'omuz' ? null : r.statUp > 0 ? (
-        <View accessible accessibilityLabel={`${stat} ${r.before} → ${r.after}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <T w={700} size={22} color={colors.g200}>{stat} {r.before}</T>
-          <Icon name="chev" size={22} color={colors.l600} />
-          <T w={700} size={22} color={colors.l600}>{r.after}</T>
-        </View>
-      ) : (
-        <View style={{ alignSelf: 'stretch', paddingHorizontal: 40, gap: 6 }} accessible accessibilityLabel={t('train.progress', { n: r.progress, need })}>
-          <Segments n={r.progress} of={need} height={6} gap={6} />
-          <T w={600} size={13} color={colors.g200} style={{ textAlign: 'center' }}>{t('train.progress', { n: r.progress, need })}</T>
-        </View>
+      {newBadge > 0 && (
+        <BadgeCard
+          level={newBadge as 1 | 2 | 3} title={t(`badge.${newBadge}` as Key)} sub={stat} delay={1200} style={{ alignSelf: 'stretch' }}
+          medal={<Ico name={DRILL_ICON[r.key]} size={40} />}
+        />
       )}
       {r.ups > 0 && <T w={700} size={15} color={colors.l600}>{t('post.level', { n: g.level })}</T>}
 
@@ -221,16 +244,6 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
           )}
         </Cta>
       </View>
-    </View>
-  );
-}
-
-function Row({ icon, label, value, lime }: { icon: ReactNode; label: string; value: string; lime?: boolean }) {
-  return (
-    <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 10, borderRadius: 14, backgroundColor: lime ? 'rgba(63,77,24,.38)' : 'transparent' }}>
-      {icon}
-      <T w={600} size={15} style={{ flex: 1 }}>{label}</T>
-      <T w={700} size={18} color={lime ? colors.l600 : colors.g100}>{value}</T>
     </View>
   );
 }

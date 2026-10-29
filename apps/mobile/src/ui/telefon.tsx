@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
-import { delta, num } from '../game/format.ts';
+import { effectText, num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import type { PhoneFx, PhoneView } from '../net/api.ts';
 import { colors } from '../theme.ts';
@@ -37,9 +37,9 @@ type Chip = { text: string; good: boolean };
 /** Effect chips in a fixed order; a coin cost is a cost, everything else by its sign. */
 function chips(fx: PhoneFx): Chip[] {
   const out: Chip[] = [];
-  if (fx.morale) out.push({ text: t('choice.fx.morale', { n: delta(fx.morale, 0) }), good: fx.morale > 0 });
-  if (fx.respect) out.push({ text: t('choice.fx.respect', { n: delta(fx.respect, 0) }), good: fx.respect > 0 });
-  if (fx.trust) out.push({ text: t('phone.fx.trust', { n: delta(fx.trust, 0) }), good: fx.trust > 0 });
+  if (fx.morale) out.push({ text: effectText('morale', fx.morale), good: fx.morale > 0 });
+  if (fx.respect) out.push({ text: effectText('respect', fx.respect), good: fx.respect > 0 });
+  if (fx.trust) out.push({ text: effectText('trust', fx.trust), good: fx.trust > 0 });
   if (fx.coin) out.push({ text: t('phone.fx.coin', { n: fx.coin > 0 ? `+${num(fx.coin, 0)}` : `−${num(-fx.coin, 0)}` }), good: fx.coin > 0 });
   return out;
 }
