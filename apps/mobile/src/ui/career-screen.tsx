@@ -12,7 +12,7 @@ import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
 import { Shell } from './mahalle.tsx';
-import { PressableScale, Skeleton } from './motion.tsx';
+import { Enter, PressableScale, Skeleton } from './motion.tsx';
 import { ErrorState } from './states.tsx';
 import { Amount, Bubble, Ico } from './sade.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
@@ -56,7 +56,7 @@ export function CareerScreen() {
 
       {contract ? <Contract /> : career.offers.length > 0 ? (
         <View style={{ gap: 12 }}>
-          {career.offers.map(o => <OfferCard key={o.id} offer={o} />)}
+          {career.offers.map((o, i) => <Enter key={o.id} i={i}><OfferCard offer={o} /></Enter>)}
         </View>
       ) : <Road />}
     </Shell>

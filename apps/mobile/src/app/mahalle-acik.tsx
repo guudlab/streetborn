@@ -9,7 +9,7 @@ import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Ghost, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
-import { Skeleton } from '../ui/motion.tsx';
+import { Enter, Skeleton } from '../ui/motion.tsx';
 import { Amount, Tile } from '../ui/sade.tsx';
 import { EmptyState, ErrorState, SkeletonList } from '../ui/states.tsx';
 import { t } from '../i18n/index.ts';
@@ -49,22 +49,24 @@ export default function MahalleAcik() {
         <EmptyState icon="mahalleBul" text={t('mahalle.open.empty')} action={{ label: t('mahalle.open.create'), onPress: () => router.replace('/mahalle-kur') }} primary />
       )}
       <View style={{ gap: 10 }}>
-        {list?.map((m) => (
-          <Tile
-            key={m.id} row label={`${t('mahalle.open.join')}: ${m.name}, ${t('mahalle.open.members', { n: m.memberCount })}`}
-            disabled={joining !== null} onPress={() => void join(m.id)} style={{ opacity: joining && joining !== m.id ? 0.5 : 1 }}
-          >
-            <Emblem shape={m.emblem} color={m.color} name={m.name} size={48} />
-            <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-              <T w={700} size={17} numberOfLines={1}>{m.name}</T>
-              <Amount icon="oyuncu" size={18} textSize={13} color={colors.g200}>{m.memberCount} / 12</Amount>
-            </View>
-            {joining === m.id ? <ActivityIndicator color={colors.l600} /> : (
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="plus" size={22} color={colors.ink} />
+        {list?.map((m, i) => (
+          <Enter key={m.id} i={i}>
+            <Tile
+              row label={`${t('mahalle.open.join')}: ${m.name}, ${t('mahalle.open.members', { n: m.memberCount })}`}
+              disabled={joining !== null} onPress={() => void join(m.id)} style={{ opacity: joining && joining !== m.id ? 0.5 : 1 }}
+            >
+              <Emblem shape={m.emblem} color={m.color} name={m.name} size={48} />
+              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <T w={700} size={17} numberOfLines={1}>{m.name}</T>
+                <Amount icon="oyuncu" size={18} textSize={13} color={colors.g200}>{m.memberCount} / 12</Amount>
               </View>
-            )}
-          </Tile>
+              {joining === m.id ? <ActivityIndicator color={colors.l600} /> : (
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="plus" size={22} color={colors.ink} />
+                </View>
+              )}
+            </Tile>
+          </Enter>
         ))}
       </View>
     </Shell>

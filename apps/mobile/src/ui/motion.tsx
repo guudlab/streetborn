@@ -65,7 +65,7 @@ export function Pulse({ value, children, style }: { value: unknown; children: Re
 /** Fades and slides a list item in; pass its index to stagger a list (capped at 8). */
 export function Enter({ i = 0, children, style }: { i?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <Animated.View entering={FadeInDown.duration(motion.slow).delay(Math.min(i, 8) * 45)} style={style}>
+    <Animated.View entering={FadeInDown.duration(motion.slow).delay(Math.min(i, 8) * motion.stagger)} style={style}>
       {children}
     </Animated.View>
   );

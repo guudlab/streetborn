@@ -7,7 +7,7 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 
 import { sfx } from '../audio/audio.ts';
-import { colors, fonts, MAX_FONT_SCALE, motion, type Weight } from '../theme.ts';
+import { colors, fonts, MAX_FONT_SCALE, motion, shadow, type Weight } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { PressableScale, useReduceMotion } from './motion.tsx';
 import { t } from '../i18n/index.ts';
@@ -48,7 +48,7 @@ export function Cta({ children, style, off, disabled, busy, onPress, ...rest }: 
       style={[{
         minHeight: 56, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 28, backgroundColor: dim ? colors.s3 : colors.l600, flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center', gap: 10,
-        ...(dim ? {} : { shadowColor: colors.l600, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } }),
+        ...(dim ? {} : shadow.lime),
       }, style]}
     >
       {busy ? <ActivityIndicator color={colors.ink} />

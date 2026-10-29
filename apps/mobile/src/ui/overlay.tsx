@@ -1,11 +1,14 @@
 import { BlurView } from 'expo-blur';
-import { useEffect, useRef, type ReactNode } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
-import Reanimated, { FadeOutUp, SlideInUp } from 'react-native-reanimated';
+import { useEffect, type ReactNode } from 'react';
+import { AccessibilityInfo, ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, {
+  FadeIn, FadeOut, FadeOutUp, runOnJS, SlideInDown, SlideInUp, SlideOutDown, useAnimatedKeyboard, useAnimatedStyle, useSharedValue, withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { create } from 'zustand';
 
-import { colors, motion } from '../theme.ts';
+import { colors, ease, motion, radius, shadow, space } from '../theme.ts';
 import { Icon } from './Icon.tsx';
 import { buzz, T } from './kit.tsx';
 import { t } from '../i18n/index.ts';
@@ -65,28 +68,59 @@ export function SheetText({ children }: { children: ReactNode }) {
 }
 export const Spinner = () => <ActivityIndicator size="large" color={colors.l600} style={{ marginVertical: 8 }} />;
 
+const DISMISS_PX = 110;
+const DISMISS_VELOCITY = 900;
+
+/**
+ * Bottom sheet: springs up, slides down when closed, follows a downward drag and closes
+ * when flicked or pulled far enough, rides above the keyboard, and closes with the
+ * Android back button and the VoiceOver escape gesture.
+ */
 function Sheet({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
-  const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(a, { toValue: 1, duration: 320, useNativeDriver: true }).start(); }, [a]);
+  const keyboard = useAnimatedKeyboard();
+  const drag = useSharedValue(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { closeSheet(); return true; });
+    return () => sub.remove();
+  }, []);
+
+  const pan = Gesture.Pan()
+    .activeOffsetY(12).failOffsetX([-24, 24])
+    .onUpdate((e) => { drag.value = Math.max(0, e.translationY); })
+    .onEnd((e) => {
+      if (drag.value > DISMISS_PX || e.velocityY > DISMISS_VELOCITY) runOnJS(closeSheet)();
+      else drag.value = withSpring(0, motion.snappy);
+    });
+
+  // Lifted by the keyboard minus the safe area the sheet already sits above.
+  const panel = useAnimatedStyle(() => ({
+    transform: [{ translateY: drag.value - Math.max(0, keyboard.height.value - insets.bottom) }],
+  }));
+
   return (
     <>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,.55)', opacity: a }]}>
+      <Reanimated.View entering={FadeIn.duration(motion.base)} exiting={FadeOut.duration(motion.fast)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,.55)' }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} accessibilityLabel={t('common.close')} />
-      </Animated.View>
-      <Animated.View
-        accessibilityViewIsModal
-        style={{
-          position: 'absolute', left: 8, right: 8, bottom: 8 + insets.bottom, borderRadius: 32, overflow: 'hidden',
-          borderWidth: 1, borderColor: 'rgba(255,255,255,.08)', opacity: a,
-          transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
-        }}
-      >
-        <BlurView intensity={40} tint="dark" style={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 28, gap: 14, backgroundColor: 'rgba(30,30,30,.92)' }}>
-          <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: colors.g400, alignSelf: 'center', marginBottom: 4 }} />
-          {children}
-        </BlurView>
-      </Animated.View>
+      </Reanimated.View>
+      <GestureDetector gesture={pan}>
+        <Reanimated.View
+          accessibilityViewIsModal onAccessibilityEscape={closeSheet}
+          entering={SlideInDown.springify().damping(motion.sheet.damping).stiffness(motion.sheet.stiffness).mass(motion.sheet.mass)}
+          exiting={SlideOutDown.duration(motion.base).easing(ease.in)}
+          style={[{
+            position: 'absolute', left: 8, right: 8, bottom: 8 + insets.bottom, borderRadius: radius.sheet, overflow: 'hidden',
+            borderWidth: 1, borderColor: 'rgba(255,255,255,.08)',
+          }, panel]}
+        >
+          <BlurView intensity={40} tint="dark" style={{ paddingTop: 10, paddingHorizontal: space.screen, paddingBottom: 28, gap: 14, backgroundColor: 'rgba(30,30,30,.92)' }}>
+            <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: colors.g400, alignSelf: 'center', marginBottom: 4 }} />
+            {children}
+          </BlurView>
+        </Reanimated.View>
+      </GestureDetector>
     </>
   );
 }
@@ -101,7 +135,7 @@ function Toast({ toast: { text, kind, action } }: { toast: ToastState }) {
   const icon = kind === 'info' ? null : TOAST_ICON[kind];
   return (
     <Reanimated.View
-      pointerEvents="box-none" entering={SlideInUp.springify().damping(motion.snappy.damping).stiffness(motion.snappy.stiffness)}
+      pointerEvents="box-none" entering={SlideInUp.springify().damping(motion.sheet.damping).stiffness(motion.sheet.stiffness).mass(motion.sheet.mass)}
       exiting={FadeOutUp.duration(motion.fast)}
       style={{ position: 'absolute', top: insets.top + 12, left: 16, right: 16, alignItems: 'center' }}
     >
@@ -109,8 +143,7 @@ function Toast({ toast: { text, kind, action } }: { toast: ToastState }) {
         accessibilityLiveRegion="polite"
         style={{
           flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, maxWidth: 440, paddingLeft: icon ? 8 : 16, paddingRight: action ? 6 : 16,
-          borderRadius: 22, backgroundColor: colors.g100,
-          shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 10,
+          borderRadius: 22, backgroundColor: colors.g100, ...shadow.float,
         }}
       >
         {icon && (

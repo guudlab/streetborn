@@ -1,3 +1,5 @@
+import { Easing } from 'react-native-reanimated';
+
 // Design tokens from the production design system (Concept A "Saha Kenarı").
 // Values match tasarim-yonleri/prototip/a.html one to one.
 export const colors = {
@@ -48,4 +50,31 @@ export const motion = {
   snappy: { damping: 18, stiffness: 260, mass: 1 },
   /** Rewards only: goals, level ups, coins. */
   bouncy: { damping: 10, stiffness: 180, mass: 1 },
+  /** Sheets and toasts arriving: quick, settles without a visible bounce. */
+  sheet: { damping: 22, stiffness: 240, mass: 0.9 },
+  /** Delay between items of a list that enters one after another (capped at 8 items). */
+  stagger: 45,
+} as const;
+
+/**
+ * Easing curves for timed animations (Reanimated's Easing.bezier takes the same numbers).
+ * `out` for things arriving, `in` for things leaving, `inOut` for loops and moves.
+ */
+export const ease = {
+  out: Easing.bezier(0.2, 0.8, 0.2, 1),
+  in: Easing.bezier(0.4, 0, 1, 1),
+  inOut: Easing.bezier(0.45, 0, 0.55, 1),
+} as const;
+
+/** Spacing scale (px). `screen` is the side padding of every screen. */
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, screen: 20 } as const;
+
+/** Corner radii: pills are height / 2; these are the fixed ones. */
+export const radius = { sm: 12, md: 18, card: 22, lg: 24, sheet: 32 } as const;
+
+/** Elevation, for things that float above the page (toast, tab bar, sheet). */
+export const shadow = {
+  float: { shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+  /** The lime glow under the primary button. */
+  lime: { shadowColor: colors.l600, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
 } as const;
