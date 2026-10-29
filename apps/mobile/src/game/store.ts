@@ -1,5 +1,6 @@
 import {
-  computeRating, currentEnergy, DEFAULT_CONFIG, levelForXp, matchReward,
+  computeRating, currentEnergy, DEFAULT_CONFIG, drillGain, drillScore, drillStars, drillTier, keremRecord, levelForXp, matchReward, starsGrade,
+  type DrillInputs, type Tier,
 } from '@streetborn/economy';
 import {
   ENGINE_VERSION, planMatch, playChance, simulateMatch, skippedDefense,
@@ -10,13 +11,13 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, careerStatus, equipItem, loadShopToday, refillEnergy, loadTrainingToday, trainDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, deleteAccount as apiDeleteAccount,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, deleteAccount as apiDeleteAccount,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Boots, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
-import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
+import { clamp, OFFERS, type StatKey, type Stats } from './rules.ts';
 import { t } from '../i18n/index.ts';
 import { HINTS_KEY, useHints } from './hints.ts';
 
@@ -74,7 +75,28 @@ export interface TrainResult {
   coin: number;
 }
 
-const SERVER_STAT: Record<StatKey, ServerStat> = { sut: 'shooting', pas: 'passing', hiz: 'pace', fizik: 'stamina' };
+/** A mini game in progress: the seed and tier to play and the scores that matter. */
+export interface LiveDrill {
+  key: StatKey;
+  /** Server session id; null when playing offline. */
+  session: number | null;
+  seed: number; tier: Tier;
+  /** Scores for 1, 2 and 3 stars. */
+  stars: [number, number, number];
+  record: number | null; kerem: number;
+}
+
+/** What a finished mini game paid, for the result screen. */
+export interface DrillOutcome {
+  key: StatKey; score: number; stars: number; grade: 'mukemmel' | 'iyi' | 'kacti';
+  /** AP from the drill and from the boots (included in `ap`). */
+  ap: number; bootAp: number; xp: number; ups: number; statUp: number;
+  before: number; after: number; progress: number;
+  record: { best: number; previous: number | null }; kerem: number;
+}
+
+export const SERVER_STAT: Record<StatKey, ServerStat> = { sut: 'shooting', pas: 'passing', hiz: 'pace', fizik: 'stamina' };
+const STAT_KEY: Record<ServerStat, StatKey> = { shooting: 'sut', passing: 'pas', pace: 'hiz', stamina: 'fizik' };
 const GRADE_TR = { perfect: 'mukemmel', good: 'iyi', miss: 'kacti' } as const;
 
 interface GameState {
@@ -114,6 +136,10 @@ interface GameState {
   /** Invite code from a link, kept until the player joins or picks another mahalle. */
   pendingInvite: string | null;
   stats: Stats; drillProgress: Stats; trainFree: number;
+  /** Today's best stars and the best score ever per mini game, and the boots in use (online). */
+  drillStars: Partial<Stats>; drillRecords: Partial<Stats>; boots: Boots | null;
+  /** The mini game being played. */
+  drill: LiveDrill | null;
   /** Private sessions left today (online). */
   privateLeft: number; trust: number; form: number[];
   scouted: boolean; signed: string | null; trialAccepted: boolean; adsLeft: number; assisted: boolean;
@@ -163,8 +189,12 @@ interface GameState {
   /** Moves to the next moment; returns the opponent goals scored in between. */
   advance(): { done: boolean; events: { minute: number }[] };
   finishMatch(): Promise<PostMatch>;
-  /** A timing drill. Online the server grades it and pays AP; offline it stays local. */
-  train(key: StatKey, q: number, durationMs: number): Promise<TrainResult | 'no_energy' | null>;
+  /** Starts a mini game: spends today's free drill or 1 energy. Online the server hands out the seed. */
+  startDrill(key: StatKey): Promise<'ok' | 'no_energy' | 'error'>;
+  /** Ends the mini game with what the player did. Online the server scores it again and pays AP. */
+  finishDrill(inputs: DrillInputs): Promise<DrillOutcome | null>;
+  /** Buys a pair of krampon for coin (online only). */
+  buyBoots(id: string): Promise<'ok' | 'no_coin' | 'owned' | 'locked' | 'error'>;
   /** A coin-paid private session (online only). */
   privateTrain(key: StatKey): Promise<TrainResult | 'no_coin' | 'limit' | null>;
   refreshTraining(): Promise<void>;
@@ -338,6 +368,10 @@ export const useGame = create<GameState>()((set, get) => ({
   stats: { sut: 52, pas: 47, hiz: 58, fizik: 44 },
   drillProgress: { sut: 1, pas: 0, hiz: 2, fizik: 0 },
   trainFree: 3,
+  drillStars: {},
+  drillRecords: {},
+  boots: null,
+  drill: null,
   privateLeft: 0,
   trust: 62,
   form: [6.8, 7.4, 5.9],
@@ -383,7 +417,7 @@ export const useGame = create<GameState>()((set, get) => ({
 
   async signedIn() {
     // Whatever was cached belonged to the session before; the server has the truth.
-    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null, owned: [], character: null });
+    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null, owned: [], character: null, drillStars: {}, drillRecords: {}, boots: null, drill: null });
     await connect(true);
     await get().refreshMahalle();
     set({ auth: 'in' });
@@ -534,6 +568,7 @@ export const useGame = create<GameState>()((set, get) => ({
       mahalle: null, mahalleReady: false, mahalleToday: null, blocked: [], career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null,
       careerNews: null, kariyerNews: null, seasonSummary: null, pendingInvite: null, club: t('club.home'), level: 1, xp: 0, coins: 0, gems: 0,
       stats: { sut: 40, pas: 40, hiz: 40, fizik: 40 }, drillProgress: { sut: 0, pas: 0, hiz: 0, fizik: 0 }, form: [],
+      drillStars: {}, drillRecords: {}, boots: null, drill: null,
       owned: [], catalog: [], match: null, post: null,
     });
   },
@@ -716,35 +751,116 @@ export const useGame = create<GameState>()((set, get) => ({
     return post;
   },
 
-  async train(key, q, durationMs) {
+  async startDrill(key) {
     const s = get();
+    const tc = config.training;
     if (s.mode === 'online') {
       try {
-        const r = await trainDrill(SERVER_STAT[key], Math.round(q * 100), Math.round(durationMs));
-        return applyTraining(key, r);
+        const r = await apiStartDrill(SERVER_STAT[key]);
+        set({
+          drill: { key, session: r.session, seed: r.seed, tier: r.tier, stars: r.stars, record: r.record, kerem: r.kerem },
+          ...(r.kind === 'free' ? { trainFree: Math.max(0, s.trainFree - 1) } : { trainFree: 0 }),
+          ...(r.energy ? { energy: r.energy.energy, energyUpdatedAt: r.energy.updatedAt } : {}),
+        });
+        return 'ok';
       } catch (e) {
-        if (e instanceof ApiError && e.code === 'no_energy') { set({ energy: 0 }); return 'no_energy'; }
-        console.warn('train failed', e);
-        return null;
+        if (e instanceof ApiError && e.code === 'no_energy') { set({ energy: 0, trainFree: 0 }); return 'no_energy'; }
+        console.warn('drill start failed', e);
+        return 'error';
       }
     }
-    let { trainFree, energy } = s;
+    s.syncEnergy();
+    let { trainFree, energy } = get();
     if (trainFree > 0) trainFree--;
     else if (energy > 0) energy--;
     else return 'no_energy';
-    const g = gradeDrill(q);
-    const xp = s.xp + g.xp;
-    const level = Math.max(s.level, levelForXp(xp));
-    let progress = s.drillProgress[key] + g.progress;
-    let statUp = 0;
-    if (progress >= 3) { progress -= 3; statUp = 1; }
-    const before = s.stats[key];
+    const stat = SERVER_STAT[key];
     set({
-      trainFree, energy, level, xp,
-      drillProgress: { ...s.drillProgress, [key]: progress },
-      stats: { ...s.stats, [key]: before + statUp },
+      trainFree, energy,
+      drill: {
+        key, session: null, seed: randomSeed(), tier: drillTier(s.stats[key], tc), stars: tc.drillStars[stat],
+        record: s.drillRecords[key] ?? null, kerem: keremRecord(stat, s.level, tc),
+      },
     });
-    return { key, grade: g.grade, xp: g.xp, ups: level - s.level, statUp, before, after: before + statUp, progress, coin: 0 };
+    return 'ok';
+  },
+
+  async finishDrill(inputs) {
+    const s = get();
+    const d = s.drill;
+    if (!d) return null;
+    const key = d.key;
+    let out: DrillOutcome;
+    if (d.session !== null) {
+      let r;
+      try {
+        r = await apiFinishDrill(d.session, inputs);
+      } catch (e) {
+        // Another session changed the stat in between: the server asks for one more try.
+        if (!(e instanceof ApiError && e.code === 'retry')) { console.warn('drill finish failed', e); return null; }
+        try { r = await apiFinishDrill(d.session, inputs); } catch (e2) { console.warn('drill finish failed', e2); return null; }
+      }
+      set({
+        xp: r.player.xp, level: r.player.level, coins: r.player.coin,
+        stats: { ...s.stats, [key]: r.stat.after },
+        drillProgress: { ...s.drillProgress, [key]: r.stat.ap },
+        drillStars: { ...s.drillStars, [key]: Math.max(s.drillStars[key] ?? 0, r.stars) },
+        drillRecords: { ...s.drillRecords, [key]: r.record.best },
+        boots: r.boots && r.boots.usesLeft > 0 ? r.boots : r.boots ? null : s.boots,
+      });
+      if (r.boots && r.boots.usesLeft <= 0) void get().refreshTraining();
+      out = {
+        key, score: r.score, stars: r.stars, grade: GRADE_TR[r.grade], ap: r.ap, bootAp: r.bootAp, xp: r.xp,
+        ups: r.player.level - s.level, statUp: r.stat.after - r.stat.before, before: r.stat.before, after: r.stat.after,
+        progress: r.stat.ap, record: r.record, kerem: d.kerem,
+      };
+    } else {
+      // Offline: the same scoring, the prototype's 3 AP per point, nothing saved.
+      const tc = config.training;
+      const stat = SERVER_STAT[key];
+      const score = drillScore(stat, d.seed, d.tier, inputs);
+      const stars = drillStars(stat, score, tc);
+      const grade = starsGrade(stars);
+      const gain = drillGain(grade, tc);
+      const xp = s.xp + gain.xp;
+      const level = Math.max(s.level, levelForXp(xp));
+      let progress = s.drillProgress[key] + gain.ap;
+      let statUp = 0;
+      if (progress >= 3) { progress -= 3; statUp = 1; }
+      const before = s.stats[key];
+      const previous = s.drillRecords[key] ?? null;
+      const best = Math.max(previous ?? score, score);
+      set({
+        level, xp,
+        drillProgress: { ...s.drillProgress, [key]: progress },
+        stats: { ...s.stats, [key]: before + statUp },
+        drillStars: { ...s.drillStars, [key]: Math.max(s.drillStars[key] ?? 0, stars) },
+        drillRecords: { ...s.drillRecords, [key]: best },
+      });
+      out = {
+        key, score, stars, grade: GRADE_TR[grade], ap: gain.ap, bootAp: 0, xp: gain.xp, ups: level - s.level, statUp,
+        before, after: before + statUp, progress, record: { best, previous }, kerem: d.kerem,
+      };
+    }
+    set({ drill: null });
+    return out;
+  },
+
+  async buyBoots(id) {
+    if (get().mode !== 'online') return 'error';
+    try {
+      const r = await apiBuyBoots(id);
+      set({ coins: r.balance, boots: { id, usesLeft: r.usesLeft } });
+      void get().refreshShop();
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_coin' || e.code === 'owned' || e.code === 'locked')) {
+        void get().refreshShop();
+        return e.code;
+      }
+      console.warn('boots purchase failed', e);
+      return 'error';
+    }
   },
 
   async privateTrain(key) {
@@ -763,9 +879,12 @@ export const useGame = create<GameState>()((set, get) => ({
     try {
       const today = await loadTrainingToday();
       const tc = config.training;
+      const byKey = (m: Partial<Record<ServerStat, number>> | undefined) =>
+        Object.fromEntries(Object.entries(m ?? {}).map(([k, v]) => [STAT_KEY[k as ServerStat], v])) as Partial<Stats>;
       set({
         trainFree: Math.max(0, tc.freeDrillsPerDay - today.free),
         privateLeft: Math.max(0, tc.privateSessionsPerDay - today.private),
+        drillStars: byKey(today.stars), drillRecords: byKey(today.records), boots: today.boots ?? null,
       });
     } catch (e) {
       console.warn('Could not load today\'s training', e);
@@ -849,15 +968,14 @@ export const useGame = create<GameState>()((set, get) => ({
   setAssisted(v) { set({ assisted: v }); },
 }));
 
-/** Writes a server training result into the store and shapes it for the result line. */
+/** Writes a private session's result into the store and shapes it for the result line. */
 function applyTraining(key: StatKey, r: TrainResponse): TrainResult {
   const s = useGame.getState();
   useGame.setState({
     xp: r.player.xp, level: r.player.level, coins: r.player.coin,
     stats: { ...s.stats, [key]: r.stat.after },
     drillProgress: { ...s.drillProgress, [key]: r.stat.ap },
-    ...(r.energy ? { energy: r.energy.energy, energyUpdatedAt: r.energy.updatedAt } : {}),
-    ...(r.grade ? { trainFree: Math.max(0, s.trainFree - 1) } : { privateLeft: Math.max(0, s.privateLeft - 1) }),
+    privateLeft: Math.max(0, s.privateLeft - 1),
   });
   return {
     key, grade: r.grade ? GRADE_TR[r.grade] : 'ozel', xp: r.xp, ups: r.player.level - s.level,

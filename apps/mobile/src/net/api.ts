@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { DrillInputs, Tier } from '@streetborn/economy';
 import type { ChanceInput, MatchResult, MatchSetup } from '@streetborn/engine';
 
 import type { Character } from '../game/character.ts';
@@ -240,24 +241,53 @@ export interface TrainResponse {
   player: { xp: number; level: number; coin: number };
   energy: { energy: number; updatedAt: number } | null;
 }
-export const trainDrill = (stat: ServerStat, quality: number, durationMs: number) =>
-  call<TrainResponse>('train', { kind: 'drill', stat, quality, durationMs });
-export const trainPrivate = (stat: ServerStat) => call<TrainResponse>('train', { kind: 'private', stat });
+export const trainPrivate = (stat: ServerStat) => call<TrainResponse>('train', { action: 'private', stat });
 
-/** Today's training counts (free drills, energy drills, private sessions). */
-export async function loadTrainingToday(): Promise<{ free: number; energy: number; private: number }> {
+/** The pair of boots in use and the talim it has left. */
+export interface Boots { id: string; usesLeft: number }
+
+/** A started mini game: the seed and tier to play, and what it takes for 1, 2 and 3 stars. */
+export interface DrillTicket {
+  session: number; seed: number; tier: Tier; stars: [number, number, number];
+  record: number | null; kerem: number; kind: 'free' | 'energy';
+  energy: { energy: number; updatedAt: number } | null;
+}
+export interface DrillFinish {
+  score: number; stars: number; grade: 'perfect' | 'good' | 'miss'; ap: number; bootAp: number; xp: number;
+  stat: { name: ServerStat; before: number; after: number; ap: number };
+  player: { xp: number; level: number; coin: number };
+  record: { best: number; previous: number | null };
+  boots: Boots | null;
+}
+/** Spends today's free drill (then 1 energy) and returns the seed of the mini game. */
+export const startDrill = (stat: ServerStat) => call<DrillTicket>('train', { action: 'start', stat });
+/** Sends what the player did; the server scores it with the same rules and pays. */
+export const finishDrill = (session: number, inputs: DrillInputs) => call<DrillFinish>('train', { action: 'finish', session, inputs });
+
+export interface TrainingToday {
+  free: number; energy: number; private: number;
+  /** Today's best stars and the best score ever, per drill. */
+  stars: Partial<Record<ServerStat, number>>;
+  records: Partial<Record<ServerStat, number>>;
+  boots: Boots | null;
+}
+
+/** Today's training counts, stars and records, and the boots in use. */
+export async function loadTrainingToday(): Promise<TrainingToday> {
   await ensureSession();
   const supabase = await client();
   const { data, error } = await supabase.rpc('antrenman_bugun');
   if (error) throw new ApiError(error.message);
-  return data as { free: number; energy: number; private: number };
+  return data as TrainingToday;
 }
 
 export const refillEnergy = () => call<{ gem: number; energy: { energy: number; updatedAt: number } }>('shop', { action: 'refill' });
 export const buyItem = (itemId: string) => call<{ currency: 'coin' | 'gem'; price: number; balance: number }>('shop', { action: 'buy', itemId });
 export const equipItem = (itemId: string, on: boolean) => call<{ ok: true }>('shop', { action: 'equip', itemId, on });
+/** Buys a pair of krampon at its config price (coin). */
+export const buyBoots = (itemId: string) => call<{ price: number; balance: number; usesLeft: number }>('shop', { action: 'boots', itemId });
 
-export interface OwnedItem { id: string; equipped: boolean }
+export interface OwnedItem { id: string; equipped: boolean; /** Boots only: talim left. */ usesLeft?: number | null }
 export interface CatalogItem { id: string; kind: string; priceGem: number | null; priceCoin: number | null }
 export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[] }
 

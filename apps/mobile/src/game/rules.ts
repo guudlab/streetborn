@@ -34,12 +34,3 @@ export function levelProgress(level: number, xp: number) {
 
 export const OPP = t('club.kartaltepe');
 export const MOMENT_TITLE = { shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick'), defense: t('moment.defense') } as const;
-
-export type Grade = 'mukemmel' | 'iyi' | 'kacti';
-/** q: 0..1 hit quality on the timing bar (1 = centre). */
-export function gradeDrill(q: number) {
-  const grade: Grade = q >= 0.85 ? 'mukemmel' : q >= 0.5 ? 'iyi' : 'kacti';
-  const xp = grade === 'mukemmel' ? 30 : grade === 'iyi' ? 20 : 8;
-  const progress = grade === 'mukemmel' ? 2 : grade === 'iyi' ? 1 : 0;
-  return { grade, xp, progress };
-}
