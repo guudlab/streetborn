@@ -1,17 +1,19 @@
 import { Image, type ImageSource } from 'expo-image';
 import { Asset } from 'expo-asset';
-import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { useFocusEffect } from 'expo-router';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Platform, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { tintMaterials, type Tint } from './kitTint.ts';
+import { build, debug, type Gltf, type Opts, type Scene } from './modelScene.ts';
+import { ModelWebView } from './nativeModel';
 
-// A rigged or static Meshy model on a transparent GL surface. Native draws through
-// expo-gl; the browser has no expo-gl backend, so web renders into a plain <canvas>
-// with the same scene code. three.js and the meshopt decoder (~700 KB) load with the
-// first model (or preloadModels), not with the app.
+// A rigged or static Meshy model on a transparent GL surface. The browser renders into a
+// plain <canvas>; iOS and Android draw in a small WebView (nativeModel.native.tsx), because
+// expo-gl has no image decoding for the textures inside the .glb files. Both run the same
+// scene code (modelScene.ts). On the web, three.js and the meshopt decoder (~700 KB) load
+// with the first model (or preloadModels), not with the app.
 //
 // Character files carry named clips (walk, idle, cheer, wave…, baked by
 // scripts/bake-clips.mjs): `clip` loops, `action` plays once and blends back.
@@ -20,10 +22,8 @@ import { tintMaterials, type Tint } from './kitTint.ts';
 // WebGL is missing or the file fails.
 
 // Last loading step reached, shown by ?3ddebug when a model never appears.
-let stage = 'start';
 const load3d = () => import('./three3d.ts');
 type Three = Awaited<ReturnType<typeof load3d>>;
-type Gltf = { scene: import('three').Group; animations: import('three').AnimationClip[] };
 
 export type { Tint } from './kitTint.ts';
 
@@ -54,22 +54,6 @@ interface Props {
   label?: string;
 }
 
-interface Opts { spin: boolean; headroom: number; clip?: string; intro?: string; tint: Tint }
-
-/** What a running scene exposes to the component after it is built. */
-interface Scene {
-  setClip(name?: string): void;
-  play(name: string): void;
-  setTint(t: Tint): void;
-  setPaused(p: boolean): void;
-  /** Off screen (scrolled away): stop drawing, like a paused scene. */
-  setHidden(h: boolean): void;
-  /** Resolves once the shaders are compiled and the first frame is drawn. */
-  ready: Promise<void>;
-  drag(dx: number): void;
-  release(vx: number): void;
-  dispose(): void;
-}
 
 // ---------------------------------------------------------------------------
 // Loading and caching
@@ -98,9 +82,9 @@ function modelGltf(three: Three, model: number): Promise<Gltf> {
   if (!p) {
     p = (async () => {
       const data = await modelBytes(model);
-      stage = 'meshopt wasm';
+      debug.stage = 'meshopt wasm';
       await three.MeshoptDecoder.ready;
-      stage = 'parse glb';
+      debug.stage = 'parse glb';
       const loader = new three.GLTFLoader();
       loader.setMeshoptDecoder(three.MeshoptDecoder);
       return new Promise<Gltf>((resolve, reject) => loader.parse(data, '', resolve, reject));
@@ -119,6 +103,8 @@ export const loadModelBytes = modelBytes;
  * when it is needed. Safe to call often; each file loads once.
  */
 export function preloadModels(models: number[]) {
+  // The phone draws models in a WebView, which parses them itself: only fetch the bytes.
+  if (Platform.OS !== 'web') { for (const m of models) modelBytes(m).catch(() => {}); return; }
   void load3d().then((three) => Promise.all(models.map(m => modelGltf(three, m)))).catch(() => {});
 }
 
@@ -167,7 +153,7 @@ export function Model3D(props: Props) {
     console.warn('Model3D failed', e);
     setFailed(true);
     // On the phone the cause is shown under the fallback picture until native 3D is proven on devices.
-    if (Platform.OS !== 'web' || /3ddebug/.test(window.location.search)) setError(`${stage}: ${String((e as Error)?.message ?? e)}`.slice(0, 160));
+    if (Platform.OS !== 'web' || /3ddebug/.test(window.location.search)) setError(`${debug.stage}: ${String((e as Error)?.message ?? e)}`.slice(0, 160));
   }, []);
 
   useEffect(() => { scene.current?.setClip(clip); }, [clip, ready]);
@@ -206,7 +192,7 @@ export function Model3D(props: Props) {
         <Animated.View style={[fill, { opacity: fade }]} pointerEvents="none">
           {Platform.OS === 'web'
             ? <WebCanvas key={model} model={model} opts={opts} onReady={onReady} onFail={onFail} />
-            : <NativeCanvas key={model} model={model} opts={opts} onReady={onReady} onFail={onFail} />}
+            : <ModelWebView key={model} model={model} opts={opts} onReady={onReady} onFail={onFail} />}
         </Animated.View>
       )}
       {error ? <Text style={{ position: 'absolute', left: 0, right: 0, bottom: 0, color: '#f66', fontSize: 9 }}>{error}</Text> : null}
@@ -228,9 +214,9 @@ function WebCanvas({ model, opts, onReady, onFail }: CanvasProps) {
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y';
     el.appendChild(canvas);
     void (async () => {
-      stage = 'import three';
+      debug.stage = 'import three';
       const three = await load3d();
-      stage = 'webgl context';
+      debug.stage = 'webgl context';
       const renderer = new three.THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       const width = Math.max(el.clientWidth, 1), height = Math.max(el.clientHeight, 1);
@@ -254,185 +240,4 @@ function WebCanvas({ model, opts, onReady, onFail }: CanvasProps) {
     };
   }, [model]); // eslint-disable-line react-hooks/exhaustive-deps
   return <View ref={host} style={{ flex: 1 }} />;
-}
-
-function NativeCanvas({ model, opts, onReady, onFail }: CanvasProps) {
-  const s = useRef<Scene | null>(null);
-  useEffect(() => () => s.current?.dispose(), []);
-  return (
-    <GLView
-      style={{ flex: 1 }}
-      onContextCreate={(gl: ExpoWebGLRenderingContext) => {
-        void (async () => {
-          const three = await load3d();
-          const { drawingBufferWidth: width, drawingBufferHeight: height } = gl;
-          const renderer = new three.THREE.WebGLRenderer({
-            canvas: { width, height, style: {}, addEventListener() {}, removeEventListener() {}, clientHeight: height, getContext: () => gl } as unknown as HTMLCanvasElement,
-            context: gl,
-            alpha: true,
-          } as ConstructorParameters<typeof import('three').WebGLRenderer>[0]);
-          renderer.setSize(width, height);
-          s.current = build(three, renderer, await modelGltf(three, model), width, height, opts.current!, () => gl.endFrameEXP());
-          onReady(s.current);
-        })().catch(onFail);
-      }}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Scene
-// ---------------------------------------------------------------------------
-
-const TURN_SPEED = 0.012; // radians per dragged pixel
-const SETTLE_AFTER = 2.5; // seconds after a drag before the model turns back to the front
-const BLEND = 0.35;
-
-/** Frames the model, starts the render loop and returns its controls. */
-function build(
-  { THREE, cloneSkinned }: Three,
-  renderer: import('three').WebGLRenderer,
-  gltf: Gltf,
-  width: number,
-  height: number,
-  opt: Opts,
-  present?: () => void,
-): Scene {
-  stage = 'render';
-  renderer.setClearColor(0x000000, 0);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 100);
-  scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6);
-  key.position.set(2, 4, 3);
-  scene.add(key);
-
-  const root = cloneSkinned(gltf.scene) as import('three').Group;
-  const tint = tintMaterials(THREE, root);
-  const pivot = new THREE.Group();
-  pivot.add(root);
-  scene.add(pivot);
-
-  // Centre the model and fit its bounding box, so wide models are not cropped.
-  // A spinning model sweeps a circle, so use its horizontal diagonal as the width.
-  // Measured on the parsed original in its bind pose: a fresh skinned clone has no bone
-  // matrices yet, so its box comes out wrong.
-  const { size, centre } = bounds(THREE, gltf);
-  root.position.sub(centre);
-  const extra = size.y * opt.headroom;
-  const halfH = size.y / 2 + extra / 2;
-  const halfW = opt.spin ? Math.hypot(size.x, size.z) / 2 : size.x / 2;
-  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const fit = Math.max(halfH / tanV, halfW / (tanV * camera.aspect));
-  camera.position.set(0, extra / 2, fit * 1.12 + (opt.spin ? 0 : size.z / 2));
-  camera.lookAt(0, extra / 2, 0);
-
-  // Clips by name; a file without names keeps its single clip as the loop.
-  const mixer = new THREE.AnimationMixer(root);
-  const clips = new Map(gltf.animations.map(c => [c.name, c]));
-  const first = gltf.animations[0];
-  const actionOf = (name?: string) => {
-    const c = (name && clips.get(name)) || (name ? undefined : first);
-    return c ? mixer.clipAction(c) : null;
-  };
-  let loopName = opt.clip;
-  let current: import('three').AnimationAction | null = null;
-  let once: import('three').AnimationAction | null = null;
-
-  function fadeTo(a: import('three').AnimationAction, loop: boolean) {
-    if (a === current && loop) return;
-    a.reset();
-    a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
-    a.clampWhenFinished = !loop;
-    a.setEffectiveWeight(1).play();
-    if (current && current !== a) current.crossFadeTo(a, BLEND, false);
-    current = a;
-  }
-  function backToLoop() {
-    once = null;
-    const a = actionOf(loopName) ?? actionOf();
-    if (a) fadeTo(a, true);
-  }
-  const introAction = opt.intro ? actionOf(opt.intro) : null;
-  if (introAction) { fadeTo(introAction, false); once = introAction; } else backToLoop();
-
-  // Turning by hand: angle follows the finger, then coasts and settles back to 0.
-  let angle = 0, base = 0, vel = 0, dragging = false, idleFor = 0;
-  let paused = false, hidden = false, disposed = false;
-  let frame = 0;
-  const clock = new THREE.Clock();
-  const tick = () => {
-    frame = requestAnimationFrame(tick);
-    const dt = Math.min(clock.getDelta(), 0.1);
-    if (paused || hidden) return;
-    if (once && once.time > once.getClip().duration - BLEND) backToLoop();
-    mixer.update(dt);
-    if (opt.spin) pivot.rotation.y += dt * 0.5;
-    else {
-      if (!dragging) {
-        angle += vel * dt;
-        vel *= Math.pow(0.04, dt);
-        idleFor += dt;
-        if (idleFor > SETTLE_AFTER && Math.abs(vel) < 0.5) {
-          // Take the shorter way back to the front.
-          const wrapped = Math.atan2(Math.sin(angle), Math.cos(angle));
-          angle = wrapped * Math.pow(0.02, dt);
-        }
-      }
-      pivot.rotation.y = angle;
-    }
-    renderer.render(scene, camera);
-    present?.();
-  };
-  // Compile the shaders before the first frame: in the browser they compile in parallel
-  // (KHR_parallel_shader_compile) instead of freezing the screen that opens the model.
-  const ready = (Platform.OS === 'web' && renderer.extensions.has('KHR_parallel_shader_compile') ? renderer.compileAsync(scene, camera) : Promise.resolve())
-    .catch(() => {})
-    .then(() => { if (!disposed) { clock.getDelta(); tick(); } });
-
-  return {
-    setClip(name) { loopName = name; if (!once) backToLoop(); },
-    play(name) {
-      const a = actionOf(name);
-      if (!a) return;
-      once = a;
-      fadeTo(a, false);
-    },
-    setTint: tint,
-    setPaused(p) { paused = p; if (!p) clock.getDelta(); },
-    setHidden(h) { hidden = h; if (!h) clock.getDelta(); },
-    ready,
-    drag(dx) {
-      if (!dragging) { dragging = true; base = angle; vel = 0; }
-      angle = base + dx * TURN_SPEED;
-      idleFor = 0;
-    },
-    release(vx) {
-      dragging = false;
-      // vx is px/ms; keep a little of the throw.
-      vel = vx * 1000 * TURN_SPEED * 0.6;
-      idleFor = 0;
-    },
-    dispose() {
-      disposed = true;
-      cancelAnimationFrame(frame);
-      mixer.stopAllAction();
-      renderer.dispose();
-      // Browsers keep only ~16 WebGL contexts and drop the oldest past that (a model that
-      // goes blank); a context is otherwise freed only whenever the canvas is collected.
-      if (Platform.OS === 'web') renderer.forceContextLoss();
-    },
-  };
-}
-
-const measured = new WeakMap<Gltf, { size: import('three').Vector3; centre: import('three').Vector3 }>();
-function bounds(THREE: Three['THREE'], gltf: Gltf) {
-  let b = measured.get(gltf);
-  if (!b) {
-    gltf.scene.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(gltf.scene, true);
-    b = { size: box.getSize(new THREE.Vector3()), centre: box.getCenter(new THREE.Vector3()) };
-    measured.set(gltf, b);
-  }
-  return b;
 }

@@ -1,10 +1,9 @@
-import { Asset } from 'expo-asset';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { colors } from '../theme.ts';
-import { loadModelBytes } from '../ui/Model3D.tsx';
+import { loadPage, modelChunks } from '../ui/webviewAssets.native.ts';
 import type { FromWebView, MatchConfig, SceneBridge, ToWebView } from './bridgeTypes.ts';
 import type { MatchEnv, MatchScene, ScenePhase } from './scene.d.ts';
 
@@ -16,26 +15,6 @@ import type { MatchEnv, MatchScene, ScenePhase } from './scene.d.ts';
 
 export const hasNativeScene = true;
 
-let htmlOnce: Promise<string> | null = null;
-function loadHtml(): Promise<string> {
-  htmlOnce ??= (async () => {
-    const asset = Asset.fromModule(require('../../assets/match3d/match.webview.html'));
-    await asset.downloadAsync();
-    return (await fetch(asset.localUri ?? asset.uri)).text();
-  })();
-  htmlOnce.catch(() => { htmlOnce = null; });
-  return htmlOnce;
-}
-
-/** base64 of a byte array, in slices so the string builder never sees a huge argument list. */
-function toBase64(bytes: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000) as unknown as number[]);
-  return btoa(s);
-}
-
-/** Characters of base64 per message (a multiple of 4). */
-const CHUNK = 384 * 1024;
 const tick = () => new Promise<void>(r => setTimeout(r, 0));
 
 function createBridge(inject: (js: string) => void, onFail: (e: unknown) => void) {
@@ -99,9 +78,8 @@ function createBridge(inject: (js: string) => void, onFail: (e: unknown) => void
       });
       let sent = 0;
       for (const [key, model] of files) {
-        const b64 = toBase64(new Uint8Array(await loadModelBytes(model)));
-        const n = Math.ceil(b64.length / CHUNK);
-        for (let i = 0; i < n; i++) { send({ t: 'model', key, i, n, d: b64.slice(i * CHUNK, (i + 1) * CHUNK) }); await tick(); }
+        const chunks = await modelChunks(model);
+        for (let i = 0; i < chunks.length; i++) { send({ t: 'model', key, i, n: chunks.length, d: chunks[i]! }); await tick(); }
         onProgress(++sent / files.length / 2);
         stage = `models ${sent}/${files.length}`;
       }
@@ -123,7 +101,7 @@ export function NativeSceneView({ onBridge, onFail }: { onBridge(b: SceneBridge)
 
   useEffect(() => {
     let alive = true;
-    loadHtml().then((h) => { if (alive) { setHtml(h); onBridge(core.current!.bridge); } }, (e: unknown) => onFail(new Error(`html asset: ${String((e as Error)?.message ?? e)}`)));
+    loadPage(require('../../assets/match3d/match.webview.html')).then((h) => { if (alive) { setHtml(h); onBridge(core.current!.bridge); } }, (e: unknown) => onFail(new Error(`html asset: ${String((e as Error)?.message ?? e)}`)));
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
