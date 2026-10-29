@@ -305,8 +305,7 @@ def song(chords, bars_per_chord, swing, energy):
 
 
 def music():
-    menu = song([('A', 'm'), ('F', 'M'), ('C', 'M'), ('G', 'M')], 2, swing=0.18, energy=1)
-    write('menu_loop', norm(menu, 0.55), stereo=True, kbps=128)
+    # menu_loop.m4a is a recorded track now, cut by scripts/loop-music.py.
     match = song([('E', 'm'), ('C', 'M'), ('G', 'M'), ('D', 'M')], 1, swing=0.0, energy=2)
     write('match_loop', norm(match, 0.55), stereo=True, kbps=128)
 
