@@ -136,7 +136,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     } catch (e) {
       console.warn('match-finish failed', e);
       setFinishing('failed');
-      toast(t('match.sendFailed'));
+      toast(t('match.sendFailed'), 'error');
     }
   }, []);
 
@@ -482,7 +482,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, backgroundColor: 'rgba(13,13,13,.86)' }}>
           <Caps>{t('match.end')}</Caps>
           <H3>{finishing === 'sending' ? t('match.calculating') : t('match.notSent')}</H3>
-          {finishing === 'failed' && <Cta style={{ width: 170, height: 48 }} onPress={finish}>{t('match.retry')}</Cta>}
+          {finishing === 'failed' && <Cta style={{ width: 170, height: 48, minHeight: 48 }} onPress={finish}>{t('match.retry')}</Cta>}
         </View>
       )}
     </View>

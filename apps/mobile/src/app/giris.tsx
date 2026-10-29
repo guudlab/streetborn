@@ -49,7 +49,7 @@ export default function Giris() {
     // The anonymous account starts here; the mahalle and character steps follow (see _layout).
     try { await startAnonymous(); } catch (e) {
       console.warn('Could not start', e);
-      toast(t('login.err'));
+      toast(t('login.err'), 'error');
     } finally { setBusy(false); }
   }
 

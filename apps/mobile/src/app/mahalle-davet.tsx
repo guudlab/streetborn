@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
 import { previewMahalle, type MahallePreview } from '../net/api.ts';
@@ -8,7 +8,9 @@ import { colors } from '../theme.ts';
 import { Emblem } from '../ui/emblem.tsx';
 import { Cta, Ghost, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
+import { Skeleton } from '../ui/motion.tsx';
 import { Amount, Bubble } from '../ui/sade.tsx';
+import { EmptyState, ErrorState } from '../ui/states.tsx';
 import { SetupBar } from '../ui/setup.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -19,16 +21,22 @@ export default function MahalleDavet() {
   const joinMahalle = useGame(s => s.joinMahalle);
   const setPendingInvite = useGame(s => s.setPendingInvite);
   const signOut = useGame(s => s.signOut);
-  const [preview, setPreview] = useState<MahallePreview | null | undefined>(undefined);
+  // undefined while loading, null for a bad or full invite, 'error' when the server could not be reached.
+  const [preview, setPreview] = useState<MahallePreview | null | undefined | 'error'>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const live = useRef(true);
+  useEffect(() => () => { live.current = false; }, []);
+  const load = useCallback(async () => {
+    if (!invite) return;
+    try { const p = await previewMahalle(invite); if (live.current) setPreview(p); }
+    catch { if (live.current) setPreview('error'); }
+  }, [invite]);
   useEffect(() => {
     if (!invite) { router.replace('/mahalle-secim'); return; }
-    let live = true;
-    previewMahalle(invite).then((p) => { if (live) setPreview(p); }).catch(() => { if (live) setPreview(null); });
-    return () => { live = false; };
-  }, [invite]);
+    void load();
+  }, [invite, load]);
 
   function other() {
     setPendingInvite(null);
@@ -40,8 +48,9 @@ export default function MahalleDavet() {
     try { await joinMahalle({ code: invite }); } catch (e) { setError(mahalleError(e)); } finally { setBusy(false); }
   }
 
-  const free = preview ? Math.max(0, 12 - preview.memberCount) : 0;
-  const usable = !!preview && free > 0;
+  const info = preview && preview !== 'error' ? preview : null;
+  const free = info ? Math.max(0, 12 - info.memberCount) : 0;
+  const usable = !!info && free > 0;
 
   return (
     <Shell
@@ -52,16 +61,23 @@ export default function MahalleDavet() {
       </>}
     >
       <SetupBar label={t('mahalle.invite.label')} onBack={() => { setPendingInvite(null); void signOut(); }} />
-      {preview === undefined && <ActivityIndicator size="large" color={colors.l600} style={{ marginTop: 80 }} />}
-      {preview === null && <T color={colors.g200} style={{ textAlign: 'center', marginTop: 80 }}>{t('mahalle.invite.bad')}</T>}
-      {preview && (
+      {preview === undefined && (
+        <View style={{ alignItems: 'center', gap: 12, paddingTop: 32 }}>
+          <Skeleton width={128} height={128} radius={64} />
+          <Skeleton width={180} height={26} radius={8} />
+          <Skeleton width={140} height={18} radius={8} />
+        </View>
+      )}
+      {preview === 'error' && <ErrorState onRetry={load} style={{ marginTop: 48 }} />}
+      {preview === null && <EmptyState icon="davet" text={t('mahalle.invite.bad')} style={{ marginTop: 48 }} />}
+      {info && (
         <>
           <View style={{ alignItems: 'center', gap: 12, paddingTop: 32 }}>
-            <Emblem shape={preview.emblem} color={preview.color} name={preview.name} size={128} />
-            <T w={700} size={28} style={{ textAlign: 'center', letterSpacing: -0.4 }} accessibilityRole="header">{preview.name}</T>
+            <Emblem shape={info.emblem} color={info.color} name={info.name} size={128} />
+            <T w={700} size={28} style={{ textAlign: 'center', letterSpacing: -0.4 }} accessibilityRole="header">{info.name}</T>
             {usable ? (
-              <View style={{ flexDirection: 'row', gap: 20 }} accessible accessibilityLabel={t('mahalle.invite.sub', { n: preview.memberCount, free })}>
-                <Amount icon="oyuncu" size={28} textSize={17}>{preview.memberCount}</Amount>
+              <View style={{ flexDirection: 'row', gap: 20 }} accessible accessibilityLabel={t('mahalle.invite.sub', { n: info.memberCount, free })}>
+                <Amount icon="oyuncu" size={28} textSize={17}>{info.memberCount}</Amount>
                 <Amount icon="davet" size={28} textSize={17}>{t('mahalle.invite.free', { n: free })}</Amount>
               </View>
             ) : <T size={15} color={colors.g200} style={{ textAlign: 'center' }}>{t('mahalle.invite.bad')}</T>}

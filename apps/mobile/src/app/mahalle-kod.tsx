@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
 import { previewMahalle, type MahallePreview } from '../net/api.ts';
-import { colors } from '../theme.ts';
+import { colors, MAX_FONT_SCALE } from '../theme.ts';
 import { Emblem } from '../ui/emblem.tsx';
 import { Cta, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
@@ -50,7 +50,7 @@ export default function MahalleKod() {
         ))}
         {/* The real input sits invisibly on top of the boxes. Its font stays at 16 px or more:
             iOS Safari zooms the page into any smaller input on focus, which shifted this screen. */}
-        <TextInput
+        <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
           ref={input} value={code} onChangeText={(s) => setCode(clean(s))} autoFocus autoCapitalize="characters" autoCorrect={false}
           maxLength={LEN} accessibilityLabel={t('mahalle.code.a11y')} caretHidden selectionColor="transparent"
           style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.02, color: 'transparent', fontSize: 26, outlineStyle: 'none' } as object}

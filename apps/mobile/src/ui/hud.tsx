@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { num } from '../game/format.ts';
 import { levelProgress } from '../game/rules.ts';
@@ -8,7 +8,7 @@ import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { energyLeft } from './energy.tsx';
 import { Pill, Ring, T, useNow } from './kit.tsx';
-import { Pulse } from './motion.tsx';
+import { PressableScale, Pulse } from './motion.tsx';
 import { ICONS } from './sade.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -24,12 +24,12 @@ export function Hud() {
   const left = energyLeft(now);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16 }}>
-      <Pressable
+      <PressableScale
         accessibilityRole="button" accessibilityLabel={t('hud.levelA11y', { name: g.name, level: g.level })}
         onPress={() => router.navigate('/gelisim')} hitSlop={4}
       >
         <Ring size={44} stroke={3} value={levelProgress(g.level, g.xp)}><Pulse value={g.level}><T w={700} size={16}>{g.level}</T></Pulse></Ring>
-      </Pressable>
+      </PressableScale>
       <Pill
         image={ICONS.enerji}
         label={t('hud.energyA11y', { energy: g.energy, max: g.energyMax }) + (left ? t('hud.energyNext', { t: left }) : '')} onPress={() => router.navigate('/dukkan')}

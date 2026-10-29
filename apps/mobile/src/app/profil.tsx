@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, drillBadge, xpNeed } from '@streetborn/economy';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View } from 'react-native';
 
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../game/character.ts';
 import { num } from '../game/format.ts';
@@ -15,7 +15,7 @@ import { buzz, Caps, Cta, Danger, Ghost, H3, T, Track } from '../ui/kit.tsx';
 import { Badge } from '../ui/drills/common.tsx';
 import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
-import { Skeleton } from '../ui/motion.tsx';
+import { PressableScale, Skeleton } from '../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { Ico, Tile, type IconAsset } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
@@ -39,18 +39,15 @@ export default function Profil() {
   const loading = online && !g.kariyerTried && !g.kariyer;
   const unlockedCount = trophies?.filter(a => a.unlocked).length ?? 0;
 
-  useEffect(() => {
-    if (!online) return;
-    void g.refreshAccount();
-    void g.refreshKariyer();
-    void g.refreshTraining();
+  const refresh = useCallback(() => Promise.all([g.refreshAccount(), g.refreshKariyer(), g.refreshTraining()]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online]);
+    []);
+  useEffect(() => { if (online) void refresh(); }, [online, refresh]);
 
   const xpLeft = Math.max(0, xpNeed(g.level + 1) - g.xp);
 
   return (
-    <Shell title={t('profile.title')}>
+    <Shell title={t('profile.title')} onRefresh={online ? refresh : undefined}>
       {/* Who */}
       <View style={{ borderRadius: 24, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
         <Model3D
@@ -155,13 +152,13 @@ export default function Profil() {
 
       {online && <SignOut />}
       {online && (
-        <Pressable
+        <PressableScale
           accessibilityRole="button" hitSlop={8} onPress={() => { buzz(); router.push('/hesap-sil'); }}
           style={{ alignSelf: 'center', minHeight: 44, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
         >
           <Icon name="trash" size={16} color={colors.bad} />
           <T w={600} size={14} color={colors.bad}>{t('delete.link')}</T>
-        </Pressable>
+        </PressableScale>
       )}
     </Shell>
   );
@@ -212,7 +209,7 @@ function SignOut() {
     } catch (e) {
       console.warn('sign out failed', e);
       setBusy(false);
-      toast(t('profile.signOutFailed'));
+      toast(t('profile.signOutFailed'), 'error');
     }
   };
 

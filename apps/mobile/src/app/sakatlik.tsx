@@ -46,8 +46,8 @@ export default function Sakatlik() {
     setBusy(true);
     const r = await useGame.getState().massage();
     setBusy(false);
-    if (r === 'ok') { toast(t('injury.massageDone')); router.back(); }
-    else toast(t(r === 'no_coin' ? 'injury.noCoin' : 'injury.failed'));
+    if (r === 'ok') { toast(t('injury.massageDone'), 'success'); router.back(); }
+    else toast(t(r === 'no_coin' ? 'injury.noCoin' : 'injury.failed'), 'error');
   };
 
   return (

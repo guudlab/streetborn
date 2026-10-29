@@ -9,6 +9,7 @@ import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, Ghost, T } from '../ui/kit.tsx';
 import { Skeleton } from '../ui/motion.tsx';
+import { ErrorState } from '../ui/states.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Amount, Bubble } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
@@ -22,10 +23,11 @@ export default function Rakip() {
   const level = useGame(s => s.level);
   const hasMahalle = useGame(s => s.mahalle !== null);
   const tried = useGame(s => s.kariyerTried);
-  useEffect(() => { void useGame.getState().refreshKariyer(); }, []);
+  const refresh = useGame(s => s.refreshKariyer);
+  useEffect(() => { void refresh(); }, [refresh]);
   const d = k?.duel;
   if (!d && !tried) return <RakipSkeleton />;
-  if (!d) return <Shell title={t('duel.title')}><T size={14} color={colors.g200}>{t('duel.failed')}</T></Shell>;
+  if (!d) return <Shell title={t('duel.title')}><ErrorState text={t('duel.failed')} onRetry={refresh} /></Shell>;
 
   const npc = d.rival.kind === 'npc';
   const rivalName = npc ? t('duel.npc') : d.rival.nick ?? t('duel.friend');
@@ -35,7 +37,7 @@ export default function Rakip() {
 
   return (
     <Shell
-      title={t('duel.title')}
+      title={t('duel.title')} onRefresh={refresh}
       footer={<><Cta onPress={() => router.back()}>{t('duel.play')}</Cta>{npc && hasMahalle && <Ghost onPress={() => router.replace('/mahalle')}>{t('duel.invite')}</Ghost>}</>}
     >
       <T w={600} size={13} color={colors.g200} style={{ textAlign: 'center' }}>

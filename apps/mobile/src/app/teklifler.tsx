@@ -46,7 +46,7 @@ function LocalOffers() {
       <Cta onPress={() => {
         closeSheet();
         if (offer.req) { useGame.getState().acceptTrial(); toast(t('offers.trialAdded')); return; }
-        useGame.getState().sign(offer.id); toast(t('offers.signed')); buzz('success'); sfx('unlock');
+        useGame.getState().sign(offer.id); toast(t('offers.signed'), 'success'); buzz('success'); sfx('unlock');
       }}>{offer.req ? t('offers.accept') : t('offers.sign')}</Cta>
       <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
     </>,

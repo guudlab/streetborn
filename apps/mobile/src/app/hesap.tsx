@@ -25,10 +25,10 @@ export default function Hesap() {
           await finishRedirect(window.location.href);
           // Without a player before, this was "Hesabım var": load the account's player.
           if (s.auth !== 'in') await s.signedIn();
-          else toast(t('account.linkedShort'));
+          else toast(t('account.linkedShort'), 'success');
         } catch (e) {
           // An email confirmation may come back without a session; the account is linked anyway.
-          if (!(e instanceof ApiError && e.code === 'no_session')) toast(accountError(e));
+          if (!(e instanceof ApiError && e.code === 'no_session')) toast(accountError(e), 'error');
         }
         window.history.replaceState(null, '', window.location.pathname);
       }

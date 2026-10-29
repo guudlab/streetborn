@@ -222,7 +222,7 @@ function Prep({ c, picked, setPicked }: { c: Kariyer; picked: Choice | null; set
     setBusy(true);
     const r = await useGame.getState().choose(picked);
     setBusy(false);
-    if (r === 'ok') { sfx('tab'); toast(t('choice.saved')); closeSheet(); } else toast(t(r === 'already_chosen' ? 'choice.already' : 'choice.failed'));
+    if (r === 'ok') { sfx('tab'); toast(t('choice.saved'), 'success'); closeSheet(); } else toast(t(r === 'already_chosen' ? 'choice.already' : 'choice.failed'), r === 'already_chosen' ? 'info' : 'error');
   };
 
   return (
@@ -292,7 +292,7 @@ export function useKariyerNews() {
     }
     for (const u of news.unlocked) lines.push(t('ach.newCoin', { name: achName(u.key), coin: u.coin }));
     // Toasts replace each other, so the most important line goes last: it stays on screen.
-    if (lines.length > 0) { sfx('unlock'); toast(lines[lines.length - 1]!); }
+    if (lines.length > 0) { sfx('unlock'); toast(lines[lines.length - 1]!, 'success'); }
     useGame.setState({ kariyerNews: null });
   }, [news]);
 }

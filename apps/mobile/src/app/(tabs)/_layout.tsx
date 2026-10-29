@@ -12,6 +12,7 @@ import { markHint, useHint } from '../../game/hints.ts';
 import { useGame } from '../../game/store.ts';
 import { Spotlight, type Rect } from '../../ui/hint.tsx';
 import { buzz, T } from '../../ui/kit.tsx';
+import { useReduceMotion } from '../../ui/motion.tsx';
 import { t } from '../../i18n/index.ts';
 
 // Kaan's tab bar decision (2026-10-22, option B): a compact centred glass pill
@@ -68,7 +69,7 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
               <APressable
                 key={route.key} layout={resize} ref={route.name === 'gelisim' ? (r: unknown) => { trainTab.current = r as typeof trainTab.current; } : undefined}
                 accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected: on }}
-                onPress={() => { if (!on) { buzz(); sfx('tab'); navigateToTab(route.key); } }}
+                onPress={() => { if (!on) { buzz('select'); sfx('tab'); navigateToTab(route.key); } }}
                 style={{
                   height: ITEM, minWidth: ITEM, borderRadius: ITEM / 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                   gap: 8, paddingLeft: on ? 14 : 0, paddingRight: on ? 18 : 0, backgroundColor: on ? colors.l600 : 'transparent',
@@ -99,12 +100,13 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
 export default function TabsLayout() {
   // The calm menu loop plays on every tab; the match screen swaps it out.
   useFocusEffect(useCallback(() => { setMusic('menu'); setAmbience(null); }, []));
+  const still = useReduceMotion();
   return (
     <Tabs
       tabBar={(p) => <TabBar {...p} />}
-      // 'shift' slides the screens in the direction of the tab that was tapped.
+      // 'shift' slides the screens in the direction of the tab that was tapped (a fade with Reduce Motion).
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.ink },
-        animation: 'shift', transitionSpec: { animation: 'timing', config: { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) } },
+        animation: still ? 'fade' : 'shift', transitionSpec: { animation: 'timing', config: { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) } },
       }}
     >
       <Tabs.Screen name="index" options={{ title: t('tab.career') }} />

@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
 import { leagueToday, multiplierLabel, standings, tierName } from '../game/career.ts';
@@ -13,6 +13,8 @@ import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
 import { Shell } from './mahalle.tsx';
+import { Enter, PressableScale, Skeleton } from './motion.tsx';
+import { ErrorState } from './states.tsx';
 import { Amount, Bubble, Ico, type IconAsset } from './sade.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
 import { t } from '../i18n/index.ts';
@@ -30,16 +32,23 @@ const KIND_LABEL = {
 // the contract with coach trust and the league table, or the road to the first offer.
 export function CareerScreen() {
   const career = useGame(s => s.career);
+  const tried = useGame(s => s.careerTried);
   const refresh = useGame(s => s.refreshCareer);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  if (!career) return <Shell title={t('offers.title')}><ActivityIndicator size="large" color={colors.l600} style={{ marginTop: 40 }} /></Shell>;
+  if (!career) {
+    return (
+      <Shell title={t('offers.title')}>
+        {tried ? <ErrorState onRetry={refresh} /> : <CareerSkeleton />}
+      </Shell>
+    );
+  }
 
   const contract = career.contract?.active ? career.contract : null;
   const lastSeason = career.season?.status === 'done' ? career.season : null;
 
   return (
-    <Shell title={contract ? contract.clubName : t('offers.title')}>
+    <Shell title={contract ? contract.clubName : t('offers.title')} onRefresh={refresh}>
       {lastSeason && !contract && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, backgroundColor: colors.l900 }}>
           <Ico name="cup" size={44} />
@@ -52,10 +61,20 @@ export function CareerScreen() {
 
       {contract ? <Contract /> : career.offers.length > 0 ? (
         <View style={{ gap: 12 }}>
-          {career.offers.map(o => <OfferCard key={o.id} offer={o} />)}
+          {career.offers.map((o, i) => <Enter key={o.id} i={i}><OfferCard offer={o} /></Enter>)}
         </View>
       ) : <Road />}
     </Shell>
+  );
+}
+
+/** The shape of the contract card and two offers, while the first answer is on its way. */
+function CareerSkeleton() {
+  return (
+    <View style={{ gap: 12 }}>
+      <Skeleton height={178} radius={24} />
+      <Skeleton height={178} radius={24} />
+    </View>
   );
 }
 
@@ -68,9 +87,9 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
     setBusy(true);
     try {
       await useGame.getState().acceptOffer(offer.id);
-      toast(t('offers.signed')); buzz('success'); sfx('unlock');
+      toast(t('offers.signed'), 'success'); buzz('success'); sfx('unlock');
     } catch {
-      toast(t('career.failed'));
+      toast(t('career.failed'), { kind: 'error', action: { label: t('common.retry'), onPress: () => void sign() } });
     }
     setBusy(false);
   }
@@ -80,7 +99,7 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
     const r = await useGame.getState().startMatch('trial', offer.id);
     setBusy(false);
     if (r === 'no_energy') return openEnergySheet();
-    if (r !== 'ok') return toast(t('hub.startFailed'));
+    if (r !== 'ok') return toast(t('hub.startFailed'), 'error');
     router.push('/mac');
   }
 
@@ -174,7 +193,7 @@ function Contract() {
             <Tag lime>{multiplierLabel(contract.tier)}</Tag>
           </View>
         </View>
-        <Pressable
+        <PressableScale
           accessibilityRole="button" accessibilityLabel={`${t('career.trust')} ${career.trust}`}
           onPress={() => openSheet(<><H3>{t('career.trust')}</H3><SheetText>{t('career.trustHint')}</SheetText><Cta onPress={closeSheet}>{t('common.ok')}</Cta></>)}
           style={{ gap: 6 }}
@@ -186,7 +205,7 @@ function Contract() {
             <Icon name="info" size={16} color={colors.g300} />
           </View>
           <TrustBar trust={career.trust} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       {table && (

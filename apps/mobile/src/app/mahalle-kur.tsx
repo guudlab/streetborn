@@ -1,15 +1,16 @@
 import { checkName } from '@streetborn/economy';
 import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
 import type { MahalleColor, MahalleEmblem } from '../net/api.ts';
-import { colors } from '../theme.ts';
+import { colors, MAX_FONT_SCALE } from '../theme.ts';
 import { Emblem, MAHALLE_COLORS, MAHALLE_COLOR_LIST, MAHALLE_EMBLEM_LIST } from '../ui/emblem.tsx';
 import { buzz, Cta, T } from '../ui/kit.tsx';
 import { mahalleError, Shell } from '../ui/mahalle.tsx';
 import { Amount, Ico, Tile } from '../ui/sade.tsx';
 import { t, type Key } from '../i18n/index.ts';
+import { PressableScale } from '../ui/motion.tsx';
 
 const MAX = 18;
 
@@ -46,7 +47,7 @@ export default function MahalleKur() {
 
       <View style={{ gap: 6 }}>
         <View style={{ height: 56, borderRadius: 18, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: error ? colors.bad : colors.l600, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 8 }}>
-          <TextInput
+          <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
             value={name} onChangeText={(s) => { setName(s.slice(0, MAX)); setError(null); }} maxLength={MAX}
             autoCorrect={false} autoCapitalize="words" returnKeyType="done" onSubmitEditing={submit}
             placeholder={t('mahalle.create.namePlaceholder')} placeholderTextColor={colors.g400} selectionColor={colors.l600}
@@ -69,13 +70,13 @@ export default function MahalleKur() {
 
       <View accessibilityRole="radiogroup" accessibilityLabel={t('mahalle.create.color')} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         {MAHALLE_COLOR_LIST.map((c) => (
-          <Pressable
+          <PressableScale
             key={c} accessibilityRole="radio" accessibilityLabel={t(`mahalle.color.${c}` as Key)} accessibilityState={{ selected: color === c }}
             hitSlop={4} onPress={() => { buzz(); setColor(c); }}
             style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: MAHALLE_COLORS[c].fill, borderWidth: color === c ? 3 : 1, borderColor: color === c ? colors.g100 : colors.line, alignItems: 'center', justifyContent: 'center' }}
           >
             <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: MAHALLE_COLORS[c].line }} />
-          </Pressable>
+          </PressableScale>
         ))}
       </View>
 
