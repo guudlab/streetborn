@@ -244,7 +244,6 @@ function SignOut() {
   return (
     <View style={{ gap: 8, marginTop: 8 }}>
       <Danger onPress={ask} off={busy}>{t('profile.signOut')}</Danger>
-      <T size={12} color={colors.g300} style={{ textAlign: 'center' }}>{t('profile.signOutHint')}</T>
     </View>
   );
 }

@@ -278,21 +278,18 @@ export default function Dukkan() {
       </Tile>
 
       <Tile row label={`${t('shop.jersey')}, ${jersey ? (jersey.equipped ? t('shop.equipped') : t('shop.owned')) : `${jerseyPrice} ${t('shop.gems')}`}`} onPress={jerseyAction}>
-        <View style={{ width: 60, height: 60, borderRadius: 16, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
-          <T w={700} size={20} color={colors.ink}>10</T>
-        </View>
-        <View style={{ flex: 1, gap: 4 }}>
-          <T w={700} size={16}>{t('shop.jersey')}</T>
+        <Ico name="milliForma" size={60} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T w={700} size={16} numberOfLines={1}>{t('shop.jersey')}</T>
           <Pressable accessibilityRole="button" accessibilityLabel={t('shop.releasableTitle')} hitSlop={8} onPress={openJersey}
             style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Icon name="lock" size={13} color={colors.g200} /><Icon name="info" size={15} color={colors.g200} />
+            <T w={600} size={13} color={colors.g200}>{t('shop.jerseyTag')}</T><Icon name="info" size={14} color={colors.g300} />
           </Pressable>
         </View>
         {jersey
           ? <T w={700} size={14} color={colors.l600}>{jersey.equipped ? t('shop.equipped') : t('shop.equip')}</T>
           : <Amount icon="gem" size={20}>{jerseyPrice}</Amount>}
       </Tile>
-      <T w={500} size={11} color={colors.g300} style={{ textAlign: 'center' }}>{t('shop.gemNote')}</T>
     </ScrollView>
   );
 }

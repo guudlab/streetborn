@@ -193,6 +193,13 @@ export interface KariyerConfig {
   keremBase: number;
   keremPerLevel: number;
   keremVariance: number;
+  /** Phone events (telefon.ts): none before this many finished matches; events seen in the last `phoneRecentDays` answers are skipped. */
+  phoneMinMatches: number;
+  phoneRecentDays: number;
+  /** Coin an answer gives or costs, by tier 1..3. */
+  phoneCoinS: number;
+  phoneCoinM: number;
+  phoneCoinL: number;
 }
 
 export interface EconomyConfig {
@@ -425,6 +432,11 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     keremBase: 8,
     keremPerLevel: 1,
     keremVariance: 7,
+    phoneMinMatches: 3,
+    phoneRecentDays: 20,
+    phoneCoinS: 50,
+    phoneCoinM: 100,
+    phoneCoinL: 200,
   },
 
   matchChances: 3,

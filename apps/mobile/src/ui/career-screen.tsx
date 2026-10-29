@@ -106,7 +106,8 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         <Tag lime>{multiplierLabel(offer.tier)}</Tag>
-        <Tag>{t(KIND_LABEL[offer.kind])}</Tag>
+        {/* A trial offer says so in its own tag below. */}
+        {offer.kind !== 'trial' && <Tag>{t(KIND_LABEL[offer.kind])}</Tag>}
         {needsTrial && <Tag>{t('career.trialShort')}</Tag>}
         {offer.status === 'trial_passed' && <Tag lime>{t('career.trialPassedShort')}</Tag>}
       </View>

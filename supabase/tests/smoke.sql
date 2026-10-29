@@ -522,3 +522,31 @@ do $$ declare r jsonb := antrenman_bugun(); d jsonb := dukkan_bugun(); begin
   raise notice 'drill rls: ok';
 end $$;
 reset role;
+
+-- Phone events: one answer a day, effects applied once, a cost above the balance refused.
+insert into auth.users values ('00000000-0000-0000-0000-000000000961');
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000961'; coin0 bigint; begin
+  perform grant_currency(p, 'coin', 100, 'test', null, 'phone-test-start');
+  select coin into coin0 from wallets where player_id = p;
+  perform telefon_cevapla(p, '2026-11-01', 'bakkal', 0::smallint, 6, 1, 0, -50);
+  if (select coin from wallets where player_id = p) <> coin0 - 50 then raise exception 'phone coin wrong'; end if;
+  if (select morale from kariyer_durum where player_id = p) <> 66 or (select respect from players where id = p) <> 1 then
+    raise exception 'phone effects wrong';
+  end if;
+  begin perform telefon_cevapla(p, '2026-11-01', 'bakkal', 0::smallint, 6, 1, 0, -50); raise exception 'answered twice';
+  exception when raise_exception then if sqlerrm <> 'already_answered' then raise; end if; end;
+  begin perform telefon_cevapla(p, '2026-11-02', 'kapora', 0::smallint, -4, 0, 0, -(coin0 + 1000)::integer); raise exception 'cost above balance taken';
+  exception when check_violation then null; end;
+  if exists (select 1 from telefon_cevap where player_id = p and day = '2026-11-02') then raise exception 'refused answer stored'; end if;
+  raise notice 'phone events: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000961';
+do $$ begin
+  begin perform telefon_cevapla('00000000-0000-0000-0000-000000000961', '2026-11-03', 'bakkal', 0::smallint, 50, 50, 50, 5000); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  if exists (select 1 from telefon_cevap) then raise exception 'phone answers readable'; end if;
+  raise notice 'phone rls: ok';
+end $$;
+reset role;
