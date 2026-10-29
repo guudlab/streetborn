@@ -1,4 +1,4 @@
-import type { StatName } from './training.ts';
+import type { DrillName } from './drills.ts';
 
 /**
  * Economy parameters. The live values are stored in the Supabase `config` table
@@ -87,7 +87,9 @@ export interface TrainingConfig {
   drillGoodXp: number;
   drillMissXp: number;
   /** Mini game score for 1, 2 and 3 stars (3 stars pay the perfect grade, 2 the good one). */
-  drillStars: Record<StatName, [number, number, number]>;
+  drillStars: Record<DrillName, [number, number, number]>;
+  /** Best scores for the bronze, silver and gold usta badge (profile only, no reward). */
+  drillBadges: Record<DrillName, [number, number, number]>;
   /** The mini games get harder (tier 1 and 2) once the stat reaches these values. */
   drillTierFrom: [number, number];
   /** A started drill has to be finished within this many seconds. */
@@ -344,7 +346,8 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     drillGoodXp: 20,
     drillMissXp: 8,
     // Mini game scores: cans down, pass points, obstacles passed, steps climbed.
-    drillStars: { shooting: [2, 4, 6], passing: [10, 28, 56], pace: [12, 18, 24], stamina: [36, 50, 60] },
+    drillStars: { shooting: [2, 4, 6], passing: [10, 28, 56], pace: [12, 18, 24], stamina: [36, 50, 60], defense: [4, 7, 9] },
+  drillBadges: { shooting: [4, 5, 6], passing: [40, 70, 100], pace: [18, 22, 24], stamina: [50, 60, 66], defense: [7, 9, 10] },
     drillTierFrom: [60, 80],
     drillSessionSeconds: 10 * 60,
     // Antrenman doc decision 7 (Kaan, 2026-10-29): same +1 AP at every tier, the tiers only last longer.

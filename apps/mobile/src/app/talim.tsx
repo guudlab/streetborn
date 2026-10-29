@@ -1,34 +1,34 @@
-import { apNeed, dailyDrill, DEFAULT_CONFIG, istanbulDay, type DrillInputs } from '@streetborn/economy';
+import { apNeed, dailyDrill, DEFAULT_CONFIG, drillBadge, istanbulDay, type DrillInputs } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sfx } from '../audio/audio.ts';
-import { DRILLS, type StatKey } from '../game/rules.ts';
+import { DRILLS } from '../game/rules.ts';
 import { markHint } from '../game/hints.ts';
-import { SERVER_STAT, useGame, type DrillOutcome, type LiveDrill } from '../game/store.ts';
+import { SERVER_DRILL, useGame, type DrillOutcome, type LiveDrill } from '../game/store.ts';
 import { t, type Key } from '../i18n/index.ts';
 import { colors } from '../theme.ts';
 import { BakkalaKos } from '../ui/drills/BakkalaKos.tsx';
-import { Star, StarTrack, type DrillGameHandle } from '../ui/drills/common.tsx';
+import { Badge, DRILL_ICON, Star, StarTrack, type DrillGameHandle } from '../ui/drills/common.tsx';
 import { DuvarPasi } from '../ui/drills/DuvarPasi.tsx';
 import { Merdiven } from '../ui/drills/Merdiven.tsx';
+import { Omuz } from '../ui/drills/Omuz.tsx';
 import { Teneke } from '../ui/drills/Teneke.tsx';
 import { openEnergySheet } from '../ui/energy.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, CoachFace, Cta, H1, T } from '../ui/kit.tsx';
 import { Pop, PressableScale } from '../ui/motion.tsx';
 import { toast, Spinner } from '../ui/overlay.tsx';
-import { bootIcon, Bubble, Ico, Segments, type IconAsset } from '../ui/sade.tsx';
+import { bootIcon, Bubble, Ico, Segments } from '../ui/sade.tsx';
 
 // Talim: one of Burak abi's mini games (antrenman doc, decision 1A). Gelişim
 // starts the drill (the server spends the free drill or the energy and hands out
 // the seed), this screen plays it and shows what it paid. Closing early sends what
 // was played so far.
 
-const GAMES = { sut: Teneke, pas: DuvarPasi, hiz: BakkalaKos, fizik: Merdiven } as const;
-const STAT_ICON: Record<StatKey, IconAsset> = { sut: 'sut', pas: 'pas', hiz: 'hiz', fizik: 'fizik' };
+const GAMES = { sut: Teneke, pas: DuvarPasi, hiz: BakkalaKos, fizik: Merdiven, omuz: Omuz } as const;
 const GRADE_KEY = { mukemmel: 'train.grade.mukemmel', iyi: 'train.grade.iyi', kacti: 'train.grade.kacti' } as const;
 const COUNT_MS = 700;
 
@@ -147,8 +147,10 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
   const chip = newRecord
     ? `${t('talim.newRecord', { n: r.score })}${r.score > r.kerem ? ` · ${t('talim.beatKerem')}` : ''}`
     : r.record.best > 0 ? t('talim.recordLine', { best: r.record.best, kerem: r.kerem }) : t('talim.kerem', { n: r.kerem });
-  // 3 stars on the drill of the day: today's mahalle match gets the "work" shooting bonus (match-start).
-  const prep = r.stars === 3 && g.mahalleToday?.played === false && SERVER_STAT[r.key] === dailyDrill(istanbulDay(Date.now()));
+  // 3 stars on the drill of the day or on omuz oku: today's mahalle match gets the "work" shooting bonus (match-start).
+  const prep = r.stars === 3 && g.mahalleToday?.played === false && (r.key === 'omuz' || SERVER_DRILL[r.key] === dailyDrill(istanbulDay(Date.now())));
+  const badge = drillBadge(SERVER_DRILL[r.key], r.record.best, DEFAULT_CONFIG.training);
+  const newBadge = badge > drillBadge(SERVER_DRILL[r.key], r.record.previous, DEFAULT_CONFIG.training) ? badge : 0;
   const line = prep ? t('daily.ready') : r.stars >= 3 ? t('talim.burak.top') : t(`talim.burak.${r.key}` as Key);
   const can = g.trainFree > 0 || g.energy > 0;
   // Online the AP per point grows with the stat (GDD v3.1); the offline prototype keeps 3.
@@ -169,17 +171,23 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
         <View style={{ backgroundColor: newRecord ? colors.l900 : colors.s2, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
           <T w={700} size={14} color={newRecord ? colors.l500 : colors.g200}>{chip}</T>
         </View>
+        {newBadge > 0 && (
+          <Pop delay={700} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Badge level={newBadge} size={28} />
+            <T w={700} size={15} color={colors.g100}>{t('badge.new', { name: t(`badge.${newBadge}` as Key), drill: stat })}</T>
+          </Pop>
+        )}
       </View>
 
       <View style={{ alignSelf: 'stretch', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 8, gap: 4, marginTop: 6 }}>
-        <Row icon={<Ico name={STAT_ICON[r.key]} size={38} />} label={stat} value={`+${r.ap - r.bootAp} AP`} />
+        {r.key !== 'omuz' && <Row icon={<Ico name={DRILL_ICON[r.key]} size={38} />} label={stat} value={`+${r.ap - r.bootAp} AP`} />}
         {r.bootAp > 0 && <Row icon={<Ico name={bootIcon(g.boots?.id)} size={38} />} label={t('talim.boots')} value={`+${r.bootAp} AP`} lime />}
         {prep && <Row icon={<Ico name="sut" size={38} />} label={t('talim.prep')} value={t('choice.fx.shoot', { n: `+${DEFAULT_CONFIG.kariyer.workShoot}` })} lime />}
         {r.trust > 0 && <Row icon={<CoachFace size={38} />} label={t('career.trust')} value={`+${r.trust}`} lime />}
         <Row icon={<View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}><T w={700} size={12} color={colors.g200}>XP</T></View>} label={t('talim.xp')} value={`+${r.xp} XP`} />
       </View>
 
-      {r.statUp > 0 ? (
+      {r.key === 'omuz' ? null : r.statUp > 0 ? (
         <View accessible accessibilityLabel={`${stat} ${r.before} → ${r.after}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <T w={700} size={22} color={colors.g200}>{stat} {r.before}</T>
           <Icon name="chev" size={22} color={colors.l600} />

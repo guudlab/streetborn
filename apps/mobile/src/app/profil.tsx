@@ -1,17 +1,18 @@
-import { xpNeed } from '@streetborn/economy';
+import { DEFAULT_CONFIG, drillBadge, xpNeed } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../game/character.ts';
 import { num } from '../game/format.ts';
-import { levelProgress, ovr, type StatKey } from '../game/rules.ts';
-import { useGame } from '../game/store.ts';
+import { DRILLS, levelProgress, ovr, type DrillKey, type StatKey } from '../game/rules.ts';
+import { SERVER_DRILL, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { openLinkSheet } from '../ui/account.tsx';
 import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Caps, Cta, Danger, Ghost, H3, T, Track } from '../ui/kit.tsx';
+import { Badge } from '../ui/drills/common.tsx';
 import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Skeleton } from '../ui/motion.tsx';
@@ -42,6 +43,7 @@ export default function Profil() {
     if (!online) return;
     void g.refreshAccount();
     void g.refreshKariyer();
+    void g.refreshTraining();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
 
@@ -85,6 +87,7 @@ export default function Profil() {
             </Tile>
           ))}
         </View>
+        <UstaRow />
       </View>
 
       {/* Career numbers, club and mahalle */}
@@ -244,6 +247,23 @@ function SignOut() {
   return (
     <View style={{ gap: 8, marginTop: 8 }}>
       <Danger onPress={ask} off={busy}>{t('profile.signOut')}</Danger>
+    </View>
+  );
+}
+
+const BADGE_DRILLS: DrillKey[] = ['sut', 'pas', 'hiz', 'fizik', 'omuz'];
+
+/** Usta badges: bronze, silver, gold for each drill record (decision 2A, display only). */
+function UstaRow() {
+  const records = useGame(s => s.drillRecords);
+  const badges = BADGE_DRILLS.map(k => ({ k, level: drillBadge(SERVER_DRILL[k], records[k], DEFAULT_CONFIG.training) }));
+  const label = `${t('badge.title')}: ${badges.map(b => `${DRILLS[b.k].name} ${b.level ? t(`badge.${b.level}` as Key) : t('badge.none')}`).join(', ')}`;
+  return (
+    <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, borderRadius: 18, paddingVertical: 10, paddingHorizontal: 14 }}>
+      <T w={600} size={13} color={colors.g200}>{t('badge.title')}</T>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {badges.map(b => <Badge key={b.k} level={b.level} size={36} drill={b.k} />)}
+      </View>
     </View>
   );
 }

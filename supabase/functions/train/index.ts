@@ -5,9 +5,11 @@
 // `private` session costs coin by the stat's value. AP, stat points, XP and every
 // amount are computed here; the client never sends them.
 import {
+  DRILL_NAMES,
   STAT_NAMES,
   applyAp,
   dailyDrill,
+  defenseTier,
   drillGain,
   drillScore,
   drillStars,
@@ -19,6 +21,7 @@ import {
   privateCost,
   spendEnergy,
   starsGrade,
+  type DrillName,
   type EconomyConfig,
   type StatName,
   type Tier,
@@ -47,28 +50,32 @@ Deno.serve(handle(async (req) => {
   const config = await loadEconomyConfig();
 
   if (action === 'finish') return json(await finish(playerId, body, config));
-  const stat = body.stat as StatName;
-  if (!STAT_NAMES.includes(stat)) throw new HttpError(400, 'bad_stat');
-  if (action === 'start') return json(await start(playerId, stat, config));
-  if (action === 'private') return json(await privateSession(playerId, stat, config));
+  const stat = body.stat as DrillName;
+  if (action === 'start' && DRILL_NAMES.includes(stat)) return json(await start(playerId, stat, config));
+  if (action === 'private' && STAT_NAMES.includes(stat as StatName)) return json(await privateSession(playerId, stat as StatName, config));
+  if (!DRILL_NAMES.includes(stat)) throw new HttpError(400, 'bad_stat');
   throw new HttpError(400, 'bad_action');
 }));
 
-async function start(playerId: string, stat: StatName, config: EconomyConfig) {
+async function start(playerId: string, stat: DrillName, config: EconomyConfig) {
   const tc = config.training;
   const day = await todayIstanbul();
-  const [{ data: stats, error: e1 }, { data: player, error: e2 }, { data: wallet, error: e3 }, { data: free, error: e4 }, { data: record, error: e5 }] = await Promise.all([
-    admin.from('player_stats').select(stat).eq('player_id', playerId).single(),
+  const defense = stat === 'defense';
+  const [{ data: stats, error: e1 }, { data: player, error: e2 }, { data: wallet, error: e3 }, { data: free, error: e4 }, { data: record, error: e5 }, { data: streak, error: e6 }] = await Promise.all([
+    // Omuz oku has no stat to read.
+    defense ? { data: null, error: null } : admin.from('player_stats').select(stat).eq('player_id', playerId).single(),
     admin.from('players').select('level').eq('id', playerId).single(),
     admin.from('wallets').select('energy, energy_updated_at, version').eq('player_id', playerId).single(),
     admin.from('training_log').select('id').eq('player_id', playerId).eq('day', day).eq('kind', 'free'),
     admin.from('drill_records').select('best').eq('player_id', playerId).eq('stat', stat).maybeSingle(),
+    // Three days in a row: one more free drill today (decision 4A).
+    admin.rpc('talim_serisi', { p_player: playerId, p_day: day }),
   ]);
-  if (e1 || e2 || e3 || e4 || e5) throw e1 ?? e2 ?? e3 ?? e4 ?? e5;
+  if (e1 || e2 || e3 || e4 || e5 || e6) throw e1 ?? e2 ?? e3 ?? e4 ?? e5 ?? e6;
 
-  const value = (stats as unknown as Record<string, number>)[stat]!;
-  const tier = drillTier(value, tc);
-  const isFree = (free ?? []).length < tc.freeDrillsPerDay;
+  const tier = defense ? defenseTier(player.level) : drillTier((stats as unknown as Record<string, number>)[stat]!, tc);
+  const freeLimit = tc.freeDrillsPerDay + (streak ? 1 : 0);
+  const isFree = (free ?? []).length < freeLimit;
   let energy = { energy: wallet.energy, updatedAt: Date.parse(wallet.energy_updated_at) };
   if (!isFree) {
     const spent = spendEnergy(energy, tc.drillEnergyCost, Date.now(), config);
@@ -78,7 +85,7 @@ async function start(playerId: string, stat: StatName, config: EconomyConfig) {
 
   const seed = randomSeed();
   const { data: session, error } = await admin.rpc('start_drill', {
-    p_player: playerId, p_stat: stat, p_kind: isFree ? 'free' : 'energy', p_limit: isFree ? tc.freeDrillsPerDay : null,
+    p_player: playerId, p_stat: stat, p_kind: isFree ? 'free' : 'energy', p_limit: isFree ? freeLimit : null,
     p_seed: seed, p_tier: tier,
     p_expected_version: wallet.version, p_energy: energy.energy, p_energy_updated_at: new Date(energy.updatedAt).toISOString(),
   });
@@ -107,34 +114,36 @@ async function finish(playerId: string, body: Record<string, unknown>, config: E
   const elapsed = Date.now() - Date.parse(s.created_at);
   if (elapsed > tc.drillSessionSeconds * 1000) throw new HttpError(410, 'expired');
 
-  const stat = s.stat as StatName;
+  const stat = s.stat as DrillName;
+  const defense = stat === 'defense';
   const inputs = parseDrillInputs(stat, body.inputs);
   // Inputs that claim more time than the session has existed were not played.
   if (!inputs || lastInputAt(inputs) > elapsed + CLOCK_SLACK_MS) throw new HttpError(400, 'bad_inputs');
 
   const [{ data: stats, error: e1 }, { data: player, error: e2 }, { data: wallet, error: e3 }, { data: boots, error: e4 }] = await Promise.all([
-    admin.from('player_stats').select(`${stat}, ap_${stat}`).eq('player_id', playerId).single(),
+    // Omuz oku moves no stat and leaves the boots alone: they add AP, and it pays none.
+    defense ? { data: null, error: null } : admin.from('player_stats').select(`${stat}, ap_${stat}`).eq('player_id', playerId).single(),
     admin.from('players').select('xp, level').eq('id', playerId).single(),
     admin.from('wallets').select('coin').eq('player_id', playerId).single(),
     // The pair in use: the worn one first, then the one closest to wearing out.
-    admin.from('inventory').select('item_id, uses_left').eq('player_id', playerId)
+    defense ? { data: [], error: null } : admin.from('inventory').select('item_id, uses_left').eq('player_id', playerId)
       .in('item_id', tc.boots.map((b) => b.id)).gt('uses_left', 0)
       .order('equipped', { ascending: false }).order('uses_left', { ascending: true }).limit(1),
   ]);
   if (e1 || e2 || e3 || e4) throw e1 ?? e2 ?? e3 ?? e4;
-  const row = stats as unknown as Record<string, number>;
-  const value = row[stat]!, ap = row[`ap_${stat}`]!;
+  const row = (stats ?? {}) as unknown as Record<string, number>;
+  const value = row[stat] ?? null, ap = row[`ap_${stat}`] ?? null;
   const boot = boots?.[0] ?? null;
 
   const score = drillScore(stat, Number(s.seed), s.tier as Tier, inputs);
   const stars = drillStars(stat, score, tc);
   const grade = starsGrade(stars);
-  const gain = drillGain(grade, tc);
+  const gain = defense ? { ap: 0, xp: drillGain(grade, tc).xp } : drillGain(grade, tc);
   const bootAp = boot && grade === 'perfect' ? tc.bootPerfectAp : 0;
   const xpAfter = Number(player.xp) + gain.xp;
   const level = Math.max(player.level, levelForXp(xpAfter, config));
   // The cap follows the level the player reaches with this drill's XP.
-  const after = applyAp(value, ap, gain.ap + bootAp, level, config);
+  const after = defense ? null : applyAp(value!, ap!, gain.ap + bootAp, level, config);
   // 3 stars on the drill of the day: at a club the coach adds trust, up to just below promotion.
   let trustCap: number | null = null;
   if (stars === 3 && stat === dailyDrill(s.day)) {
@@ -145,7 +154,7 @@ async function finish(playerId: string, body: Record<string, unknown>, config: E
 
   const { data: record, error } = await admin.rpc('finish_drill', {
     p_player: playerId, p_session: id, p_score: score, p_stars: stars, p_grade: grade,
-    p_expected_stat: value, p_expected_ap: ap, p_stat_after: after.stat, p_ap_after: after.ap,
+    p_expected_stat: value, p_expected_ap: ap, p_stat_after: after?.stat ?? null, p_ap_after: after?.ap ?? null,
     p_ap: gain.ap + bootAp, p_xp: gain.xp, p_level: level,
     p_boot: boot?.item_id ?? null, p_boot_uses: boot?.uses_left ?? null, p_boot_ap: bootAp, p_trust_cap: trustCap,
   });
@@ -154,7 +163,7 @@ async function finish(playerId: string, body: Record<string, unknown>, config: E
 
   return {
     score, stars, grade, ap: gain.ap + bootAp, bootAp, xp: gain.xp, coin: 0,
-    stat: { name: stat, before: value, after: after.stat, ap: after.ap },
+    stat: after ? { name: stat, before: value, after: after.stat, ap: after.ap } : null,
     player: { xp: xpAfter, level, coin: Number(wallet.coin) },
     record: { best: r.best, previous: r.previous },
     boots: boot ? { id: boot.item_id, usesLeft: boot.uses_left - 1 } : null,

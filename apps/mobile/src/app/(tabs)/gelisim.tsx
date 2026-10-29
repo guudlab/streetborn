@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DRILLS, ovr, type StatKey } from '../../game/rules.ts';
+import { DRILLS, ovr, type DrillKey, type StatKey } from '../../game/rules.ts';
 import { markHint } from '../../game/hints.ts';
 import { SERVER_STAT, useGame, type TrainResult } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
@@ -18,7 +18,7 @@ import { Amount, bootIcon, Bubble, Ico, Segments, Tile, type IconAsset } from '.
 import { Star } from '../../ui/drills/common.tsx';
 import { t, type Key } from '../../i18n/index.ts';
 
-const KEYS = Object.keys(DRILLS) as StatKey[];
+const KEYS: StatKey[] = ['sut', 'pas', 'hiz', 'fizik'];
 const GRADES = {
   mukemmel: { color: colors.l600, icon: 'star', label: t('train.grade.mukemmel') },
   iyi: { color: colors.g100, icon: 'check', label: t('train.grade.iyi') },
@@ -35,7 +35,7 @@ export default function Gelisim() {
   // Burak abi's drill of the day: 3 stars on it ready the player for today's match.
   const today = dailyDrill(istanbulDay(Date.now()));
   const daily = KEYS.find(k => SERVER_STAT[k] === today)!;
-  const [sel, setSel] = useState<StatKey>(daily);
+  const [sel, setSel] = useState<DrillKey>(daily);
   const [last, setLast] = useState<TrainResult | null>(null);
   const [busy, setBusy] = useState(false);
   const d = DRILLS[sel];
@@ -44,12 +44,14 @@ export default function Gelisim() {
   const can = g.trainFree > 0 || g.energy > 0;
   // Online the AP needed per point grows with the stat (GDD v3.1); the offline prototype keeps 3.
   const need = (k: StatKey) => (online ? apNeed(g.stats[k], tc) : 3);
-  const cost = privateCost(g.stats[sel], tc);
+  // Omuz oku trains no stat, so it has no private session.
+  const statSel = sel === 'omuz' ? null : sel;
+  const cost = statSel ? privateCost(g.stats[statSel], tc) : 0;
   const coach = g.career?.contract?.active ? t('train.private.clubCoach') : t('train.private.burak');
 
   useEffect(() => { if (online) void useGame.getState().refreshTraining(); }, [online]);
 
-  const pick = (k: StatKey) => { if (busy) return; setSel(k); setLast(null); };
+  const pick = (k: DrillKey) => { if (busy) return; setSel(k); setLast(null); };
   const startDrill = async () => {
     setLast(null);
     setBusy(true);
@@ -60,8 +62,9 @@ export default function Gelisim() {
     router.push('/talim');
   };
   const privateSession = async () => {
+    if (!statSel) return;
     setBusy(true);
-    const r = await useGame.getState().privateTrain(sel);
+    const r = await useGame.getState().privateTrain(statSel);
     setBusy(false);
     if (r === 'no_coin') return toast(t('train.private.noCoin', { n: cost }));
     if (r === 'limit') return toast(t('train.private.limit'));
@@ -81,7 +84,7 @@ export default function Gelisim() {
           <T w={700} size={30}>{ovr(g.stats)}</T>
         </View>
       </View>
-      <Bubble text={g.drillStars[daily] === 3 ? t('daily.ready') : t(`daily.${today}`)} size={36} />
+      <Bubble text={g.drillStars[daily] === 3 || g.drillStars.omuz === 3 ? t('daily.ready') : t(`daily.${today}`)} size={36} />
 
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {KEYS.map(k => {
@@ -106,9 +109,28 @@ export default function Gelisim() {
             </Tile>
           );
         })}
+        <Tile
+          row role="radio" selected={sel === 'omuz'} onPress={() => pick('omuz')} style={{ width: '100%', gap: 12 }}
+          label={`${DRILLS.omuz.name}, ${DRILLS.omuz.stat}, ${t('talim.prep')}, ${t('talim.stars', { n: g.drillStars.omuz ?? 0 })}`}
+        >
+          <Ico name="calim" size={48} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <T w={700} size={16}>{DRILLS.omuz.name}</T>
+            <T w={600} size={13} color={colors.g200}>{DRILLS.omuz.stat} · {t('talim.prep')}</T>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            {[0, 1, 2].map(i => <Star key={i} size={16} on={i < (g.drillStars.omuz ?? 0)} />)}
+          </View>
+        </Tile>
       </View>
 
       <View style={{ flex: 1 }} />
+      {g.trainStreak && (
+        <View accessible style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="bolt" size={16} color={colors.l600} />
+          <T w={600} size={14} color={colors.l600}>{t('train.streak')}</T>
+        </View>
+      )}
       {last && <DrillResult r={last} stat={DRILLS[last.key].stat} level={g.level} need={need(last.key)} />}
       {online && g.level >= BOOTS_FROM && <BootsChip />}
       <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -126,7 +148,7 @@ export default function Gelisim() {
             </View>
           )}
         </Cta>
-        {online && (
+        {online && statSel && (
           <PressableScale
             accessibilityRole="button" disabled={busy || g.privateLeft === 0} onPress={() => void privateSession()}
             accessibilityLabel={g.privateLeft === 0 ? t('train.private.limit') : t('train.private.cta', { coach, n: cost, left: g.privateLeft })}

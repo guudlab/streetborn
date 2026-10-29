@@ -7,6 +7,9 @@ import {
   drillTier,
   keremRecord,
   dailyDrill,
+  drillBadge,
+  omuzReps,
+  omuzScore,
   kosAdvance,
   kosLane,
   kosObstacles,
@@ -176,6 +179,22 @@ describe('merdiven', () => {
   });
 });
 
+describe('omuz oku', () => {
+  const reps = omuzReps(5, 0);
+
+  it('scores 2 a read, judges only the first tap near each rep and goes on after a miss', () => {
+    expect(omuzScore(5, 0, reps.map(r => ({ t: r.t, s: r.s })))).toBe(10);
+    const wrongFirst = reps.flatMap(r => [{ t: r.t - 10, s: (1 - r.s) as 0 | 1 }, { t: r.t, s: r.s }]);
+    expect(omuzScore(5, 0, wrongFirst)).toBe(0);
+    expect(omuzScore(5, 0, reps.slice(1).map(r => ({ t: r.t, s: r.s })))).toBe(8);
+  });
+
+  it('gives nothing for mashing early', () => {
+    const mash = Array.from({ length: 40 }, (_, i) => ({ t: i * 400, s: (i % 2) as 0 | 1 }));
+    expect(omuzScore(5, 0, mash)).toBeLessThan(4);
+  });
+});
+
 describe('drill inputs and stars', () => {
   it('accepts only well-formed inputs in time order', () => {
     expect(parseDrillInputs('shooting', [{ x: 0, y: 300, p: 750, t: 1000 }])).toEqual([{ x: 0, y: 300, p: 750, t: 1000 }]);
@@ -206,6 +225,10 @@ describe('drill inputs and stars', () => {
     expect(keremRecord('pace', 0, tc)).toBe(18);
     expect(keremRecord('pace', 10, tc)).toBe(21);
     expect(keremRecord('pace', 40, tc)).toBe(24);
+  });
+
+  it('gives usta badges from the best score, nothing before the first', () => {
+    expect([null, 3, 4, 5, 6].map(b => drillBadge('shooting', b, tc))).toEqual([0, 0, 1, 2, 3]);
   });
 
   it('picks one drill a day, the same every call, all four over a month', () => {
