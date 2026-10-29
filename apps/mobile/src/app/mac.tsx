@@ -59,8 +59,17 @@ interface Card { good: boolean; title: string; desc: string; icon: IconName }
  */
 export default function Mac() {
   const [three, setThree] = useState(can3d);
-  if (!three) return <Match2D />;
-  return <Match3D onFail={(e) => { console.warn('3D match failed, using 2D', e); setThree(false); }} />;
+  const [why, setWhy] = useState('');
+  if (!three) {
+    // On the phone the reason for the fallback is shown until the native 3D match is proven on devices.
+    return (
+      <View style={{ flex: 1 }}>
+        <Match2D />
+        {Platform.OS !== 'web' && why ? <View pointerEvents="none" style={{ position: 'absolute', left: 8, right: 8, bottom: 2 }}><T size={9} color="#ff6666">{`3D: ${why}`}</T></View> : null}
+      </View>
+    );
+  }
+  return <Match3D onFail={(e) => { console.warn('3D match failed, using 2D', e); setWhy(String((e as Error)?.message ?? e).slice(0, 240)); setThree(false); }} />;
 }
 
 function can3d(): boolean {
