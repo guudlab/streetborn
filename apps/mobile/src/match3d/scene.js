@@ -18,6 +18,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { rigInfo, retarget, mirror, subclip, rotateWorld, lockYaw, PoseGuard, cleanSkin, GroundClamp, FootLock, rigFor } from './rig.js';
 import { Keeper } from './keeper.js';
+import { buildStands } from './stands.js';
 
 // ---------------------------------------------------------------- constants
 const GOAL_Z = 7.5;          // the goal we attack (and defend); the first shot spot is at z = 0
@@ -82,7 +83,8 @@ function shotTarget(outcome, x, y) {
 /**
  * Builds the scene into `host` (a DOM element) and starts drawing.
  * env: { host, G: parsed glTFs { hero, keeper, rival, ball, mates[], anim-* }, tint(root),
- *        board: text on the advertising boards, on: event handlers, sfx(id, gain) }
+ *        board: text on the advertising boards, kit: our colour (#rrggbb), away?: their name,
+ *        on: event handlers, sfx(id, gain) }
  */
 export function createMatch(env) {
   const { host, G, on } = env;
@@ -264,6 +266,9 @@ export function createMatch(env) {
     });
   }
 
+  // terraces and crowd behind the fences (stands.js)
+  const stands = buildStands(scene, { goalZ: GOAL_Z, goal2Z: GOAL2_Z, kit: env.kit || '#CFFD5C', board: env.board, away: env.away, canvasTex, seed: 5 });
+
   // -------------------------------------------------------------- particles: confetti + trail + cue ring
   const CONF = 320;
   const confMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.07, 0.04), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }), CONF);
@@ -328,11 +333,13 @@ export function createMatch(env) {
     let m = boneCache.get(model); if (!m) boneCache.set(model, (m = {}));
     return m[name] || (m[name] = model.getObjectByName(name));
   };
-  const heroM = copy(G.hero), rivalM = copy(G.rival), keeperM = copy(G.keeper);
+  const heroM = copy(G.hero), keeperM = copy(G.keeper);
   const mateMs = (G.mates || []).map(copy);
+  // their players: rival.glb, then the starters nobody on our side plays, in their graphite kit
+  const rivalMs = [copy(G.rival), ...(G.opps || []).map(copy)];
   // rest data before anything animates
-  const R = { street: rigInfo(heroM), rival: rigInfo(rivalM), streetSrc: rigInfo(G['anim-street-idle'].scene), keeperSrc: rigInfo(G['anim-slide'].scene) };
-  const mateRigs = mateMs.map(rigInfo);
+  const R = { street: rigInfo(heroM), streetSrc: rigInfo(G['anim-street-idle'].scene), keeperSrc: rigInfo(G['anim-slide'].scene) };
+  const mateRigs = mateMs.map(rigInfo), rivalRigs = rivalMs.map(rigInfo);
   const clip = (f) => G[f].animations[0];
   // idle and cheer turn the body around on the spot; lock their facing so characters stay put
   const C = { idle: lockYaw(clip('anim-street-idle')), kick: clip('anim-kick'), cheer: lockYaw(clip('anim-cheer')), run: clip('anim-run'), slide: clip('anim-slide'), leap: clip('anim-leap') };
@@ -360,7 +367,7 @@ export function createMatch(env) {
   }
 
   // hero: our player in his kit. Street clips are retargeted from the street rig, keeper clips from the keeper's
-  env.tint(heroM); mateMs.forEach((m) => env.tint(m));
+  env.tint(heroM); mateMs.forEach((m) => env.tint(m)); rivalMs.slice(1).forEach((m) => env.tint(m, 'graphite'));
   prep(heroM); scene.add(heroM);
   const kickClip = lockYaw(C.kick, { hips: false, inPlace: false });
   const heroSlide = retarget(lockYaw(C.slide, { hips: false, inPlace: false }), R.keeperSrc, R.street, { name: 'slide' });
@@ -383,14 +390,28 @@ export function createMatch(env) {
     return { m, a, rig, foot: boneAt(m, rig, a.A.kick.getClip(), KICK_CONTACT, 'RightToeBase'), feet: new FootLock(rig), ground: new GroundClamp(m) };
   });
 
-  // rival: the other mahalle's forward (also the marker in pass moments)
-  prep(rivalM); scene.add(rivalM);
-  const rt = (c, src, name, o = {}) => retarget(c, src, R.rival, { name, ...o });
-  const rival = new Actor(rivalM, {
-    idle: rt(C.idle, R.streetSrc, 'idle'), run: rt(C.run, R.streetSrc, 'run'), kick: rt(kickClip, R.streetSrc, 'kick'),
-    cheer: rt(C.cheer, R.streetSrc, 'cheer'), hurdle: rt(subclip(C.leap, 0.3, 1.5, 'hurdle'), R.keeperSrc, 'hurdle', { inPlace: true }),
+  // rivals: the other mahalle's forward in a defense moment, the marker in a pass moment. A
+  // different one each time (useRival); only one is on the pitch at once
+  const RUN_SPEED = 4.4;                        // the forward's carry speed, m/s
+  const hurdleSrc = subclip(C.leap, 0.3, 1.5, 'hurdle');
+  const rivals = rivalMs.map((m, i) => {
+    prep(m); m.visible = false; scene.add(m);
+    const rig = rivalRigs[i], rt = (c, src, name, o = {}) => retarget(c, src, rig, { name, ...o });
+    const a = new Actor(m, {
+      idle: rt(C.idle, R.streetSrc, 'idle'), run: rt(C.run, R.streetSrc, 'run'), kick: rt(kickClip, R.streetSrc, 'kick'),
+      cheer: rt(C.cheer, R.streetSrc, 'cheer'), hurdle: rt(hurdleSrc, R.keeperSrc, 'hurdle', { inPlace: true }),
+    });
+    const run = runCycle(m, rig, a.A.run.getClip());
+    return { m, a, rig, run, RUN: RUN_SPEED / run.ground, foot: boneAt(m, rig, a.A.kick.getClip(), KICK_CONTACT, 'RightToeBase'), feet: new FootLock(rig), ground: new GroundClamp(m) };
   });
-  const rivalFoot = boneAt(rivalM, R.rival, rival.A.kick.getClip(), KICK_CONTACT, 'RightToeBase');
+  // the one on the pitch: his model, actor, kick foot, run cycle, clip speed that makes his boots grip, foot lock, ground clamp
+  let rivalM, rival, rivalFoot, rivalRun, RIVAL_RUN, rivalFeet, rivalGround;
+  function useRival(i) {
+    rivals.forEach((x) => (x.m.visible = false));
+    ({ m: rivalM, a: rival, foot: rivalFoot, run: rivalRun, RUN: RIVAL_RUN, feet: rivalFeet, ground: rivalGround } = rivals[i % rivals.length]);
+    rivalFeet.reset();
+  }
+  useRival(0);
   // the hurdle is a standing jump: start it as the boots leave the turf and run on from the
   // landing, so the feet never stand still on a body that keeps running
   const HURDLE_OFF = 0.26, HURDLE_LAND = 0.93;
@@ -414,44 +435,51 @@ export function createMatch(env) {
     const touch = sam.reduce((b, s) => (s.R.z > b.R.z ? s : b));
     return { dur: c.duration, ground: (push('R') + push('L')) / 2, touchT: touch.t, toe: touch.R.clone() };
   }
-  const heroGround = new GroundClamp(heroM), rivalGround = new GroundClamp(rivalM);   // skin never under the turf
-  const heroFeet = new FootLock(R.street), rivalFeet = new FootLock(R.rival);          // planted boots do not skate
-  const RUN_SPEED = 4.4;                        // the forward's carry speed, m/s
-  const rivalRun = runCycle(rivalM, R.rival, rival.A.run.getClip());
+  const heroGround = new GroundClamp(heroM);       // skin never under the turf
+  const heroFeet = new FootLock(R.street);         // planted boots do not skate
   const heroRun = runCycle(heroM, R.street, hero.A.run.getClip());
-  const RIVAL_RUN = RUN_SPEED / rivalRun.ground; // clip speed that makes his boots grip the pitch
 
   // keeper (Meshy kaleci-v2): procedural dives on its own rig
   prep(keeperM);
   const keeper = new Keeper(keeperM, retarget(C.leap, R.keeperSrc, rigInfo(keeperM), { name: 'leap' }));
   scene.add(keeper.root);
 
-  // free kick wall: three of their players, standing
+  // free kick wall: three of their players, standing, no two alike
   const wall = [0, 1, 2].map((i) => {
-    const m = SkeletonUtils.clone(rivalM); prep(m); m.visible = false; scene.add(m);
-    const a = new Actor(m, { idle: rival.A.idle.getClip() }); a.play('idle', { from: i * 1.3, speed: 0.9 + i * 0.07 });
-    return { m, a, feet: new FootLock(rigFor(m, R.rival)) };
+    const r = rivals[i % rivals.length];
+    const m = SkeletonUtils.clone(r.m); prep(m); m.visible = false; scene.add(m);
+    const a = new Actor(m, { idle: r.a.A.idle.getClip() }); a.play('idle', { from: i * 1.3, speed: 0.9 + i * 0.07 });
+    return { m, a, feet: new FootLock(rigFor(m, r.rig)) };
   });
 
-  // fans behind the fences: clones share meshes and textures
+  // fans behind the fences: copies of every player model, ours in our kit (one in two of the
+  // younger ones in a white shirt), theirs in graphite. Clones share meshes and textures
   const fans = [];
   {
-    const fanClips = { us: { idle: hero.A.idle.getClip(), cheer: hero.A.cheer.getClip() }, them: { idle: rival.A.idle.getClip(), cheer: rival.A.cheer.getClip() } };
-    const spots = [[-4.6, GOAL_Z + 5.4, 'us'], [-2.9, GOAL_Z + 5.7, 'them'], [-1.2, GOAL_Z + 5.3, 'us'], [1.4, GOAL_Z + 5.6, 'us'], [3.3, GOAL_Z + 5.3, 'them'], [5.2, GOAL_Z + 5.6, 'us'],
-      [-3.6, GOAL2_Z - 4, 'them'], [-0.6, GOAL2_Z - 4.3, 'us'], [2.6, GOAL2_Z - 4, 'them']];
+    const src = {
+      us: [{ m: heroM, rig: R.street, a: hero }, ...mates.map((x) => ({ m: x.m, rig: x.rig, a: x.a }))],
+      them: rivals.map((x) => ({ m: x.m, rig: x.rig, a: x.a })),
+    };
+    // six, not more: each is a full skinned character, and the terraces behind them are full
+    const spots = [[-4.6, GOAL_Z + 5.4, 'us'], [-2.9, GOAL_Z + 5.7, 'them'], [1.4, GOAL_Z + 5.6, 'us'], [3.6, GOAL_Z + 5.3, 'us'],
+      [-3.6, GOAL2_Z - 4, 'them'], [2.6, GOAL2_Z - 4, 'them']];
+    const n = { us: 0, them: 0 };
     spots.forEach(([x, z, team], i) => {
-      const m = SkeletonUtils.clone(team === 'us' ? heroM : rivalM); prep(m, false);
+      const k = n[team]++, f = src[team][k % src[team].length];
+      const m = SkeletonUtils.clone(f.m); prep(m, false);
+      if (team === 'us' && k % 2 === 1) env.tint(m, 'white');
       m.position.set(x, 0, z); m.rotation.y = Math.atan2(-x * 0.3, (z > 0 ? -1 : 1));
       scene.add(m);
-      const a = new Actor(m, fanClips[team]); a.play('idle', { from: (i * 0.9) % 4, speed: 0.8 + (i % 3) * 0.12 });
-      fans.push({ a, team, feet: new FootLock(rigFor(m, team === 'us' ? R.street : R.rival)) });
+      const a = new Actor(m, { idle: f.a.A.idle.getClip(), cheer: f.a.A.cheer.getClip() }); a.play('idle', { from: (i * 0.9) % 4, speed: 0.8 + (i % 3) * 0.12 });
+      m.visible = true;
+      fans.push({ a, team, feet: new FootLock(rigFor(m, f.rig)) });
     });
   }
   // The cheer clip starts and ends with the arms down and has them overhead in between. Fans
   // play it once from the start and go back to idle only once the arms are down again: a
   // crossfade between arms-up and arms-down (~170° apart) flips the shoulders mid-blend.
   const CHEER_DOWN = 6.5;
-  function fansCheer(team) { fans.forEach((f, i) => { if (f.team !== team || f.a.cur === f.a.A.cheer) return; f.a.play('cheer', { fade: 0.3, loop: false, from: (i * 0.11) % 0.3, speed: 1.2 + (i % 3) * 0.08 }); }); }
+  function fansCheer(team, amount = 1) { stands.cheer(team, amount); fans.forEach((f, i) => { if (f.team !== team || f.a.cur === f.a.A.cheer) return; f.a.play('cheer', { fade: 0.3, loop: false, from: (i * 0.11) % 0.3, speed: 1.2 + (i % 3) * 0.08 }); }); }
   function fansCalm() { fans.forEach((f, i) => { if (f.a.cur === f.a.A.cheer && f.a.cur.time > CHEER_DOWN) f.a.play('idle', { fade: 0.6, from: i % 4, speed: 0.8 + (i % 3) * 0.12 }); }); }
 
   const ball = copy(G.ball); prep(ball);
@@ -472,7 +500,7 @@ export function createMatch(env) {
   function camTo(pos, look, k = 2.6) { camTarget.pos.copy(pos); camTarget.look.copy(look); camTarget.k = k; }
 
   // -------------------------------------------------------------- moment state
-  const S = { phase: 'menu', t: 0, shots: 0, freekicks: 0, defenses: 0, first: true };
+  const S = { phase: 'menu', t: 0, shots: 0, freekicks: 0, defenses: 0, marks: 0, first: true };
   const flight = { active: false, u: 0, D: 0.6, p0: V(), c: V(), p1: V(), vel: V(), mode: 'curve', outcome: null, resolved: false, spin: V(), held: false, by: 'us' };
   const shot = { B0: V(), dir: V(), right: V(), R: V(), start: V(), ctrl: V(), yaw: 0 };
   const setPhase = (p) => { S.phase = p; on.phase(p); };
@@ -670,7 +698,7 @@ export function createMatch(env) {
       }
     } else if (kind === 'save') {
       sfx('save'); buzz(25); shake = reduced ? 0 : 0.07;
-      if (ours) { sfx('crowd_groan', 0.7); fansCheer('them'); } else { sfx('crowd_cheer', 0.7); fansCheer('us'); }
+      if (ours) { sfx('crowd_groan', 0.7); fansCheer('them', 0.6); } else { sfx('crowd_cheer', 0.7); fansCheer('us', 0.7); }
       const kp = keeper.b.Hips.getWorldPosition(V()), side = flight.p1.x > keeper.root.position.x ? 1 : -1;
       camTo(V(kp.x + side * 2.2, 1.35, GOAL_Z - 4.2), V(kp.x, 0.6, GOAL_Z - 0.3), 2.2);
     } else if (kind === 'post') {
@@ -718,6 +746,7 @@ export function createMatch(env) {
     // the marker stands goal-side of the marked mate, a step toward the ball, facing it
     const marked = m.openSide === 'left' ? 'right' : 'left', ms = MATE_SPOTS[marked];
     const mk = ms.clone().lerp(V(B0.x, 0, B0.z), 0.16); mk.x += Math.sign(ms.x) * -0.15;
+    useRival(++S.marks);
     rivalM.visible = true; rivalM.position.copy(mk); rivalM.rotation.set(0, Math.atan2(B0.x - mk.x, B0.z - mk.z), 0);
     rival.snap('idle', { from: 1.1 }); rivalFeet.reset();
     P.marker = mk.clone(); markRing.position.set(mk.x, 0.02, mk.z); markRing.visible = true;
@@ -793,7 +822,7 @@ export function createMatch(env) {
     setPhase('resolved');
     on.result({ kind: 'lost', by: 'us', marked: P.side !== P.open });
     if (P.side !== P.open) { // the marker cuts it out and clears it back up the pitch
-      sfx('kick', 0.6); sfx('crowd_cheer', 0.5); fansCheer('them');
+      sfx('kick', 0.6); sfx('crowd_cheer', 0.5); fansCheer('them', 0.5);
       P.loose = V((Math.random() - 0.5) * 3, 2.4, -7);
     } else { // overhit: past the mate toward the touchline
       sfx('crowd_groan', 0.6);
@@ -811,6 +840,7 @@ export function createMatch(env) {
     Object.assign(D, { active: true, t: 0, s, lane: (Math.random() - 0.5) * 0.8, speed: RUN_SPEED, z: DEF_Z - ATT_START - 0.9 * RUN_SPEED, x: 0, dip: 0, cut: 0, cutDir: s, tapped: false, side: 0, timing: 0, result: null, after: null, skip: m.skip, phase: 'approach', slideT: -1, past: false, shotQueued: false, touchPhase: 0, contact: false, hurdle: false, yaw: 0, hurdleT: -1, cutT: 0, brake: undefined, free: false, bvel: null, kick: null, shooting: false, slide: null, shot: null, reverse: false, revCam: false, vel: null, ballV: null });
     D.x = D.lane;
     heroM.position.set(0, 0, DEF_Z); heroM.rotation.set(0, Math.PI, 0); hero.snap('jockey', { from: 0 });
+    useRival(S.defenses++);
     rivalM.visible = true; rivalM.position.set(D.x, 0, D.z); rivalM.rotation.set(0, 0, 0); rival.snap('run', { speed: RIVAL_RUN, from: rivalRun.touchT });
     ballHolder.position.set(D.x + 0.1, BALL_R, D.z + 0.6);
     keeper.reset(0, GOAL_Z - 0.35, V(0, 0, 0));
@@ -961,7 +991,7 @@ export function createMatch(env) {
   function defenseStopped() {
     setPhase('resolved');
     on.result({ kind: 'stopped', by: 'us' });
-    sfx('crowd_cheer', 0.7); fansCheer('us');
+    sfx('crowd_cheer', 0.7); fansCheer('us', 0.8);
     later(2.6, done);
   }
   function rivalShot() {
@@ -1103,7 +1133,7 @@ export function createMatch(env) {
     for (const x of mates) if (x.m.visible) x.a.update(dt);
     for (const x of wall) if (x.m.visible) x.a.update(dt);
     for (const f of fans) f.a.update(dt);
-    fansCalm();
+    fansCalm(); stands.update(dt, worldTime);
     updateKick(dt); updateDefense(dt); updatePass(dt); poseRival();
     if (S.phase === 'pass') on.ring(tri(P.t, PASS_PERIOD));
     keeper.update(dt, time, flight.active ? ballHolder.position : null);
