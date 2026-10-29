@@ -51,10 +51,10 @@ export const Merdiven = forwardRef<DrillGameHandle, DrillGameProps>(function Mer
       climb.stopAnimation();
       climb.setValue(1);
       Animated.timing(climb, { toValue: 0, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-      sfx('tap', 0.6);
+      sfx('stair_step');
     }
     if (r.result === 'same_foot') { setFlash(t('talim.sameFoot')); buzz('medium'); setTimeout(() => setFlash(null), 500); }
-    if (r.result === 'out_of_breath') { setFlash(t('talim.outOfBreath')); sfx('error'); buzz('medium'); setTimeout(() => setFlash(null), 1200); }
+    if (r.result === 'out_of_breath') { setFlash(t('talim.outOfBreath')); sfx('out_of_breath'); buzz('medium'); setTimeout(() => setFlash(null), 1200); }
   };
 
   const ready = size.w > 0;

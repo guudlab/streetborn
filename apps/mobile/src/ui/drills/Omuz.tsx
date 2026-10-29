@@ -47,7 +47,7 @@ export const Omuz = forwardRef<DrillGameHandle, DrillGameProps>(function Omuz({ 
     const { idx: i, over } = live.current;
     if (!running || over || i >= reps.length || now <= reps[i]!.t + OMUZ_REACH) return;
     setFlash({ text: t('talim.miss'), side: reps[i]!.s, color: colors.bad });
-    sfx('error');
+    sfx('dribble_past');
     next(i);
   }, [now]);
 
@@ -62,13 +62,13 @@ export const Omuz = forwardRef<DrillGameHandle, DrillGameProps>(function Omuz({ 
     const j = pasJudge(rep, tap, tier);
     if (j === 'miss') {
       setFlash({ text: t('talim.miss'), side: s, color: colors.bad });
-      sfx('error');
+      sfx('dribble_past');
       buzz('medium');
     } else {
       live.current.score = score + (j === 'perfect' ? 2 : 1);
       onScore(live.current.score);
       setFlash({ text: t(j === 'perfect' ? 'talim.perfect' : 'talim.good'), side: s, color: j === 'perfect' ? colors.l600 : colors.g100 });
-      sfx(j === 'perfect' ? 'kick_power' : 'kick');
+      sfx('ball_steal', j === 'perfect' ? 1 : 0.8);
       if (j === 'perfect') buzz('light');
     }
     next(i);

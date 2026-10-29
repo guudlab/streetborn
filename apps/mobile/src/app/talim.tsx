@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { sfx } from '../audio/audio.ts';
-import { DRILLS } from '../game/rules.ts';
+import { preloadSfx, sfx } from '../audio/audio.ts';
+import type { SfxId } from '../audio/sounds.ts';
+import { DRILLS, type DrillKey } from '../game/rules.ts';
 import { markHint, useHints } from '../game/hints.ts';
 import { SERVER_DRILL, useGame, type DrillOutcome, type LiveDrill } from '../game/store.ts';
 import { t, type Key } from '../i18n/index.ts';
@@ -53,11 +54,13 @@ export default function Talim() {
   const finishing = useRef(false);
 
   useEffect(() => { if (!drill) router.back(); }, [drill]);
+  useEffect(() => { if (drill) preloadSfx([...GAME_SFX[drill.key], ...RESULT_SFX]); }, [drill?.key]);
 
   // 3, 2, 1 with the rule on screen, then play.
   useEffect(() => {
     if (phase !== 'count') return;
     if (count === 0) { sfx('whistle_start'); setPhase('play'); return; }
+    sfx('count_tick');
     const id = setTimeout(() => setCount(count - 1), COUNT_MS);
     return () => clearTimeout(id);
   }, [phase, count]);
@@ -69,7 +72,8 @@ export default function Talim() {
     const r = await useGame.getState().finishDrill(inputs);
     if (!r) { toast(t('train.failed'), 'error'); router.back(); return; }
     markHint('jobTrain');
-    if (r.stars >= 3) { sfx('victory_sting'); buzz('success'); } else if (r.statUp) sfx('levelup'); else sfx(r.stars ? 'coin' : 'crowd_groan');
+    // The result screen plays its own sounds as the stars and cards come in.
+    if (r.stars >= 3) buzz('success');
     setResult(r);
     setPhase('result');
   };
@@ -159,6 +163,17 @@ export default function Talim() {
   );
 }
 
+const STAR_SFX: SfxId[] = ['star_pop_1', 'star_pop_2', 'star_pop_3'];
+const RESULT_SFX: SfxId[] = ['count_tick', 'whistle_start', ...STAR_SFX, 'card_pop', 'badge_shine', 'record_fanfare', 'crowd_groan'];
+/** The sounds each mini game plays, loaded before the countdown. */
+const GAME_SFX: Record<DrillKey, SfxId[]> = {
+  sut: ['sling_pull', 'kick', 'kick_power', 'can_hit', 'glass_crack'],
+  pas: ['kick', 'kick_power', 'wall_thud', 'error', 'unlock'],
+  hiz: ['lane_whoosh', 'crate_bump', 'shop_bell'],
+  fizik: ['stair_step', 'out_of_breath', 'whistle_end'],
+  omuz: ['ball_steal', 'dribble_past', 'unlock'],
+};
+
 function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: { top: number; bottom: number }; busy: boolean; onOk(): void; onAgain(): void }) {
   const g = useGame();
   const stat = DRILLS[r.key].stat;
@@ -176,6 +191,24 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
   const need = g.mode === 'online' ? apNeed(r.after, DEFAULT_CONFIG.training) : 3;
 
   const omuz = r.key === 'omuz';
+  // When each reward card pops in; the sounds follow the same times.
+  const at = { stat: 600, boots: 700, xp: 800, prep: 900, trust: 1000, badge: 1200 };
+
+  // One pop per star, one per card, then the badge or the record (a new badge is always a new best).
+  useEffect(() => {
+    const cues: [number, SfxId][] = r.stars === 0 ? [[200, 'crowd_groan']] : [];
+    for (let i = 0; i < r.stars; i++) cues.push([150 + i * 180, STAR_SFX[i]!]);
+    if (!omuz) cues.push([at.stat, 'card_pop']);
+    if (r.bootAp > 0) cues.push([at.boots, 'card_pop']);
+    cues.push([at.xp, 'card_pop']);
+    if (prep) cues.push([at.prep, 'card_pop']);
+    if (r.trust > 0) cues.push([at.trust, 'card_pop']);
+    if (newBadge) cues.push([at.badge, 'badge_shine']);
+    else if (newRecord) cues.push([at.badge, 'record_fanfare']);
+    if (r.ups > 0) cues.push([at.badge + 500, 'levelup']);
+    const ids = cues.map(([ms, id]) => setTimeout(() => sfx(id), ms));
+    return () => ids.forEach(clearTimeout);
+  }, [r]);
   const xp = (
     <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
       <T w={700} size={14} color={colors.l500}>XP</T>
@@ -206,19 +239,19 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
         {!omuz && (
           <RewardCard
             icon={<Ico name={DRILL_ICON[r.key]} size={44} />} value={r.statUp ? `+${r.statUp}` : `${r.after}`}
-            label={r.statUp ? `${stat} ${r.after}` : stat} lime={r.statUp > 0} shine={r.statUp > 0} delay={600}
+            label={r.statUp ? `${stat} ${r.after}` : stat} lime={r.statUp > 0} shine={r.statUp > 0} delay={at.stat}
           >
             {!r.statUp && <Segments n={r.progress} of={need} height={5} gap={3} style={{ width: 64, marginBottom: 2 }} />}
           </RewardCard>
         )}
-        {r.bootAp > 0 && <RewardCard icon={<Ico name={bootIcon(g.boots?.id)} size={44} />} value={`+${r.bootAp}`} label={t('talim.boots')} lime delay={700} />}
-        <RewardCard icon={xp} value={`+${r.xp}`} label={t('talim.xp')} delay={800} />
-        {prep && <RewardCard icon={<Ico name="sut" size={44} />} value={t('talim.prepValue')} label={t('talim.prepLabel')} lime shine delay={900} />}
-        {r.trust > 0 && <RewardCard icon={<CoachFace size={44} />} value={`+${r.trust}`} label={t('career.trust')} lime shine delay={1000} />}
+        {r.bootAp > 0 && <RewardCard icon={<Ico name={bootIcon(g.boots?.id)} size={44} />} value={`+${r.bootAp}`} label={t('talim.boots')} lime delay={at.boots} />}
+        <RewardCard icon={xp} value={`+${r.xp}`} label={t('talim.xp')} delay={at.xp} />
+        {prep && <RewardCard icon={<Ico name="sut" size={44} />} value={t('talim.prepValue')} label={t('talim.prepLabel')} lime shine delay={at.prep} />}
+        {r.trust > 0 && <RewardCard icon={<CoachFace size={44} />} value={`+${r.trust}`} label={t('career.trust')} lime shine delay={at.trust} />}
       </View>
       {newBadge > 0 && (
         <BadgeCard
-          level={newBadge as 1 | 2 | 3} title={t(`badge.${newBadge}` as Key)} sub={stat} delay={1200} style={{ alignSelf: 'stretch' }}
+          level={newBadge as 1 | 2 | 3} title={t(`badge.${newBadge}` as Key)} sub={stat} delay={at.badge} style={{ alignSelf: 'stretch' }}
           medal={<Ico name={DRILL_ICON[r.key]} size={40} />}
         />
       )}

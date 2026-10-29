@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
@@ -47,9 +47,18 @@ function Said({ text, mine }: { text: string; mine?: boolean }) {
   );
 }
 
+/** The message the ping was last played for, so the hub pings once per message and session. */
+let pinged = '';
+
 /** Hub row for a waiting message; takes the place of Burak abi's line. */
 export function PhoneRow({ p }: { p: PhoneView }) {
   const text = txt(p, 'text');
+  useEffect(() => {
+    const id = `${p.day}:${p.key}`;
+    if (pinged === id) return;
+    pinged = id;
+    sfx('phone_ping');
+  }, [p.day, p.key]);
   return (
     <Pressable
       onPress={() => { buzz(); sfx('tab'); openPhoneSheet(); }}
