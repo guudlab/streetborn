@@ -132,7 +132,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     } catch (e) {
       console.warn('match-finish failed', e);
       setFinishing('failed');
-      toast(t('match.sendFailed'));
+      toast(t('match.sendFailed'), 'error');
     }
   }, []);
 

@@ -21,9 +21,10 @@ export function openPlayerMenu(playerId: string, nick: string | null) {
     closeSheet();
     try {
       await useGame.getState().setBlocked(playerId, value);
-      toast(t(value ? 'report.blocked' : 'report.unblocked'));
+      // Blocking hides a mahalle mate at once, so a mistaken tap gets one tap back.
+      toast(t(value ? 'report.blocked' : 'report.unblocked'), { kind: 'success', action: value ? { label: t('common.undo'), onPress: () => void block(false) } : undefined });
     } catch {
-      toast(t('report.failed'));
+      toast(t('report.failed'), 'error');
     }
   };
 
@@ -36,9 +37,9 @@ export function openPlayerMenu(playerId: string, nick: string | null) {
           closeSheet();
           try {
             await useGame.getState().report(playerId, r.id);
-            toast(t('report.sent'));
+            toast(t('report.sent'), 'success');
           } catch {
-            toast(t('report.failed'));
+            toast(t('report.failed'), 'error');
           }
         }}>{t(r.label)}</Ghost>
       ))}

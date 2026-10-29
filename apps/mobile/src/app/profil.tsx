@@ -1,6 +1,6 @@
 import { DEFAULT_CONFIG, drillBadge, xpNeed } from '@streetborn/economy';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../game/character.ts';
@@ -39,18 +39,15 @@ export default function Profil() {
   const loading = online && !g.kariyerTried && !g.kariyer;
   const unlockedCount = trophies?.filter(a => a.unlocked).length ?? 0;
 
-  useEffect(() => {
-    if (!online) return;
-    void g.refreshAccount();
-    void g.refreshKariyer();
-    void g.refreshTraining();
+  const refresh = useCallback(() => Promise.all([g.refreshAccount(), g.refreshKariyer(), g.refreshTraining()]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online]);
+    []);
+  useEffect(() => { if (online) void refresh(); }, [online, refresh]);
 
   const xpLeft = Math.max(0, xpNeed(g.level + 1) - g.xp);
 
   return (
-    <Shell title={t('profile.title')}>
+    <Shell title={t('profile.title')} onRefresh={online ? refresh : undefined}>
       {/* Who */}
       <View style={{ borderRadius: 24, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
         <Model3D
@@ -212,7 +209,7 @@ function SignOut() {
     } catch (e) {
       console.warn('sign out failed', e);
       setBusy(false);
-      toast(t('profile.signOutFailed'));
+      toast(t('profile.signOutFailed'), 'error');
     }
   };
 

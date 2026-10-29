@@ -81,10 +81,10 @@ async function linkWith(p: Provider) {
       await useGame.getState().refreshAccount();
       closeSheet();
       buzz('medium');
-      toast(t('account.linked', { provider: PROVIDER_NAME[p] }));
+      toast(t('account.linked', { provider: PROVIDER_NAME[p] }), 'success');
     }
   } catch (e) {
-    toast(accountError(e));
+    toast(accountError(e), 'error');
   }
 }
 
@@ -149,7 +149,7 @@ async function signInWith(p: Provider) {
       await useGame.getState().signedIn();
     }
   } catch (e) {
-    toast(accountError(e));
+    toast(accountError(e), 'error');
   }
 }
 

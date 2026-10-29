@@ -119,7 +119,7 @@ function PhoneSheet() {
     const r = await useGame.getState().answerPhone(p.key, picked);
     setBusy(false);
     if (r === 'ok') { sfx('unlock'); setStep('sent'); return; }
-    toast(t(r === 'no_coin' ? 'phone.noCoin' : r === 'stale' ? 'phone.stale' : 'phone.failed'));
+    toast(t(r === 'no_coin' ? 'phone.noCoin' : r === 'stale' ? 'phone.stale' : 'phone.failed'), r === 'stale' ? 'info' : 'error');
     if (r !== 'error') closeSheet();
   };
 

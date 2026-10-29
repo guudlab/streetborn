@@ -56,10 +56,10 @@ export default function Hub() {
       useGame.setState({ seasonSummary: news.seasonEnded });
       router.push('/sezon-ozeti');
     }
-    else if (news.jobs > 0) toast(t('jobs.paid', { n: news.jobs }));
-    else if (news.salary > 0) toast(t('career.salaryPaid', { n: news.salary }));
-    else if (news.gems?.coin) toast(t('career.welcomeGems', { coin: news.gems.coin, gem: news.gems.gem }));
-    else if (news.gems?.levels.length) toast(t('career.levelGems', { level: news.gems.levels[news.gems.levels.length - 1]!, gem: news.gems.gem }));
+    else if (news.jobs > 0) toast(t('jobs.paid', { n: news.jobs }), 'success');
+    else if (news.salary > 0) toast(t('career.salaryPaid', { n: news.salary }), 'success');
+    else if (news.gems?.coin) toast(t('career.welcomeGems', { coin: news.gems.coin, gem: news.gems.gem }), 'success');
+    else if (news.gems?.levels.length) toast(t('career.levelGems', { level: news.gems.levels[news.gems.levels.length - 1]!, gem: news.gems.gem }), 'success');
     useGame.setState({ careerNews: null });
   }, [news]);
 
@@ -86,7 +86,7 @@ export default function Hub() {
       if (kind === 'mahalle') void useGame.getState().refreshMahalleToday();
       return toast(t(kind === 'mahalle' ? 'mahalle.today.done' : 'league.alreadyPlayed'));
     }
-    if (r === 'error') return toast(t('hub.startFailed'));
+    if (r === 'error') return toast(t('hub.startFailed'), 'error');
     router.push('/mac');
   };
   const label = injured ? t('injury.strip') : empty ? t('hub.waitEnergy') : starting ? t('hub.preparing')

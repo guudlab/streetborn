@@ -211,7 +211,7 @@ function Match2D() {
     } catch (e) {
       console.warn('match-finish failed', e);
       setFinishing('failed');
-      toast(t('match.sendFailed'));
+      toast(t('match.sendFailed'), 'error');
     }
   };
 

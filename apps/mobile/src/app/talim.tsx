@@ -67,7 +67,7 @@ export default function Talim() {
     finishing.current = true;
     setPhase('saving');
     const r = await useGame.getState().finishDrill(inputs);
-    if (!r) { toast(t('train.failed')); router.back(); return; }
+    if (!r) { toast(t('train.failed'), 'error'); router.back(); return; }
     markHint('jobTrain');
     if (r.stars >= 3) { sfx('victory_sting'); buzz('success'); } else if (r.statUp) sfx('levelup'); else sfx(r.stars ? 'coin' : 'crowd_groan');
     setResult(r);
@@ -91,7 +91,7 @@ export default function Talim() {
     const r = await useGame.getState().startDrill(drill.key);
     setBusy(false);
     if (r === 'no_energy') return openEnergySheet();
-    if (r !== 'ok') return toast(t('train.failed'));
+    if (r !== 'ok') return toast(t('train.failed'), 'error');
     finishing.current = false;
     setDrill(useGame.getState().drill);
     setScore(0);

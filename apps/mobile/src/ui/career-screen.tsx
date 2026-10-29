@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
 import { leagueToday, multiplierLabel, standings, tierName } from '../game/career.ts';
@@ -12,6 +12,8 @@ import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
 import { Shell } from './mahalle.tsx';
+import { Skeleton } from './motion.tsx';
+import { ErrorState } from './states.tsx';
 import { Amount, Bubble, Ico } from './sade.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
 import { t } from '../i18n/index.ts';
@@ -25,16 +27,23 @@ const KIND_LABEL = {
 // the contract with coach trust and the league table, or the road to the first offer.
 export function CareerScreen() {
   const career = useGame(s => s.career);
+  const tried = useGame(s => s.careerTried);
   const refresh = useGame(s => s.refreshCareer);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  if (!career) return <Shell title={t('offers.title')}><ActivityIndicator size="large" color={colors.l600} style={{ marginTop: 40 }} /></Shell>;
+  if (!career) {
+    return (
+      <Shell title={t('offers.title')}>
+        {tried ? <ErrorState onRetry={refresh} /> : <CareerSkeleton />}
+      </Shell>
+    );
+  }
 
   const contract = career.contract?.active ? career.contract : null;
   const lastSeason = career.season?.status === 'done' ? career.season : null;
 
   return (
-    <Shell title={contract ? contract.clubName : t('offers.title')}>
+    <Shell title={contract ? contract.clubName : t('offers.title')} onRefresh={refresh}>
       {lastSeason && !contract && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, backgroundColor: colors.l900 }}>
           <Ico name="cup" size={44} />
@@ -54,6 +63,16 @@ export function CareerScreen() {
   );
 }
 
+/** The shape of the contract card and two offers, while the first answer is on its way. */
+function CareerSkeleton() {
+  return (
+    <View style={{ gap: 12 }}>
+      <Skeleton height={178} radius={24} />
+      <Skeleton height={178} radius={24} />
+    </View>
+  );
+}
+
 function OfferCard({ offer }: { offer: CareerOffer }) {
   const [busy, setBusy] = useState(false);
   const trial = offer.kind === 'trial';
@@ -63,9 +82,9 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
     setBusy(true);
     try {
       await useGame.getState().acceptOffer(offer.id);
-      toast(t('offers.signed')); buzz('success'); sfx('unlock');
+      toast(t('offers.signed'), 'success'); buzz('success'); sfx('unlock');
     } catch {
-      toast(t('career.failed'));
+      toast(t('career.failed'), { kind: 'error', action: { label: t('common.retry'), onPress: () => void sign() } });
     }
     setBusy(false);
   }
@@ -75,7 +94,7 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
     const r = await useGame.getState().startMatch('trial', offer.id);
     setBusy(false);
     if (r === 'no_energy') return openEnergySheet();
-    if (r !== 'ok') return toast(t('hub.startFailed'));
+    if (r !== 'ok') return toast(t('hub.startFailed'), 'error');
     router.push('/mac');
   }
 

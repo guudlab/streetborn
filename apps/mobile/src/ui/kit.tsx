@@ -53,16 +53,18 @@ export function Cta({ children, style, off, disabled, busy, onPress, ...rest }: 
   );
 }
 
-export function Ghost({ children, style, onPress, ...rest }: BtnProps) {
+export function Ghost({ children, style, disabled, busy, onPress, ...rest }: BtnProps) {
   return (
     <PressableScale
-      accessibilityRole="button" onPress={(e) => { tap(); onPress?.(e); }} {...rest}
+      accessibilityRole="button" disabled={disabled || busy} accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
+      onPress={(e) => { tap(); onPress?.(e); }} {...rest}
       style={[{
         height: 48, borderRadius: 24, borderWidth: 1, borderColor: colors.line, flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'center', gap: 8,
+        alignItems: 'center', justifyContent: 'center', gap: 8, opacity: disabled && !busy ? 0.45 : 1,
       }, style]}
     >
-      {typeof children === 'string' ? <T w={600} size={16}>{children}</T> : children}
+      {busy ? <ActivityIndicator color={colors.g100} />
+        : typeof children === 'string' ? <T w={600} size={16}>{children}</T> : children}
     </PressableScale>
   );
 }
@@ -107,9 +109,15 @@ export const Card = ({ children, style }: { children: ReactNode; style?: StylePr
 
 /* ---------- Haptics ---------- */
 
-export function buzz(kind: 'light' | 'medium' | 'success' = 'light') {
+/**
+ * One vocabulary of haptics: `light` for a tap, `select` for picking one of several
+ * (tabs, radio tiles), `medium` for impacts, `success` and `error` for server answers.
+ */
+export function buzz(kind: 'light' | 'select' | 'medium' | 'success' | 'error' = 'light') {
   if (Platform.OS === 'web') return;
   if (kind === 'success') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  else if (kind === 'error') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  else if (kind === 'select') void Haptics.selectionAsync();
   else void Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 }
 /** Default feedback for a button: light haptic plus the tap sound. */

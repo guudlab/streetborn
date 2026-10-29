@@ -8,6 +8,7 @@ import { achDesc, achIcon, achName, achProgress } from '../ui/kariyer.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, H3, T, Track } from '../ui/kit.tsx';
 import { Skeleton } from '../ui/motion.tsx';
+import { ErrorState } from '../ui/states.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 import { Amount, Ico, Tile } from '../ui/sade.tsx';
@@ -20,12 +21,14 @@ const GROUPS = ['match', 'mahalle', 'club'] as const;
 
 export default function Kupalar() {
   const list = useGame(s => s.kariyer?.achievements);
-  const loading = useGame(s => !s.kariyerTried) && !list;
-  useEffect(() => { void useGame.getState().refreshKariyer(); }, []);
+  const tried = useGame(s => s.kariyerTried);
+  const loading = !tried && !list;
+  const refresh = useGame(s => s.refreshKariyer);
+  useEffect(() => { void refresh(); }, [refresh]);
   const done = list?.filter(a => a.unlocked).length ?? 0;
 
   return (
-    <Shell title={t('ach.title')} right={list ? <T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
+    <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined} right={list ? <T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
       {list && (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
           <Ico name="cup" size={96} dim={done === 0} />
@@ -48,11 +51,12 @@ export default function Kupalar() {
           ))}
         </>
       )}
-      {!loading && GROUPS.map(g => (
+      {!loading && !list && <ErrorState onRetry={refresh} />}
+      {list && GROUPS.map(g => (
         <View key={g} style={{ gap: 10 }}>
           <Caps>{t(`ach.group.${g}` as Key)}</Caps>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {(list ?? []).filter(a => a.group === g).map(a => <Trophy key={a.key} a={a} />)}
+            {list.filter(a => a.group === g).map(a => <Trophy key={a.key} a={a} />)}
           </View>
         </View>
       ))}

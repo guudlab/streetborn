@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Platform, Pressable, Share, View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
@@ -24,7 +24,7 @@ async function shareInvite(name: string, code: string) {
   } catch {
     // Desktop browsers have no share sheet: copy the text instead.
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(message).then(() => toast(t('mahalle.home.copied')), () => {});
+      await navigator.clipboard.writeText(message).then(() => toast(t('mahalle.home.copied'), 'success'), () => {});
     }
   }
 }
@@ -36,6 +36,7 @@ export default function Mahalle() {
   const blocked = useGame(s => s.blocked);
   const me = useGame(s => s.mahalleToday?.me);
   useEffect(() => { void refresh(); }, [refresh]);
+  const pull = useCallback(() => Promise.all([refresh(), useGame.getState().refreshMahalleToday()]), [refresh]);
   if (!mahalle) return null;
 
   const members = mahalle.members;
@@ -46,7 +47,7 @@ export default function Mahalle() {
       <>
         <H3>{t('mahalle.home.leaveTitle')}</H3>
         <SheetText>{t('mahalle.home.leaveText')}</SheetText>
-        <Cta onPress={() => { closeSheet(); void leave(); }}>{t('mahalle.home.leaveYes')}</Cta>
+        <Cta onPress={() => { closeSheet(); leave().catch(() => toast(t('mahalle.err.generic'), 'error')); }}>{t('mahalle.home.leaveYes')}</Cta>
         <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
       </>,
     );
@@ -56,7 +57,7 @@ export default function Mahalle() {
 
   return (
     <Shell
-      title={mahalle.name}
+      title={mahalle.name} onRefresh={pull}
       right={free > 0 ? (
         <Pressable accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share} hitSlop={6}
           style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}>

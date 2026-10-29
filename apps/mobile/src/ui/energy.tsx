@@ -40,9 +40,9 @@ function useEnergyActions(onDone?: () => void) {
       setBusy(true);
       void useGame.getState().gemRefill().then((r) => {
         setBusy(false);
-        if (r !== 'ok') toast(t(REFILL_ERROR[r]));
+        if (r !== 'ok') toast(t(REFILL_ERROR[r]), 'error');
       });
-      toast(t('energy.refilled', { n: cost })); buzz('medium'); sfx('unlock');
+      toast(t('energy.refilled', { n: cost }), 'success'); buzz('medium'); sfx('unlock');
       closeSheet(); onDone?.();
     },
   };

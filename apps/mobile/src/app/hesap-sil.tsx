@@ -44,7 +44,7 @@ export default function HesapSil() {
     } catch (e) {
       console.warn('account delete failed', e);
       setBusy(false);
-      toast(t('delete.failed'));
+      toast(t('delete.failed'), 'error');
     }
   };
 

@@ -39,13 +39,13 @@ export function TodayCard() {
     setStarting(false);
     if (r === 'no_energy') return openEnergySheet();
     if (r === 'already_played') { void refresh(); return; }
-    if (r === 'error') return toast(t('hub.startFailed'));
+    if (r === 'error') return toast(t('hub.startFailed'), 'error');
     router.push('/mac');
   }
 
   function cheer(to: string, i: number) {
     toast(t(PHRASES[i % PHRASES.length]!));
-    useGame.getState().cheer(to, i % PHRASES.length).catch(() => toast(t('mahalle.cheer.failed')));
+    useGame.getState().cheer(to, i % PHRASES.length).catch(() => toast(t('mahalle.cheer.failed'), 'error'));
   }
 
   const last = today.last;
