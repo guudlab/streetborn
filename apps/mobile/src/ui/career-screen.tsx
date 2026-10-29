@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
 import { leagueToday, multiplierLabel, standings, tierName } from '../game/career.ts';
+import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import type { CareerOffer } from '../net/api.ts';
 import { colors } from '../theme.ts';
@@ -12,9 +13,13 @@ import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
 import { Shell } from './mahalle.tsx';
-import { Amount, Bubble, Ico } from './sade.tsx';
+import { Amount, Bubble, Ico, type IconAsset } from './sade.tsx';
 import { closeSheet, openSheet, SheetText, toast } from './overlay.tsx';
 import { t } from '../i18n/index.ts';
+
+const cfg = DEFAULT_CONFIG.career;
+/** A double round robin: every other team twice, one round a day. */
+const SEASON_DAYS = (cfg.teams - 1) * 2;
 
 const KIND_LABEL = {
   direct: 'career.kind.direct', trial: 'career.kind.trial', better: 'career.kind.better',
@@ -82,7 +87,11 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
   const confirm = () => openSheet(
     <>
       <H3>{t('offers.signTitle', { club: offer.clubName })}</H3>
-      <SheetText>{t('career.signText', { tier: tierName(offer.tier), n: offer.salaryWeekly, x: multiplierLabel(offer.tier) })}</SheetText>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Fact icon="coin" value={num(offer.salaryWeekly)} label={t('career.fact.salary')} />
+        <Fact icon="coinStack" value={multiplierLabel(offer.tier)} label={t('career.fact.multiplier')} />
+        <Fact icon="sezonKart" value={t('career.fact.days', { n: SEASON_DAYS })} label={t('career.fact.season')} />
+      </View>
       <Cta onPress={() => void sign()}>{t('offers.sign')}</Cta>
       <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
     </>,
@@ -100,16 +109,18 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
           <T w={600} size={12} color={colors.g200}>{tierName(offer.tier)}</T>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <Amount icon="coin" size={22} textSize={16}>{offer.salaryWeekly}</Amount>
+          <Amount icon="coin" size={22} textSize={16}>{num(offer.salaryWeekly)}</Amount>
           <T w={600} size={11} color={colors.g300}>{t('career.perWeek')}</T>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        <Tag lime>{multiplierLabel(offer.tier)}</Tag>
-        {/* A trial offer says so in its own tag below. */}
-        {offer.kind !== 'trial' && <Tag>{t(KIND_LABEL[offer.kind])}</Tag>}
-        {needsTrial && <Tag>{t('career.trialShort')}</Tag>}
-        {offer.status === 'trial_passed' && <Tag lime>{t('career.trialPassedShort')}</Tag>}
+      {/* A trial offer shows its trial in the facts below. */}
+      {offer.kind !== 'trial' && <Tag lime={highlight}>{t(KIND_LABEL[offer.kind])}</Tag>}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Fact icon="coinStack" value={multiplierLabel(offer.tier)} label={t('career.fact.multiplier')} />
+        <Fact icon="sezonKart" value={t('career.fact.days', { n: SEASON_DAYS })} label={t('career.fact.season')} />
+        {trial && (offer.status === 'trial_passed'
+          ? <Fact icon="kale" value={t('career.fact.trialPassed')} label={t('career.fact.trial')} lime />
+          : <Fact icon="kale" value={num(cfg.trialMinRating / 10, 1)} label={t('career.fact.trial')} />)}
       </View>
       {failed
         ? <T size={13} color={colors.g200}>{t('career.trialFailed')}</T>
@@ -120,9 +131,23 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
   );
 }
 
+/** One term of a deal: a picture, a big value and a word under it. */
+function Fact({ icon, value, label, lime }: { icon: IconAsset; value: string; label: string; lime?: boolean }) {
+  return (
+    <View
+      accessible accessibilityLabel={`${label} ${value}`}
+      style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 16, backgroundColor: lime ? colors.l900 : colors.s2 }}
+    >
+      <Ico name={icon} size={30} />
+      <T w={700} size={16} color={lime ? colors.l500 : colors.g100} numberOfLines={1}>{value}</T>
+      <T w={600} size={11} color={colors.g300} numberOfLines={1}>{label}</T>
+    </View>
+  );
+}
+
 function Tag({ children, lime }: { children: string; lime?: boolean }) {
   return (
-    <View style={{ height: 28, paddingHorizontal: 10, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
+    <View style={{ alignSelf: 'flex-start', height: 28, paddingHorizontal: 10, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
       <T w={700} size={12} color={lime ? colors.l500 : colors.g100}>{children}</T>
     </View>
   );
@@ -145,7 +170,7 @@ function Contract() {
             {today && <T w={700} size={15}>{t('league.dayShort', { n: today.round + 1, total: today.rounds })}</T>}
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Amount icon="coin" size={22} textSize={16}>{contract.salaryWeekly}</Amount>
+            <Amount icon="coin" size={22} textSize={16}>{num(contract.salaryWeekly)}</Amount>
             <Tag lime>{multiplierLabel(contract.tier)}</Tag>
           </View>
         </View>
@@ -160,7 +185,7 @@ function Contract() {
             <T w={700} size={15} color={career.trust >= 70 ? colors.l500 : career.trust < 40 ? colors.bad : colors.g100}>{career.trust}</T>
             <Icon name="info" size={16} color={colors.g300} />
           </View>
-          <Track value={career.trust / 100} />
+          <TrustBar trust={career.trust} />
         </Pressable>
       </View>
 
@@ -176,6 +201,24 @@ function Contract() {
         </View>
       )}
     </>
+  );
+}
+
+/** Coach trust with the two marks that matter at season end: renew and promotion. */
+function TrustBar({ trust }: { trust: number }) {
+  const marks: [number, string][] = [[cfg.trustRenewMin, t('career.trust.renew')], [cfg.trustPromoteMin, t('career.trust.promote')]];
+  return (
+    <View style={{ gap: 4 }}>
+      <View>
+        <Track value={trust / 100} color={trust >= cfg.trustPromoteMin ? colors.l500 : trust < cfg.trustRenewMin ? colors.bad : colors.l600} />
+        {marks.map(([at]) => <View key={at} style={{ position: 'absolute', left: `${at}%`, top: -3, width: 2, height: 14, marginLeft: -1, borderRadius: 1, backgroundColor: colors.g100 }} />)}
+      </View>
+      <View style={{ height: 16 }}>
+        {marks.map(([at, label]) => (
+          <T key={at} w={600} size={11} color={trust >= at ? colors.l500 : colors.g300} style={{ position: 'absolute', left: `${at}%`, width: 80, marginLeft: -40, textAlign: 'center' }}>{label}</T>
+        ))}
+      </View>
+    </View>
   );
 }
 

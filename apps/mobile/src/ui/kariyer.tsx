@@ -4,10 +4,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { sfx } from '../audio/audio.ts';
-import { effectText, num } from '../game/format.ts';
+import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import type { AchievementView, Choice, FormLevel, InjuryKind, Kariyer } from '../net/api.ts';
 import { colors } from '../theme.ts';
+import { FxChips, fxLabel, type Fx } from './fx.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
 import { closeSheet, openSheet, toast } from './overlay.tsx';
@@ -38,14 +39,12 @@ export function timeLeft(ms: number): string {
 export const shootPoints = (c: Kariyer) => shootingBonus(c.form.level, c.morale, c.choice, DEFAULT_CONFIG);
 
 export const CHOICE_ICON: Record<Choice, IconAsset> = { rest: 'enerji', work: 'sut', hang: 'mahalle' };
-type Fx = { text: string; good: boolean };
-/** What each choice does, as small chips: green when it helps, red when it costs. */
+/** What each choice does. */
 const CHOICE_FX: Record<Choice, () => Fx[]> = {
-  rest: () => [{ text: effectText('morale', k.restMorale), good: true }, { text: t('choice.fx.injury'), good: true }],
-  work: () => [{ text: effectText('shoot', k.workShoot), good: true }, { text: effectText('morale', k.workMorale), good: k.workMorale >= 0 }],
-  hang: () => [{ text: effectText('morale', k.hangMorale), good: true }, { text: effectText('respect', k.hangRespect), good: true }],
+  rest: () => [{ kind: 'morale', n: k.restMorale }, { kind: 'injury', n: -1 }],
+  work: () => [{ kind: 'shoot', n: k.workShoot }, { kind: 'morale', n: k.workMorale }],
+  hang: () => [{ kind: 'morale', n: k.hangMorale }, { kind: 'respect', n: k.hangRespect }],
 };
-const fxLabel = (c: Choice) => CHOICE_FX[c]().map(f => f.text).join(', ');
 export const choiceName = (c: Choice) => t(`choice.${c}` as Key);
 
 /** One existing icon per achievement; no new 3D asset needed. */
@@ -258,7 +257,7 @@ function ChoiceCard({ choice, state, onPress }: { choice: Choice; state: 'open' 
   const on = state === 'picked' || state === 'done';
   return (
     <Tile
-      row role="radio" selected={on} onPress={onPress} label={`${choiceName(choice)}. ${fxLabel(choice)}`}
+      row role="radio" selected={on} onPress={onPress} label={`${choiceName(choice)}. ${fxLabel(CHOICE_FX[choice]())}`}
       style={{ minHeight: 76, paddingVertical: 10, gap: 12, opacity: state === 'dim' ? 0.55 : 1 }}
     >
       <Ico name={CHOICE_ICON[choice]} size={44} />
@@ -267,13 +266,7 @@ function ChoiceCard({ choice, state, onPress }: { choice: Choice; state: 'open' 
           <T w={700} size={16}>{choiceName(choice)}</T>
           <T w={500} size={12} color={colors.g200}>{t(`choice.${choice}.flavor` as Key)}</T>
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {CHOICE_FX[choice]().map(f => (
-            <View key={f.text} style={{ paddingHorizontal: 8, height: 22, borderRadius: 11, justifyContent: 'center', backgroundColor: f.good ? 'rgba(207,253,92,.12)' : 'rgba(255,122,102,.14)' }}>
-              <T w={700} size={11} color={f.good ? colors.l500 : colors.bad}>{f.text}</T>
-            </View>
-          ))}
-        </View>
+        <FxChips fx={CHOICE_FX[choice]()} />
       </View>
       <View style={{
         width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center',
