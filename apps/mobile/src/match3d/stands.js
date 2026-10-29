@@ -15,10 +15,14 @@ import { aimBone } from './rig.js';
 const STEP_H = 0.42, STEP_D = 0.8, BASE = 0.3;   // terrace riser, tread, first step height
 const SEAT = 0.62;                               // shoulder to shoulder along a row
 const FAN_SIZE = [1, 1, 1, 0.84];                // fan4 is the kid
+// stand.glb (Meshy S1): a roofed four-row module, about 1.9 x 1.3 x 1.1 in its own units,
+// rows along x, facing +z. Row centres (z) and seat tops (y) measured off the model.
+const MODULE = { scale: 3.4, floor: -0.632, front: 0.555, width: 1.88, seatX: 0.72, rows: [[0.18, -0.38], [0.02, -0.268], [-0.17, -0.142], [-0.32, -0.015]] };
 
 /**
  * opts: { goalZ, goal2Z, kit: our colour '#rrggbb', board: our banner text, away?: their
- *         banner text, fans: the fan GLTFs, seed, canvasTex(w, h, draw) }
+ *         banner text, fans: the fan GLTFs, module?: the stand module GLTF, seed,
+ *         canvasTex(w, h, draw) }
  */
 export function buildStands(scene, opts) {
   let seed = opts.seed || 3;
@@ -31,14 +35,19 @@ export function buildStands(scene, opts) {
   const STANDS = [
     { name: 'home', at: [0, opts.goalZ + 6.3], dir: [0, 1], len: 25, rows: 9, team: 'us' },          // behind the goal we attack
     { name: 'away', at: [0, opts.goal2Z - 5.2], dir: [0, -1], len: 21, rows: 7, team: 'them' },      // behind the far goal
-    { name: 'main', at: [16.4, -5], dir: [1, 0], len: 24, rows: 8, team: 'mixed', roof: true },       // the long side, with a roof
-    { name: 'side', at: [-16.4, -5], dir: [-1, 0], len: 20, rows: 4, team: 'mixed' },
+    // the long sides: a row of the roofed modules (stand.glb), or plain steps without it
+    { name: 'main', at: [16.4, -5], dir: [1, 0], len: 24, rows: 8, team: 'mixed', roof: true, modular: true },
+    { name: 'side', at: [-16.4, -5], dir: [-1, 0], len: 20, rows: 4, team: 'mixed', modular: true },
   ];
   const concrete = [], trim = [], rails = [];
   const box = (list, w, h, d, x, y, z, ry) => { const g = new THREE.BoxGeometry(w, h, d); g.rotateY(ry); g.translate(x, y, z); list.push(g); };
   const seats = [];   // where a fan can stand: { p: Vector3, yaw, stand }
+  const dimmed = new Map();
+  // the module's concrete is daylight grey: darker here, at night outside the floodlights
+  const moduleMat = (m) => { if (!dimmed.has(m)) { const c = m.clone(); c.color.multiplyScalar(0.55); dimmed.set(m, c); } return dimmed.get(m); };
   for (const s of STANDS) {
     const [ax, az] = s.at, [dx, dz] = s.dir, ry = Math.atan2(dx, dz);   // ry: rows run along local x
+    if (s.modular && opts.module) { placeModules(s, ry + Math.PI); continue; }
     const top = BASE + STEP_H * s.rows, depth = STEP_D * s.rows;
     const along = (u, v) => [ax + dx * v + dz * u, az + dz * v - dx * u];   // u: along the row, v: back from the front
     for (let i = 0; i < s.rows; i++) {
@@ -64,6 +73,28 @@ export function buildStands(scene, opts) {
       const [x, z] = along(0, depth * 0.45); box(concrete, s.len + 1.2, 0.18, depth + 1.6, x, top + 3.4, z, ry);
       for (let k = 0; k <= 4; k++) { const [px, pz] = along(-s.len / 2 + (k * s.len) / 4, depth - 0.2); box(rails, 0.16, 3.5, 0.16, px, top + 1.65, pz, ry); }
       const [lx, lz] = along(0, -0.4); box(trim, s.len, 0.06, 0.12, lx, top + 3.28, lz, ry);
+    }
+  }
+  // modules side by side along the stand; a fan behind each seat, feet on the tread, so the
+  // seat in front hides the shins
+  function placeModules(s, yaw) {
+    const k = MODULE.scale, w = MODULE.width * k, n = Math.round(s.len / w);
+    const [dx, dz] = s.dir, back = MODULE.front * k;
+    for (let i = 0; i < n; i++) {
+      const u = (i - (n - 1) / 2) * w;
+      const m = opts.module.scene.clone();
+      m.traverse((o) => { if (o.isMesh) o.material = moduleMat(o.material); });
+      m.scale.setScalar(k); m.rotation.y = yaw;
+      m.position.set(s.at[0] + dx * back + dz * u, -MODULE.floor * k, s.at[1] + dz * back - dx * u);
+      m.updateMatrix(); m.updateMatrixWorld(true); m.matrixAutoUpdate = false;
+      m.traverse((o) => { if (o.isMesh) o.matrixAutoUpdate = false; });
+      group.add(m);
+      MODULE.rows.forEach(([z, y], row) => {
+        for (let x = -MODULE.seatX; x <= MODULE.seatX + 1e-6; x += SEAT / k) {
+          const p = new THREE.Vector3(x + (rnd() - 0.5) * 0.02, y - 0.13, z - 0.04).applyMatrix4(m.matrixWorld);
+          seats.push({ p, yaw: yaw + (rnd() - 0.5) * 0.5, stand: s, u: u + x * k, row });
+        }
+      });
     }
   }
   const concreteMat = new THREE.MeshStandardMaterial({ color: 0x2a2d28, roughness: 0.92, metalness: 0 });

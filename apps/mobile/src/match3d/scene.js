@@ -241,13 +241,23 @@ export function createMatch(env) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(26, 0.7, 0.1), [postMat, postMat, postMat, postMat, postMat, boardMat]);
       b.position.set(0, 0.35, z); b.rotation.y = ry; scene.add(b);
     }
-    // floodlights
+    // floodlights: the lattice towers (floodlight.glb, Meshy S2), or plain poles without the
+    // file; the lamps are unlit white discs in front of the head so the bloom catches them
     const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+    const lamp = new THREE.CircleGeometry(0.24, 12);
     for (const [x, z] of [[-12.5, GOAL_Z + 4], [12.5, GOAL_Z + 4], [-12.5, -6], [12.5, -6], [-12.5, GOAL2_Z - 2], [12.5, GOAL2_Z - 2]]) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 13, 10), postMat); pole.position.set(x, 6.5, z); scene.add(pole);
       const head = new THREE.Group(); head.position.set(x, 13.2, z); head.lookAt(0, 0, z * 0.6); scene.add(head);
-      for (let i = 0; i < 6; i++) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 0.12), headMat); l.position.set((i % 3 - 1) * 0.62, Math.floor(i / 3) * 0.48 - 0.24, 0); head.add(l); }
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.15, 0.1), postMat); frame.position.z = -0.08; head.add(frame);
+      if (G.floodlight) {
+        // the model is 1.9 high, centred on its origin, head on top facing +z
+        const t = G.floodlight.scene.clone(); t.scale.setScalar(14 / 1.9); t.position.set(x, 7, z);
+        t.rotation.y = Math.atan2(-x, z * 0.6 - z); scene.add(t);
+        head.position.y = 12.9;
+        for (let i = 0; i < 12; i++) { const l = new THREE.Mesh(lamp, headMat); l.position.set((i % 4 - 1.5) * 0.66, Math.floor(i / 4) * 0.62 - 0.62, 0.35); head.add(l); }
+      } else {
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 13, 10), postMat); pole.position.set(x, 6.5, z); scene.add(pole);
+        for (let i = 0; i < 6; i++) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 0.12), headMat); l.position.set((i % 3 - 1) * 0.62, Math.floor(i / 3) * 0.48 - 0.24, 0); head.add(l); }
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.15, 0.1), postMat); frame.position.z = -0.08; head.add(frame);
+      }
     }
     // apartment blocks with lit windows
     const facade = (seedN) => canvasTex(128, 256, (g, w, h) => {
@@ -267,7 +277,7 @@ export function createMatch(env) {
   }
 
   // terraces and crowd behind the fences (stands.js)
-  const stands = buildStands(scene, { goalZ: GOAL_Z, goal2Z: GOAL2_Z, kit: env.kit || '#CFFD5C', board: env.board, away: env.away, fans: G.fans || [], canvasTex, seed: 5 });
+  const stands = buildStands(scene, { goalZ: GOAL_Z, goal2Z: GOAL2_Z, kit: env.kit || '#CFFD5C', board: env.board, away: env.away, fans: G.fans || [], module: G.stand, canvasTex, seed: 5 });
 
   // -------------------------------------------------------------- particles: confetti + trail + cue ring
   const CONF = 320;

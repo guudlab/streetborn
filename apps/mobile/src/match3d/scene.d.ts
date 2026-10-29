@@ -34,6 +34,9 @@ export interface MatchEnv {
     opps?: Gltf[];
     /** the fan models (fan1-4.glb): the terraces and the fans by the fences */
     fans?: Gltf[];
+    /** the stand module (stand.glb) and floodlight tower (floodlight.glb) */
+    stand?: Gltf;
+    floodlight?: Gltf;
     'anim-street-idle': Gltf; 'anim-kick': Gltf; 'anim-cheer': Gltf; 'anim-run': Gltf; 'anim-slide': Gltf; 'anim-leap': Gltf;
   };
   /** Recolours a model's kit: our colours when `tint` is left out. */

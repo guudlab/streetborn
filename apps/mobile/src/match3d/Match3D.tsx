@@ -44,6 +44,8 @@ const MODELS = {
   fan2: require('../../assets/models/mac/fan2.glb'),
   fan3: require('../../assets/models/mac/fan3.glb'),
   fan4: require('../../assets/models/mac/fan4.glb'),
+  stand: require('../../assets/models/mac/stand.glb'),
+  floodlight: require('../../assets/models/mac/floodlight.glb'),
 } as const;
 
 /** Our two teammates in pass moments: the starters the player did not pick. */

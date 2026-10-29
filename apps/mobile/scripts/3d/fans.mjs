@@ -1,7 +1,8 @@
 // Shrinks the Meshy fan characters (T1-T4, 3D-assetler/mac-tribun) for the match stands:
 // drops the walk clip and every map but the base colour, simplifies the mesh (the skin
 // stays, so the fans by the fences can play idle and cheer), and writes meshopt GLBs.
-// Usage: node fans.mjs <out dir> <T1-rig.glb> [T2-rig.glb ...]  (FAN_RATIO, default 0.22)
+// Usage: node fans.mjs <out dir> <T1-rig.glb> [T2-rig.glb ...]  (FAN_RATIO, default 0.22; FAN_TEX, default 512)
+// The stand module and floodlight (S1, S2) go through the same: FAN_RATIO=0.5 FAN_TEX=1024.
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -28,7 +29,7 @@ for (const file of inputs) {
   for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) simplifySeams(p);
   await doc.transform(
     weld(),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [512, 512], quality: 82 }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [Number(process.env.FAN_TEX || 512), Number(process.env.FAN_TEX || 512)], quality: 82 }),
     dedup(), prune(),
     meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
   );
