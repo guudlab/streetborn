@@ -14,7 +14,7 @@ The owner (Kaan) writes in Turkish. User-facing strings are Turkish; code, ident
 
 `apps/mobile/AGENTS.md` (from Expo) applies: install native packages with `npx expo install`, check the versioned Expo docs for SDK 58 before using an API, use Expo Router for navigation, never hand-edit `ios/` or `android/`.
 
-The 3D match runs in a canvas on the web and in a WebView on iOS/Android (`match3d/nativeScene.native.tsx`, protocol in `bridgeTypes.ts`). The WebView loads a generated bundle, `assets/match3d/match.webview.html` (gitignored): run `npm run build:match-webview --workspace apps/mobile` after changing `scene.js`, `stands.js`, `rig.js`, `keeper.js` or `ui/kitTint.ts` (the start scripts and the sideload workflow do it). Keep those files free of React Native imports.
+3D runs in a canvas on the web and in WebViews on iOS/Android, because expo-gl cannot decode the textures inside the .glb files and three.js rejects its context: the 3D match (`match3d/nativeScene.native.tsx`, protocol in `bridgeTypes.ts`) and each Model3D (`ui/nativeModel.native.tsx`, scene in `ui/modelScene.ts`). The WebViews load generated bundles, `assets/match3d/match.webview.html` and `assets/webview/model.webview.html` (gitignored): run `npm run build:match-webview --workspace apps/mobile` after changing `scene.js`, `stands.js`, `rig.js`, `keeper.js`, `ui/modelScene.ts` or `ui/kitTint.ts` (the start scripts and the sideload workflow do it). Keep those files free of React Native imports.
 
 ## Before you finish
 
