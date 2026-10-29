@@ -1,4 +1,4 @@
-import { apNeed, DEFAULT_CONFIG, privateCost } from '@streetborn/economy';
+import { apNeed, dailyDrill, DEFAULT_CONFIG, istanbulDay, privateCost } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DRILLS, ovr, type StatKey } from '../../game/rules.ts';
 import { markHint } from '../../game/hints.ts';
-import { useGame, type TrainResult } from '../../game/store.ts';
+import { SERVER_STAT, useGame, type TrainResult } from '../../game/store.ts';
 import { colors, TAB_BAR_SPACE } from '../../theme.ts';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Icon } from '../../ui/Icon.tsx';
@@ -14,9 +14,8 @@ import { toast } from '../../ui/overlay.tsx';
 import { sfx } from '../../audio/audio.ts';
 import { buzz, Caps, CoachFace, Cta, H1, T } from '../../ui/kit.tsx';
 import { PressableScale } from '../../ui/motion.tsx';
-import { Amount, bootIcon, Ico, Segments, Tile, type IconAsset } from '../../ui/sade.tsx';
+import { Amount, bootIcon, Bubble, Ico, Segments, Tile, type IconAsset } from '../../ui/sade.tsx';
 import { Star } from '../../ui/drills/common.tsx';
-import { HintBubble } from '../../ui/hint.tsx';
 import { t, type Key } from '../../i18n/index.ts';
 
 const KEYS = Object.keys(DRILLS) as StatKey[];
@@ -33,7 +32,10 @@ const STAT_ICON: Record<StatKey, IconAsset> = { sut: 'sut', pas: 'pas', hiz: 'hi
 export default function Gelisim() {
   const insets = useSafeAreaInsets();
   const g = useGame();
-  const [sel, setSel] = useState<StatKey>('sut');
+  // Burak abi's drill of the day: 3 stars on it ready the player for today's match.
+  const today = dailyDrill(istanbulDay(Date.now()));
+  const daily = KEYS.find(k => SERVER_STAT[k] === today)!;
+  const [sel, setSel] = useState<StatKey>(daily);
   const [last, setLast] = useState<TrainResult | null>(null);
   const [busy, setBusy] = useState(false);
   const d = DRILLS[sel];
@@ -79,7 +81,7 @@ export default function Gelisim() {
           <T w={700} size={30}>{ovr(g.stats)}</T>
         </View>
       </View>
-      <HintBubble id="trainTab" text={t('hint.trainTab')} />
+      <Bubble text={g.drillStars[daily] === 3 ? t('daily.ready') : t(`daily.${today}`)} size={36} />
 
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {KEYS.map(k => {
@@ -89,8 +91,9 @@ export default function Gelisim() {
           return (
             <Tile
               key={k} role="radio" selected={on} onPress={() => pick(k)} style={{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }}
-              label={`${DRILLS[k].stat} ${g.stats[k]}, ${t('talim.stars', { n: stars })}, ${t('train.progressA11y', { n: g.drillProgress[k] })}`}
+              label={`${DRILLS[k].stat} ${g.stats[k]}, ${k === daily ? `${t('daily.tag')}, ` : ''}${t('talim.stars', { n: stars })}, ${t('train.progressA11y', { n: g.drillProgress[k] })}`}
             >
+              {k === daily && <View style={{ position: 'absolute', top: 12, right: 12, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.l600 }} />}
               <Ico name={STAT_ICON[k]} size={56} />
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                 <T w={600} size={13} color={colors.g200}>{DRILLS[k].stat}</T>

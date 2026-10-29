@@ -2,6 +2,7 @@
 // match with this setup; match-finish replays the recorded inputs to score it.
 import { ENGINE_VERSION, planMatch, type MatchSetup } from '../../../packages/engine/src/index.ts';
 import {
+  dailyDrill,
   istanbulDay,
   leagueSchedule,
   shootingBonus,
@@ -35,7 +36,16 @@ Deno.serve(handle(async (req) => {
   // the result, so match-finish replays with the same number. An injured player rests from friendlies.
   const state = await loadState(playerId, now, config);
   if (state.injury && kind === 'energy') throw new HttpError(409, 'injured', { until: state.injury.until });
-  const shooting = Math.max(1, Math.min(100, stats.shooting + shootingBonus(state.form.level, state.morale, state.choice, config)));
+  // 3 stars on today's drill of the day count as "work" for the mahalle match (the two do not add up).
+  let choice = state.choice;
+  if (mahalleMatch) {
+    const day = istanbulDay(now);
+    const { data: prep, error: prepError } = await admin.from('training_log').select('id')
+      .eq('player_id', playerId).eq('day', day).eq('stat', dailyDrill(day)).eq('stars', 3).limit(1);
+    if (prepError) throw prepError;
+    if (prep?.length) choice = 'work';
+  }
+  const shooting = Math.max(1, Math.min(100, stats.shooting + shootingBonus(state.form.level, state.morale, choice, config)));
 
   const spent = spendEnergy(
     { energy: wallet.energy, updatedAt: Date.parse(wallet.energy_updated_at) },

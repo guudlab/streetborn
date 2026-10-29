@@ -258,6 +258,8 @@ export interface DrillFinish {
   player: { xp: number; level: number; coin: number };
   record: { best: number; previous: number | null };
   boots: Boots | null;
+  /** Coach trust the drill of the day added at a club (0 or 1). */
+  trust: number;
 }
 /** Spends today's free drill (then 1 energy) and returns the seed of the mini game. */
 export const startDrill = (stat: ServerStat) => call<DrillTicket>('train', { action: 'start', stat });

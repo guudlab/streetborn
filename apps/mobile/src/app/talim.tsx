@@ -1,4 +1,4 @@
-import { apNeed, DEFAULT_CONFIG, type DrillInputs } from '@streetborn/economy';
+import { apNeed, dailyDrill, DEFAULT_CONFIG, istanbulDay, type DrillInputs } from '@streetborn/economy';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, Platform, View } from 'react-native';
@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sfx } from '../audio/audio.ts';
 import { DRILLS, type StatKey } from '../game/rules.ts';
 import { markHint } from '../game/hints.ts';
-import { useGame, type DrillOutcome, type LiveDrill } from '../game/store.ts';
+import { SERVER_STAT, useGame, type DrillOutcome, type LiveDrill } from '../game/store.ts';
 import { t, type Key } from '../i18n/index.ts';
 import { colors } from '../theme.ts';
 import { BakkalaKos } from '../ui/drills/BakkalaKos.tsx';
@@ -17,7 +17,7 @@ import { Merdiven } from '../ui/drills/Merdiven.tsx';
 import { Teneke } from '../ui/drills/Teneke.tsx';
 import { openEnergySheet } from '../ui/energy.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { buzz, Cta, H1, T } from '../ui/kit.tsx';
+import { buzz, CoachFace, Cta, H1, T } from '../ui/kit.tsx';
 import { Pop, PressableScale } from '../ui/motion.tsx';
 import { toast, Spinner } from '../ui/overlay.tsx';
 import { bootIcon, Bubble, Ico, Segments, type IconAsset } from '../ui/sade.tsx';
@@ -147,7 +147,9 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
   const chip = newRecord
     ? `${t('talim.newRecord', { n: r.score })}${r.score > r.kerem ? ` · ${t('talim.beatKerem')}` : ''}`
     : r.record.best > 0 ? t('talim.recordLine', { best: r.record.best, kerem: r.kerem }) : t('talim.kerem', { n: r.kerem });
-  const line = r.stars >= 3 ? t('talim.burak.top') : t(`talim.burak.${r.key}` as Key);
+  // 3 stars on the drill of the day: today's mahalle match gets the "work" shooting bonus (match-start).
+  const prep = r.stars === 3 && g.mahalleToday?.played === false && SERVER_STAT[r.key] === dailyDrill(istanbulDay(Date.now()));
+  const line = prep ? t('daily.ready') : r.stars >= 3 ? t('talim.burak.top') : t(`talim.burak.${r.key}` as Key);
   const can = g.trainFree > 0 || g.energy > 0;
   // Online the AP per point grows with the stat (GDD v3.1); the offline prototype keeps 3.
   const need = g.mode === 'online' ? apNeed(r.after, DEFAULT_CONFIG.training) : 3;
@@ -172,6 +174,8 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
       <View style={{ alignSelf: 'stretch', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 8, gap: 4, marginTop: 6 }}>
         <Row icon={<Ico name={STAT_ICON[r.key]} size={38} />} label={stat} value={`+${r.ap - r.bootAp} AP`} />
         {r.bootAp > 0 && <Row icon={<Ico name={bootIcon(g.boots?.id)} size={38} />} label={t('talim.boots')} value={`+${r.bootAp} AP`} lime />}
+        {prep && <Row icon={<Ico name="sut" size={38} />} label={t('talim.prep')} value={t('choice.fx.shoot', { n: `+${DEFAULT_CONFIG.kariyer.workShoot}` })} lime />}
+        {r.trust > 0 && <Row icon={<CoachFace size={38} />} label={t('career.trust')} value={`+${r.trust}`} lime />}
         <Row icon={<View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}><T w={700} size={12} color={colors.g200}>XP</T></View>} label={t('talim.xp')} value={`+${r.xp} XP`} />
       </View>
 

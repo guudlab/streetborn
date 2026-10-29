@@ -93,6 +93,8 @@ export interface DrillOutcome {
   ap: number; bootAp: number; xp: number; ups: number; statUp: number;
   before: number; after: number; progress: number;
   record: { best: number; previous: number | null }; kerem: number;
+  /** Coach trust from the drill of the day at a club. */
+  trust: number;
 }
 
 export const SERVER_STAT: Record<StatKey, ServerStat> = { sut: 'shooting', pas: 'passing', hiz: 'pace', fizik: 'stamina' };
@@ -829,7 +831,7 @@ export const useGame = create<GameState>()((set, get) => ({
       out = {
         key, score: r.score, stars: r.stars, grade: GRADE_TR[r.grade], ap: r.ap, bootAp: r.bootAp, xp: r.xp,
         ups: r.player.level - s.level, statUp: r.stat.after - r.stat.before, before: r.stat.before, after: r.stat.after,
-        progress: r.stat.ap, record: r.record, kerem: d.kerem,
+        progress: r.stat.ap, record: r.record, kerem: d.kerem, trust: r.trust ?? 0,
       };
     } else {
       // Offline: the same scoring, the prototype's 3 AP per point, nothing saved.
@@ -856,7 +858,7 @@ export const useGame = create<GameState>()((set, get) => ({
       });
       out = {
         key, score, stars, grade: GRADE_TR[grade], ap: gain.ap, bootAp: 0, xp: gain.xp, ups: level - s.level, statUp,
-        before, after: before + statUp, progress, record: { best, previous }, kerem: d.kerem,
+        before, after: before + statUp, progress, record: { best, previous }, kerem: d.kerem, trust: 0,
       };
     }
     set({ drill: null });

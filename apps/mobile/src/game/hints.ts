@@ -7,7 +7,7 @@ import { create } from 'zustand';
 
 export const HINTS_KEY = 'streetborn.hints.v1';
 
-export type HintId = 'spotTrain' | 'trainTab' | 'lifeTab' | 'shopTab' | 'jobTrain';
+export type HintId = 'spotTrain' | 'lifeTab' | 'shopTab' | 'jobTrain';
 
 interface HintsState {
   loaded: boolean;
