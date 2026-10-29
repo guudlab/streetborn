@@ -63,8 +63,12 @@ export interface MatchScene {
   tackle(side: 1 | -1, timing: number, outcome: 'stopped' | 'conceded' | 'survived'): void;
   passTo(side: 'left' | 'right', outcome: 'assist' | 'lost'): void;
   setPaused(p: boolean): void;
+  /** Resolves once every shader is compiled and the scene is drawing. */
+  ready: Promise<void>;
   /** Test hook: steps the game clock and draws once. */
   sim(sec: number): void;
+  /** Test hook: what the last frame drew. */
+  stats(): { calls: number; triangles: number; programs: number; textures: number; geometries: number };
   dispose(): void;
 }
 

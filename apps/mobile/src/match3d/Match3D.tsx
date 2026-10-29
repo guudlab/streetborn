@@ -245,6 +245,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       });
       scene.current = sc;
       (window as unknown as { __match3d?: MatchScene }).__match3d = sc; // test hook (sim)
+      // The loading bar stays up while the shaders compile, so no frame stalls mid-match.
+      await sc.ready;
+      if (cancelled) return;
       setReady(true);
       begin();
     })().catch((e: unknown) => { if (!cancelled) onFail(e); });

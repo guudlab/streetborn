@@ -92,11 +92,17 @@ export function createMatch(env) {
   const size = () => ({ w: Math.max(1, host.clientWidth), h: Math.max(1, host.clientHeight) });
 
   // -------------------------------------------------------------- renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
-  renderer.setPixelRatio(DPR);
+  // No MSAA on the canvas: the composer draws the scene into its own target, so it only
+  // cost memory. Phones with 3x screens draw at 1.5x at most; the governor below goes lower
+  // on a phone that cannot keep up.
+  const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+  const DPR_MAX = Math.min(window.devicePixelRatio || 1, 1.5);
+  const QUALITY = [DPR_MAX, 1.25, 1, 0.85].filter((d, i, a) => d <= DPR_MAX && a.indexOf(d) === i);
+  let quality = 0;
+  renderer.setPixelRatio(QUALITY[0]);
   let { w: W, h: H } = size();
   renderer.setSize(W, H);
+  renderer.info.autoReset = false;   // counted per frame (all passes), for the stats() test hook
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -111,6 +117,7 @@ export function createMatch(env) {
   { const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.32; pm.dispose(); }
 
   const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(QUALITY[0]);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(V2(W / 2, H / 2), 0.42, 0.5, 0.96);
   composer.addPass(bloom);
@@ -139,7 +146,7 @@ export function createMatch(env) {
   scene.add(new THREE.HemisphereLight(0x9fb2d8, 0x1a2a0e, 0.5));
   const key = new THREE.DirectionalLight(0xf4ffe8, 2.4);
   key.position.set(-6, 14, -6); key.target.position.set(0, 0, -2);
-  key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+  key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
   Object.assign(key.shadow.camera, { left: -11, right: 11, top: 17, bottom: -17, near: 1, far: 45 });
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight(0xdfffb0, 1.0); rim.position.set(6, 6, 16); scene.add(rim);
@@ -201,6 +208,8 @@ export function createMatch(env) {
   const netBase = backNet.geometry.attributes.position.array.slice();
   const net = { amp: 0, vel: 0, x: 0, y: 1 };
   function updateNet(dt) {
+    if (Math.abs(net.amp) < 1e-4 && Math.abs(net.vel) < 1e-3) { if (net.amp) { net.amp = 0; net.vel = 0; } else if (net.flat) return; }
+    net.flat = net.amp === 0;
     net.vel += (-90 * net.amp - 7 * net.vel) * dt; net.amp += net.vel * dt;
     const p = backNet.geometry.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -262,14 +271,19 @@ export function createMatch(env) {
   { const cols = [0xCFFD5C, 0xDEFE83, 0xffffff, 0x9BBF43]; for (let i = 0; i < CONF; i++) confMesh.setColorAt(i, new THREE.Color(cols[i % 4])); }
   confMesh.frustumCulled = false; scene.add(confMesh);
   const dummy = new THREE.Object3D();
+  let confLive = 0;   // seconds until the last piece has landed and faded; 0 = nothing to update
+  const HIDDEN = V(0, -10, 0);
   function burst(at, n = CONF, up = 6) {
+    confLive = 4;
     for (let i = 0; i < n; i++) { const c = confData[i]; c.p.copy(at); c.v.set((Math.random() - 0.5) * 7, up * (0.6 + Math.random() * 0.8), (Math.random() - 0.5) * 7); c.w.set(Math.random() * 12, Math.random() * 12, Math.random() * 12); c.life = 2.6 + Math.random(); }
   }
   function updateConfetti(dt) {
+    if (confLive <= 0) return;
+    confLive -= dt;
     for (let i = 0; i < CONF; i++) {
       const c = confData[i];
       if (c.life > 0) { c.life -= dt; c.v.y -= 6 * dt; c.v.multiplyScalar(1 - 1.6 * dt); c.p.addScaledVector(c.v, dt); c.r.x += c.w.x * dt; c.r.y += c.w.y * dt; c.r.z += c.w.z * dt; if (c.p.y < 0.02) { c.p.y = 0.02; c.v.set(0, 0, 0); } }
-      dummy.position.copy(c.life > 0 ? c.p : V(0, -10, 0)); dummy.rotation.copy(c.r); dummy.updateMatrix(); confMesh.setMatrixAt(i, dummy.matrix);
+      dummy.position.copy(c.life > 0 ? c.p : HIDDEN); dummy.rotation.copy(c.r); dummy.updateMatrix(); confMesh.setMatrixAt(i, dummy.matrix);
     }
     confMesh.instanceMatrix.needsUpdate = true;
   }
@@ -308,6 +322,12 @@ export function createMatch(env) {
   });
   // every model is a copy: the parsed files are shared with the rest of the app
   const copy = (g) => SkeletonUtils.clone(g.scene);
+  // a bone by name, looked up once (getObjectByName walks the whole model every call)
+  const boneCache = new WeakMap();
+  const bone = (model, name) => {
+    let m = boneCache.get(model); if (!m) boneCache.set(model, (m = {}));
+    return m[name] || (m[name] = model.getObjectByName(name));
+  };
   const heroM = copy(G.hero), rivalM = copy(G.rival), keeperM = copy(G.keeper);
   const mateMs = (G.mates || []).map(copy);
   // rest data before anything animates
@@ -902,11 +922,11 @@ export function createMatch(env) {
     if (D.result === 'beaten' && D.side === D.s && !D.hurdle && d < 1.2) { D.hurdle = true; D.hurdleT = 0; rival.play('hurdle', { fade: 0.1, loop: false, speed: 1.5, from: HURDLE_OFF }); later((HURDLE_LAND - HURDLE_OFF) / 1.5, () => rival.play('run', { fade: 0.15, speed: RIVAL_RUN, from: (rivalRun.touchT + D.touchPhase * 2 * rivalRun.dur) % rivalRun.dur }), true); }
     if (D.past && !D.shotQueued && D.z > GOAL_Z - 8.6) { D.shotQueued = true; rivalShot(); }
     // cue ring over the dropping shoulder
-    const sh = rival.model.getObjectByName(D.s > 0 ? 'LeftArm' : 'RightArm');
+    const sh = bone(rivalM, D.s > 0 ? 'LeftArm' : 'RightArm');
     if (sh) { sh.getWorldPosition(cue.position); cue.material.opacity = D.tapped ? 0 : D.dip * 0.9 * (0.75 + 0.25 * Math.sin(D.t * 12)); }
     // camera: behind the defender, then with the forward
     // beaten: the moment the forward is about to leave the shot, cut to the reverse angle behind him
-    if (D.result === 'beaten' && !D.revCam) { const p = rivalM.getObjectByName('Hips').getWorldPosition(camAvoid).project(camera); if (Math.abs(p.x) > 0.75 || p.z > 1) D.revCam = D.reverse = true; }
+    if (D.result === 'beaten' && !D.revCam) { const p = bone(rivalM, 'Hips').getWorldPosition(camAvoid).project(camera); if (Math.abs(p.x) > 0.75 || p.z > 1) D.revCam = D.reverse = true; }
     if (D.contact) camTo(V(D.side * 2.6, 2.3, DEF_Z + 3.6), V(heroM.position.x * 0.5, 0.5, DEF_Z - 1.5), 1.8);
     else if (!D.revCam && !D.shooting) { const cz = Math.max(heroM.position.z, DEF_Z) + 4.0; camTo(V(0.35 + D.x * 0.2, 2.05, cz), V(D.x * 0.5, 0.55, D.z + 1.5), D.tapped ? 3 : 2.2); }
     else if (D.revCam && !D.shooting) {
@@ -917,12 +937,12 @@ export function createMatch(env) {
   }
   // the defender's body on the ground plane (follows the slide), and the push that keeps the
   // forward outside it; legs are skipped while he hurdles them
-  function heroBody() { const h = heroM.getObjectByName('Hips').getWorldPosition(V()); return { x: h.x, z: h.z }; }
+  function heroBody() { const h = bone(heroM, 'Hips').getWorldPosition(tmp3); return { x: h.x, z: h.z }; }
   const BODY = [['Hips', 0.68], ['Spine02', 0.66], ['Head', 0.55]], LEGS = [['LeftLeg', 0.5], ['RightLeg', 0.5], ['LeftFoot', 0.46], ['RightFoot', 0.46]];
   function separate() {
     const air = D.hurdleT >= 0 && D.hurdleT < 0.5;
     for (const [n, r] of air ? BODY : BODY.concat(LEGS)) {
-      const p = heroM.getObjectByName(n).getWorldPosition(V());
+      const p = bone(heroM, n).getWorldPosition(tmp3);
       const dx = D.x - p.x, dz = D.z - p.z;
       if (dx * dx + dz * dz >= r * r) continue;
       // slide sideways to the edge (keeps his run line), toward the side he is already on
@@ -933,7 +953,7 @@ export function createMatch(env) {
   // pose layer for the forward: shoulder drop (after the mixer)
   function poseRival() {
     if (!D.active || !rivalM.visible || D.dip <= 0) return;
-    const b = (n) => rivalM.getObjectByName(n);
+    const b = (n) => bone(rivalM, n);
     const fwd = V(0, 0, 1).applyQuaternion(rivalM.quaternion);
     const a = D.dip * 0.32 * D.s;   // + s drops toward +x
     rotateWorld(b('Spine01'), fwd, -a * 0.6); rotateWorld(b('Spine'), fwd, -a * 0.5); rotateWorld(b('neck'), fwd, a * 0.5);
@@ -972,7 +992,7 @@ export function createMatch(env) {
   }
 
   // -------------------------------------------------------------- per-frame
-  const tmp = V(), tmp2 = V();
+  const tmp = V(), tmp2 = V(), tmp3 = V();
   function bez(u, out) { const a = 1 - u; return out.set(0, 0, 0).addScaledVector(flight.p0, a * a).addScaledVector(flight.c, 2 * a * u).addScaledVector(flight.p1, u * u); }
   function bezD(u, out) { return out.copy(flight.c).sub(flight.p0).multiplyScalar(2 * (1 - u)).addScaledVector(tmp2.copy(flight.p1).sub(flight.c), 2 * u); }
 
@@ -1047,9 +1067,25 @@ export function createMatch(env) {
   function frame() {
     if (disposed) return;
     raf = requestAnimationFrame(frame);
-    const rdt = Math.min(clock.getDelta(), 1 / 20);
+    const raw = clock.getDelta(), rdt = Math.min(raw, 1 / 20);
     if (paused) return;
-    step(rdt); composer.render();
+    step(rdt); renderer.info.reset(); composer.render();
+    govern(raw);
+  }
+  // Quality governor: a phone that keeps missing frames draws fewer pixels, then drops the
+  // bloom. Only ever steps down, so it cannot flicker between two levels.
+  const gov = { t: 0, n: 0, wait: 2 };
+  function govern(raw) {
+    if (raw > 0.25 || cut.dir) return;                 // a background tab or a TV cut is not the phone being slow
+    if ((gov.wait -= raw) > 0) return;
+    gov.t += raw; gov.n++;
+    if (gov.n < 90) return;
+    const avg = gov.t / gov.n; gov.t = 0; gov.n = 0;
+    if (avg < 1 / 45) return;
+    if (quality < QUALITY.length - 1) { quality++; renderer.setPixelRatio(QUALITY[quality]); composer.setPixelRatio(QUALITY[quality]); resize(); }
+    else if (bloom.enabled) bloom.enabled = false;
+    else return;
+    gov.wait = 1.5;
   }
   function step(rdt) {
     simTime += rdt; const time = simTime;
@@ -1090,7 +1126,7 @@ export function createMatch(env) {
     camPos.lerp(camTarget.pos, k); camLook.lerp(camTarget.look, k);
     // the camera never passes through a player: it slides round him
     for (const m of [heroM, rivalM, ...mates.map((x) => x.m)]) if (m.visible) {
-      const h = m.getObjectByName('Hips').getWorldPosition(camAvoid), dx = camPos.x - h.x, dz = camPos.z - h.z, d = Math.hypot(dx, dz);
+      const h = bone(m, 'Hips').getWorldPosition(camAvoid), dx = camPos.x - h.x, dz = camPos.z - h.z, d = Math.hypot(dx, dz);
       if (camPos.y < 2.1 && d < CAM_CLEAR && d > 1e-4) { camPos.x = h.x + (dx * CAM_CLEAR) / d; camPos.z = h.z + (dz * CAM_CLEAR) / d; }
       // chasing the ball past the striker: go over his shoulder, not past his ear
       if (flight.active && !flight.resolved && d < 2.6) camPos.y = Math.max(camPos.y, 1.55 + (1 - Math.max(d, CAM_CLEAR) / 2.6) * 1.2);
@@ -1109,8 +1145,26 @@ export function createMatch(env) {
   ro?.observe(host);
 
   // pre-match scenery: keeper in goal, our player by the ball, the camera circling
-  shot.B0.set(0, BALL_R, 0); ballHolder.position.copy(shot.B0); heroM.position.set(0.6, 0, -1.8); heroM.rotation.set(0, 0, 0); hero.snap('idle'); rivalM.visible = false; keeper.reset(0, GOAL_Z - 0.35, shot.B0);
-  frame();
+  shot.B0.set(0, BALL_R, 0); ballHolder.position.copy(shot.B0); heroM.position.set(0.6, 0, -1.8); heroM.rotation.set(0, 0, 0); hero.snap('idle'); keeper.reset(0, GOAL_Z - 0.35, shot.B0);
+
+  // Warm-up, behind the loading screen: compile every shader and upload every texture now,
+  // with whatever only shows up later (teammates, the wall, rings, the reticle) switched on,
+  // so the first pass moment or the first goal does not stall a frame to do it. The
+  // shaders compile in parallel where the browser can (KHR_parallel_shader_compile), so the
+  // page keeps drawing the loading bar meanwhile.
+  // Shaders depend on the render target (the composer's has no tone mapping), so they are
+  // compiled against it; the first frame also draws what is outside the camera's view.
+  const hidden = [], culled = [];
+  scene.traverse((o) => { if (!o.visible) { hidden.push(o); o.visible = true; } if (o.frustumCulled) { culled.push(o); o.frustumCulled = false; } });
+  renderer.setRenderTarget(composer.readBuffer);
+  const compiling = renderer.extensions.has('KHR_parallel_shader_compile') ? renderer.compileAsync(scene, camera) : Promise.resolve(renderer.compile(scene, camera));
+  renderer.setRenderTarget(null);
+  const ready = compiling.catch(() => {}).then(() => {
+    if (disposed) return;
+    composer.render();   // shadow and post-processing shaders, texture uploads
+    hidden.forEach((o) => (o.visible = false)); culled.forEach((o) => (o.frustumCulled = true)); rivalM.visible = false;
+    clock.getDelta(); frame();
+  });
 
   return {
     /** Sets up a moment: { kind, attackSide?, openSide?, skip? }. The first one opens without a cut. */
@@ -1125,8 +1179,12 @@ export function createMatch(env) {
     tackle,
     passTo,
     setPaused(p) { paused = !!p; if (!paused) clock.getDelta(); },
+    /** Resolves once every shader is compiled and the scene is drawing. */
+    ready,
     /** Test hook: steps the game clock by `sec` at 60 fps and draws once. */
-    sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); composer.render(); },
+    sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); renderer.info.reset(); composer.render(); },
+    /** Test hook: what the last frame drew. */
+    stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, programs: renderer.info.programs.length, textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries }),
     dispose() {
       disposed = true; cancelAnimationFrame(raf); ro?.disconnect();
       canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
