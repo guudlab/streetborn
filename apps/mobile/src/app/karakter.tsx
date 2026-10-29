@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { checkName } from '@streetborn/economy';
 import { useEffect, useRef, useState } from 'react';
-import { BackHandler, ScrollView, TextInput, View } from 'react-native';
+import { BackHandler, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
@@ -13,7 +13,7 @@ import {
 } from '../game/character.ts';
 import { useGame } from '../game/store.ts';
 import { ApiError } from '../net/api.ts';
-import { colors } from '../theme.ts';
+import { colors, MAX_FONT_SCALE } from '../theme.ts';
 import { buzz, Cta, T, tap } from '../ui/kit.tsx';
 import { Enter, PressableScale } from '../ui/motion.tsx';
 import { Bubble, Ico, Segments, Tile, type IconAsset } from '../ui/sade.tsx';
@@ -98,14 +98,15 @@ export default function Karakter() {
   }
 
   return (
-    <View style={[{ flex: 1, paddingHorizontal: 20, gap: 16 }, pad]}>
+    // The nickname step: the keyboard pushes the button up instead of covering it (iOS).
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[{ flex: 1, paddingHorizontal: 20, gap: 16 }, pad]}>
       <Steps n={step} onBack={back} />
       {step === 5 ? (
         <Nick nick={nick} onChange={(s) => { setNick(s); setError(null); }} busy={busy} onDone={finish} error={error} />
       ) : (
         <Question step={step} c={c} onChange={setC} onNext={next} />
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -247,7 +248,7 @@ function Nick({ nick, onChange, busy, onDone, error }: { nick: string; onChange:
     <>
       <Enter><Bubble text={t('char.nick.title')} size={48} /></Enter>
       <View style={{ gap: 8 }}>
-        <TextInput
+        <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
           value={nick} onChangeText={s => onChange(cleanNick(s))} maxLength={NICK_MAX} autoCorrect={false} autoCapitalize="words"
           returnKeyType="done" onSubmitEditing={onDone} placeholder={t('char.nick.s1')} placeholderTextColor={colors.g400}
           accessibilityLabel={t('char.nick.a11y')} selectionColor={colors.l600}

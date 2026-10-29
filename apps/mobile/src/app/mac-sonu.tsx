@@ -1,6 +1,6 @@
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import { Animated, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setMusic, sfx } from '../audio/audio.ts';
@@ -11,7 +11,7 @@ import { colors } from '../theme.ts';
 import { startLink } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Cta, Ghost, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
-import { Pop } from '../ui/motion.tsx';
+import { Pop, PressableScale } from '../ui/motion.tsx';
 import { closeSheet, openSheet } from '../ui/overlay.tsx';
 import { achName, injuryName, timeLeft } from '../ui/kariyer.tsx';
 import { Amount, Bubble, Ico } from '../ui/sade.tsx';
@@ -89,14 +89,14 @@ export default function MacSonu() {
       <Bubble text={quote} style={{ alignSelf: 'center' }} />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${t('post.ratingA11y')}: ${num(r.rating / 10, 1)}`} onPress={details}>
+        <PressableScale accessibilityRole="button" accessibilityLabel={`${t('post.ratingA11y')}: ${num(r.rating / 10, 1)}`} onPress={details}>
           <Ring size={96} stroke={6} value={(step >= 1 ? rating : 6) / 10}>
             <T w={700} size={34} style={{ letterSpacing: -0.6 }}>{num(rating, 1)}</T>
           </Ring>
           <View style={{ position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="info" size={16} color={colors.g200} />
           </View>
-        </Pressable>
+        </PressableScale>
         <View style={{ flex: 1, gap: 10 }}>
           <Gain show={step >= 2}>
             <Ico name="coin" size={30} />
@@ -164,7 +164,7 @@ function KariyerLines({ k }: { k: NonNullable<PostMatch['kariyer']> }) {
         </Pop>
       ))}
       {k.injury && (
-        <Pressable
+        <PressableScale
           accessibilityRole="button" onPress={() => router.push('/sakatlik')}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, backgroundColor: '#3A1D19', borderWidth: 1, borderColor: colors.bad }}
         >
@@ -174,7 +174,7 @@ function KariyerLines({ k }: { k: NonNullable<PostMatch['kariyer']> }) {
             <T size={13} color={colors.g200}>{t('injury.postText', { t: timeLeft(k.injury.days * 86_400_000) })}</T>
           </View>
           <Icon name="chev" size={18} color={colors.g300} />
-        </Pressable>
+        </PressableScale>
       )}
     </View>
   );
@@ -214,20 +214,20 @@ function LinkStrip() {
         <T size={14} color={colors.g200} style={{ lineHeight: 20 }}>{t('post.link.text')}</T>
       </View>
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Pressable onPress={() => startLink('apple')} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+        <PressableScale onPress={() => startLink('apple')} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
           <T w={600} size={15} color={colors.ink}>{t('post.link.apple')}</T>
-        </Pressable>
-        <Pressable onPress={() => startLink('google')} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+        </PressableScale>
+        <PressableScale onPress={() => startLink('google')} accessibilityRole="button" style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
           <T w={600} size={15}>{t('post.link.google')}</T>
-        </Pressable>
+        </PressableScale>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24 }}>
-        <Pressable onPress={() => startLink('email')} accessibilityRole="button" hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
+        <PressableScale onPress={() => startLink('email')} accessibilityRole="button" hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
           <T w={600} size={14} color={colors.g100}>{t('account.email')}</T>
-        </Pressable>
-        <Pressable onPress={() => setHidden(true)} accessibilityRole="button" hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
+        </PressableScale>
+        <PressableScale onPress={() => setHidden(true)} accessibilityRole="button" hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
           <T w={500} size={14} color={colors.g200}>{t('post.link.later')}</T>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );

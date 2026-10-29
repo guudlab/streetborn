@@ -14,6 +14,7 @@ import { HERO_MODEL } from '../game/character.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { preloadModels } from '../ui/Model3D.tsx';
+import { useReduceMotion } from '../ui/motion.tsx';
 import { OverlayHost } from '../ui/overlay.tsx';
 
 void SplashScreen.preventAutoHideAsync();
@@ -54,11 +55,17 @@ function hideBoot() {
 
 // The JS stack animates the same way on iOS, Android and the web preview
 // (on the web it only animates when `animation` is set explicitly).
-const slide: StackNavigationOptions = { animation: 'slide_from_right' };
-const fade: StackNavigationOptions = { animation: 'fade_from_bottom', gestureEnabled: false };
+const SLIDE: StackNavigationOptions = { animation: 'slide_from_right' };
+const FADE: StackNavigationOptions = { animation: 'fade_from_bottom', gestureEnabled: false };
+// Reduce Motion: screens cross-fade in place instead of sliding; swipe back still works.
+const STILL_SLIDE: StackNavigationOptions = { animation: 'fade' };
+const STILL_FADE: StackNavigationOptions = { animation: 'fade', gestureEnabled: false };
 
 export default function RootLayout() {
   const [loaded, error] = useFonts(FONTS);
+  const still = useReduceMotion();
+  const slide = still ? STILL_SLIDE : SLIDE;
+  const fade = still ? STILL_FADE : FADE;
   const auth = useGame(s => s.auth);
   // A new player goes to the sign-in screen at once; a returning one sees the saved
   // profile at once, or waits for the server on the first launch after an update.

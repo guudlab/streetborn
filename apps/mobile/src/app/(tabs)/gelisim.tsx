@@ -58,7 +58,7 @@ export default function Gelisim() {
     const r = await useGame.getState().startDrill(sel);
     setBusy(false);
     if (r === 'no_energy') return openEnergySheet();
-    if (r !== 'ok') return toast(t('train.failed'));
+    if (r !== 'ok') return toast(t('train.failed'), 'error');
     router.push('/talim');
   };
   const privateSession = async () => {
@@ -66,9 +66,9 @@ export default function Gelisim() {
     setBusy(true);
     const r = await useGame.getState().privateTrain(statSel);
     setBusy(false);
-    if (r === 'no_coin') return toast(t('train.private.noCoin', { n: cost }));
+    if (r === 'no_coin') return toast(t('train.private.noCoin', { n: cost }), 'error');
     if (r === 'limit') return toast(t('train.private.limit'));
-    if (!r) return toast(t('train.failed'));
+    if (!r) return toast(t('train.failed'), 'error');
     buzz('success');
     sfx(r.ups ? 'levelup' : r.statUp ? 'unlock' : 'coin');
     setLast(r);

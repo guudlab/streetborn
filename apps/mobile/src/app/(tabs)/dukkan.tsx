@@ -35,8 +35,8 @@ function buyWithGems(id: string, name: string, price: number) {
         openSheet(<><H3>{name}</H3><Spinner /></>);
         const r = await useGame.getState().buyItem(id);
         closeSheet();
-        if (r === 'ok' || r === 'owned') { sfx('coin'); buzz('medium'); toast(t('shop.bought', { name })); }
-        else toast(t(r === 'no_gem' ? 'energy.noGem' : 'shop.buyFailed'));
+        if (r === 'ok' || r === 'owned') { sfx('coin'); buzz('medium'); toast(t('shop.bought', { name }), 'success'); }
+        else toast(t(r === 'no_gem' ? 'energy.noGem' : 'shop.buyFailed'), 'error');
       }}>{t('shop.gemBuy', { price })}</Cta>
       <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
     </>,
@@ -117,8 +117,8 @@ function openBoots(b: BootsItem) {
     openSheet(<><H3>{name}</H3><Spinner /></>);
     const r = await useGame.getState().buyBoots(b.id);
     closeSheet();
-    if (r === 'ok') { sfx('unlock'); buzz('success'); toast(t('shop.bootsBought', { name })); }
-    else toast(t(r === 'no_coin' ? 'shop.bootsNoCoin' : r === 'locked' ? 'shop.bootsLocked' : 'shop.buyFailed', { n: b.unlockLevel }));
+    if (r === 'ok') { sfx('unlock'); buzz('success'); toast(t('shop.bootsBought', { name }), 'success'); }
+    else toast(t(r === 'no_coin' ? 'shop.bootsNoCoin' : r === 'locked' ? 'shop.bootsLocked' : 'shop.buyFailed', { n: b.unlockLevel }), 'error');
   };
   openSheet(
     <>
@@ -225,7 +225,7 @@ export default function Dukkan() {
 
   const jerseyAction = () => {
     if (!online) return buy(t('shop.jersey'), t('shop.gemPack', { n: jerseyPrice }));
-    if (jersey) return void useGame.getState().equip(JERSEY, !jersey.equipped).catch(() => toast(t('shop.buyFailed')));
+    if (jersey) return void useGame.getState().equip(JERSEY, !jersey.equipped).catch(() => toast(t('shop.buyFailed'), 'error'));
     buyWithGems(JERSEY, t('shop.jersey'), jerseyPrice);
   };
 

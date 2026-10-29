@@ -7,7 +7,8 @@ import { colors } from '../theme.ts';
 import { achDesc, achIcon, achName, achProgress } from '../ui/kariyer.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, H3, T, Track } from '../ui/kit.tsx';
-import { Skeleton } from '../ui/motion.tsx';
+import { Enter, Skeleton } from '../ui/motion.tsx';
+import { ErrorState } from '../ui/states.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { closeSheet, openSheet, SheetText } from '../ui/overlay.tsx';
 import { Amount, Ico, Tile } from '../ui/sade.tsx';
@@ -20,12 +21,14 @@ const GROUPS = ['match', 'mahalle', 'club'] as const;
 
 export default function Kupalar() {
   const list = useGame(s => s.kariyer?.achievements);
-  const loading = useGame(s => !s.kariyerTried) && !list;
-  useEffect(() => { void useGame.getState().refreshKariyer(); }, []);
+  const tried = useGame(s => s.kariyerTried);
+  const loading = !tried && !list;
+  const refresh = useGame(s => s.refreshKariyer);
+  useEffect(() => { void refresh(); }, [refresh]);
   const done = list?.filter(a => a.unlocked).length ?? 0;
 
   return (
-    <Shell title={t('ach.title')} right={list ? <T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
+    <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined} right={list ? <T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
       {list && (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
           <Ico name="cup" size={96} dim={done === 0} />
@@ -48,11 +51,12 @@ export default function Kupalar() {
           ))}
         </>
       )}
-      {!loading && GROUPS.map(g => (
+      {!loading && !list && <ErrorState onRetry={refresh} />}
+      {list && GROUPS.map(g => (
         <View key={g} style={{ gap: 10 }}>
           <Caps>{t(`ach.group.${g}` as Key)}</Caps>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {(list ?? []).filter(a => a.group === g).map(a => <Trophy key={a.key} a={a} />)}
+            {list.filter(a => a.group === g).map((a, i) => <Trophy key={a.key} a={a} i={i} />)}
           </View>
         </View>
       ))}
@@ -60,16 +64,18 @@ export default function Kupalar() {
   );
 }
 
-function Trophy({ a }: { a: AchievementView }) {
+function Trophy({ a, i }: { a: AchievementView; i: number }) {
   return (
-    <Tile
-      selected={a.unlocked} onPress={() => open(a)} style={{ flexBasis: '31%', flexGrow: 0, flexShrink: 0, minHeight: 132 }}
-      label={t('ach.a11y', { name: achName(a.key), state: a.unlocked ? t('ach.unlocked') : achProgress(a) })}
-    >
-      <Ico name={achIcon(a.key)} size={52} dim={!a.unlocked} />
-      <T w={700} size={12} numberOfLines={2} style={{ textAlign: 'center', minHeight: 30 }} color={a.unlocked ? colors.g100 : colors.g200}>{achName(a.key)}</T>
-      {a.unlocked ? <Icon name="check" size={16} color={colors.l600} /> : <T w={600} size={11} color={colors.g300}>{achProgress(a)}</T>}
-    </Tile>
+    <Enter i={i} style={{ flexBasis: '31%', flexGrow: 0, flexShrink: 0 }}>
+      <Tile
+        selected={a.unlocked} onPress={() => open(a)} style={{ minHeight: 132 }}
+        label={t('ach.a11y', { name: achName(a.key), state: a.unlocked ? t('ach.unlocked') : achProgress(a) })}
+      >
+        <Ico name={achIcon(a.key)} size={52} dim={!a.unlocked} />
+        <T w={700} size={12} numberOfLines={2} style={{ textAlign: 'center', minHeight: 30 }} color={a.unlocked ? colors.g100 : colors.g200}>{achName(a.key)}</T>
+        {a.unlocked ? <Icon name="check" size={16} color={colors.l600} /> : <T w={600} size={11} color={colors.g300}>{achProgress(a)}</T>}
+      </Tile>
+    </Enter>
   );
 }
 
