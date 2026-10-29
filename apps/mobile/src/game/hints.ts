@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import type { DrillKey } from './rules.ts';
+import type { HowToKind } from './rules.ts';
 
 // First-time coaching (Burak abi's bubbles and the one spotlight). Which hints a
 // player has seen lives only on the device: it carries no amounts and never touches the
@@ -9,8 +9,8 @@ import type { DrillKey } from './rules.ts';
 
 export const HINTS_KEY = 'streetborn.hints.v1';
 
-/** `howto_*`: the mini game's demo card was shown once (talim.tsx). */
-export type HintId = 'spotTrain' | 'lifeTab' | 'shopTab' | 'jobTrain' | `howto_${DrillKey}`;
+/** `howto_*`: a demo card was shown once (a mini game in talim.tsx, a match moment in Match3D). */
+export type HintId = 'spotTrain' | 'lifeTab' | 'shopTab' | 'jobTrain' | `howto_${HowToKind}`;
 
 interface HintsState {
   loaded: boolean;
