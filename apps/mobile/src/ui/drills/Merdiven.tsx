@@ -9,7 +9,7 @@ import { t } from '../../i18n/index.ts';
 import { colors } from '../../theme.ts';
 import { buzz, T } from '../kit.tsx';
 import { ICONS } from '../sade.tsx';
-import { Flash, useGameClock, type DrillGameHandle, type DrillGameProps } from './common.tsx';
+import { Flash, PRESS_AT_ONCE, useGameClock, type DrillGameHandle, type DrillGameProps } from './common.tsx';
 
 // Merdiven (stamina): 20 seconds up the apartment stairs, left foot, right foot.
 // Every step fills the breath bar and it empties by itself; the same foot twice
@@ -111,7 +111,7 @@ export const Merdiven = forwardRef<DrillGameHandle, DrillGameProps>(function Mer
           <View style={{ position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', gap: 12 }}>
             {([0, 1] as const).map(s => (
               <Pressable
-                key={s} onPressIn={() => press(s)}
+                key={s} onPressIn={() => press(s)} {...PRESS_AT_ONCE}
                 accessibilityRole="button" accessibilityLabel={t(s ? 'talim.right' : 'talim.left')}
                 style={{
                   flex: 1, height: 96, borderRadius: 24, alignItems: 'center', justifyContent: 'center',

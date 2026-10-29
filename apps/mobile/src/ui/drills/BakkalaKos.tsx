@@ -11,7 +11,7 @@ import { colors } from '../../theme.ts';
 import { buzz, T } from '../kit.tsx';
 import { ICONS } from '../sade.tsx';
 import { useShake } from '../motion.tsx';
-import { Flash, useGameClock, type DrillGameHandle, type DrillGameProps } from './common.tsx';
+import { Flash, PRESS_AT_ONCE, useGameClock, type DrillGameHandle, type DrillGameProps } from './common.tsx';
 
 // Bakkala koş (pace): run down the mahalle street to the corner shop. Things
 // come down the three lanes; tap left or right to switch lanes in time. The
@@ -118,7 +118,7 @@ export const BakkalaKos = forwardRef<DrillGameHandle, DrillGameProps>(function B
           <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, flexDirection: 'row' }}>
             {([-1, 1] as const).map(d => (
               <Pressable
-                key={d} onPressIn={() => move(d)} style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 18 }}
+                key={d} onPressIn={() => move(d)} {...PRESS_AT_ONCE} style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 18 }}
                 accessibilityRole="button" accessibilityLabel={t(d > 0 ? 'talim.right' : 'talim.left')}
               >
                 <T w={600} size={14} color={colors.g300}>{d > 0 ? `${t('talim.right')} ›` : `‹ ${t('talim.left')}`}</T>

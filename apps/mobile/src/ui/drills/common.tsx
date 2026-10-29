@@ -10,6 +10,13 @@ import { T } from '../kit.tsx';
 // live in packages/economy/src/drills.ts, the same code the server runs; these
 // components only draw the game and collect the raw inputs.
 
+/**
+ * Spread on game buttons (they fire on onPressIn): react-native-web waits 50 ms
+ * before a press starts and drops quicker taps. Native presses start at once
+ * and its types don't know the prop.
+ */
+export const PRESS_AT_ONCE = { delayPressIn: 0 } as object;
+
 export interface DrillGameProps {
   seed: number;
   tier: Tier;

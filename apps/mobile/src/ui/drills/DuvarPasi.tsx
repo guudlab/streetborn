@@ -9,7 +9,7 @@ import { t } from '../../i18n/index.ts';
 import { colors } from '../../theme.ts';
 import { buzz, T } from '../kit.tsx';
 import { ICONS } from '../sade.tsx';
-import { Flash, useGameClock, type DrillGameHandle, type DrillGameProps } from './common.tsx';
+import { Flash, PRESS_AT_ONCE, useGameClock, type DrillGameHandle, type DrillGameProps } from './common.tsx';
 
 // Duvar pası (passing): the ball comes back off the garage wall to the left or
 // the right foot. Tap that side as the ring closes on it. The beat speeds up and
@@ -152,7 +152,7 @@ export const DuvarPasi = forwardRef<DrillGameHandle, DrillGameProps>(function Du
           <View style={{ position: 'absolute', left: 0, right: 0, top: WALL, bottom: 0, flexDirection: 'row' }}>
             {([0, 1] as const).map(s => (
               <Pressable
-                key={s} onPressIn={() => press(s)} style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 24 }}
+                key={s} onPressIn={() => press(s)} {...PRESS_AT_ONCE} style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 24 }}
                 accessibilityRole="button" accessibilityLabel={t(s ? 'talim.right' : 'talim.left')}
               >
                 <T w={600} size={14} color={colors.g300}>{t(s ? 'talim.right' : 'talim.left')}</T>
