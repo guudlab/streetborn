@@ -119,6 +119,8 @@ export interface ShopConfig {
   adDoublePerDay: number;
   /** The double has to be watched this soon after the match. */
   adDoubleWindowMinutes: number;
+  /** One-time coin for Burak abi's first jobs (first match, first training, joining a mahalle). Paid once per account. */
+  jobsCoin: number;
 }
 
 /** Lifestyle items (ev, ulaşım, arsa): status only, no match or stat effect (GDD v3.1 section 8.1). */
@@ -352,6 +354,7 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     adEnergyPerDay: 3,
     adDoublePerDay: 2,
     adDoubleWindowMinutes: 30,
+    jobsCoin: 150,
   },
 
   // GDD v3.1 section 8.1 (Kaan, 2026-10-23): status only; prices are assumptions.

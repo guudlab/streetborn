@@ -9,6 +9,7 @@ import { EnergyTiles, energyLeft } from '../../ui/energy.tsx';
 import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
 import { Amount, Ico, Tile } from '../../ui/sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
+import { HintBubble } from '../../ui/hint.tsx';
 import { t } from '../../i18n/index.ts';
 
 // Gem packs and the season pass are store purchases (RevenueCat comes later), so
@@ -125,6 +126,7 @@ export default function Dukkan() {
           <Amount icon="gem" size={26}>{gems}</Amount>
         </View>
       </View>
+      <HintBubble id="shopTab" text={t('hint.shopTab')} />
 
       <View
         accessible accessibilityLabel={`${t('shop.energy', { energy, max: energyMax })}. ${left ? t('shop.nextEnergy', { t: left }) : t('shop.energyFull')}`}

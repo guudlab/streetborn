@@ -222,7 +222,7 @@ export interface Career {
 export interface GemGrant { coin: number; gem: number; levels: number[] }
 /** Runs the day's career work on the server (missed days, season end, salary, first offers, starting and level gems). */
 export const careerStatus = () =>
-  call<{ salary: number; seasonEnded: { place: number; prize: number } | null; gems?: GemGrant }>('career', { action: 'status' });
+  call<{ salary: number; seasonEnded: { place: number; prize: number } | null; gems?: GemGrant; jobs?: number }>('career', { action: 'status' });
 export const acceptOffer = (offerId: string) => call<{ ok: true }>('career', { action: 'accept', offerId });
 
 export async function loadCareer(): Promise<Career | null> {

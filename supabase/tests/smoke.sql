@@ -422,3 +422,21 @@ do $$ begin
   raise notice 'account delete rls: ok';
 end $$;
 reset role;
+
+-- First jobs: the reward needs a finished match, a training and a mahalle, and pays once.
+insert into auth.users values ('00000000-0000-0000-0000-000000000950');
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000950'; coin0 bigint; begin
+  if claim_jobs(p, 150) <> 0 then raise exception 'jobs paid with nothing done'; end if;
+  insert into matches (player_id, seed, chances, opponent_goalkeeping, expires_at, status)
+    values (p, 1, 5, 50, now() + interval '1 hour', 'finished');
+  insert into training_log (player_id, day, kind, stat, ap, xp) values (p, current_date, 'free', 'shooting', 1, 1);
+  if claim_jobs(p, 150) <> 0 then raise exception 'jobs paid without a mahalle'; end if;
+  perform create_mahalle(p, 'Gorev', 'shield', 'lime', false);
+  select coin into coin0 from wallets where player_id = p;
+  if claim_jobs(p, 150) <> 150 then raise exception 'jobs not paid'; end if;
+  if claim_jobs(p, 150) <> 0 then raise exception 'jobs paid twice'; end if;
+  if (select coin from wallets where player_id = p) <> coin0 + 150 then raise exception 'jobs wallet wrong'; end if;
+  raise notice 'first jobs: ok';
+end $$;
+reset role;

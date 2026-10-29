@@ -18,6 +18,7 @@ import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
 import { clamp, gradeDrill, OFFERS, type StatKey, type Stats } from './rules.ts';
 import { t } from '../i18n/index.ts';
+import { HINTS_KEY, useHints } from './hints.ts';
 
 // Player state for the Concept A screens.
 // Online (default): level, XP, coin, gem, energy and skills come from Supabase,
@@ -105,7 +106,7 @@ interface GameState {
   /** Form, morale, injury, the day's choice, achievements and the weekly duel (online). */
   kariyer: Kariyer | null;
   /** Salary, season result or gems from the last career refresh, shown once by the hub. */
-  careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null; gems: GemGrant | null } | null;
+  careerNews: { salary: number; seasonEnded: { place: number; prize: number } | null; gems: GemGrant | null; jobs: number } | null;
   /** The season that just ended; the hub opens the summary screen once and clears it. */
   seasonSummary: { place: number; prize: number } | null;
   /** Duels settled and achievements unlocked since the last visit, shown once by the hub. */
@@ -453,8 +454,9 @@ export const useGame = create<GameState>()((set, get) => ({
     try {
       const status = await careerStatus();
       const gems = status.gems && (status.gems.coin > 0 || status.gems.gem > 0) ? status.gems : null;
-      if (status.salary > 0 || status.seasonEnded || gems) {
-        set({ careerNews: { salary: status.salary, seasonEnded: status.seasonEnded, gems } });
+      const jobs = status.jobs ?? 0;
+      if (status.salary > 0 || status.seasonEnded || gems || jobs > 0) {
+        set({ careerNews: { salary: status.salary, seasonEnded: status.seasonEnded, gems, jobs } });
         const profile = await loadProfile().catch(() => null);
         if (profile) set({ coins: profile.coin, gems: profile.gem });
       }
@@ -525,7 +527,8 @@ export const useGame = create<GameState>()((set, get) => ({
 
   async forget() {
     // The device forgets this player: the session, the saved profile and every local cache.
-    await AsyncStorage.multiRemove([PROFILE_KEY, CHARACTER_KEY, MAHALLE_KEY, INVITE_KEY, KARIYER_KEY]).catch(() => {});
+    await AsyncStorage.multiRemove([PROFILE_KEY, CHARACTER_KEY, MAHALLE_KEY, INVITE_KEY, KARIYER_KEY, HINTS_KEY]).catch(() => {});
+    useHints.getState().reset();
     set({
       auth: 'none', mode: 'online', offlineReason: null, name: 'Efe Yılmaz', character: null, tutorial: false,
       mahalle: null, mahalleReady: false, mahalleToday: null, blocked: [], career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null,

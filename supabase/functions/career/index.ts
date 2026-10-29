@@ -132,5 +132,9 @@ Deno.serve(handle(async (req) => {
   });
   fail(gemsError);
 
-  return json({ salary, seasonEnded, gems });
+  // The first jobs pay once, after the database confirms a match, a training and a mahalle.
+  const { data: jobs, error: jobsError } = await admin.rpc('claim_jobs', { p_player: playerId, p_coin: config.shop.jobsCoin });
+  fail(jobsError);
+
+  return json({ salary, seasonEnded, gems, jobs: (jobs as number | null) ?? 0 });
 }));
