@@ -9,17 +9,17 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'rea
 import { colors } from '../theme.ts';
 import { T } from './kit.tsx';
 
-// The first-badge pack of the sign-in screen (design G): a sealed pack waits, the foil
-// seal peels off like a sticker, the pack drops away and the card with the player's first
+// The first-badge pack of the sign-in screen (design G): a sealed pack waits, its top
+// strip tears off when it is tapped, the pack drops away and the card with the player's first
 // badge flips in. The pack and the badge are vector placeholders until the Meshy models
 // (GP1 pack, GP3 badge) replace them.
 
 export const PACK_W = 214;
 export const PACK_H = 360;
-export type PackStage = 'idle' | 'peel' | 'reveal';
+export type PackStage = 'idle' | 'tear' | 'reveal';
 
 /** Milliseconds from the tap to the card showing; the sign-in screen waits this long. */
-export const PEEL_MS = 2000;
+export const TEAR_MS = 1950;
 
 const ease = Easing.bezier(0.2, 0.9, 0.25, 1);
 
@@ -49,10 +49,29 @@ function Sheen({ width, height, delay = 0, every = 3400, reduced }: { width: num
 }
 
 const PACK_IMG = require('../../assets/meshy/paket-kapali.webp');
-const SEAL_IMG = require('../../assets/meshy/paket-folyo.webp');
 const BADGE_IMG = require('../../assets/meshy/rozet-cirak.webp');
-const SEAL_W = 150;
-const SEAL_H = 96;
+/** Where the pack tears: just under the crimped top seam. */
+const TEAR_Y = 50;
+const TOOTH = 7;
+const LIP_X = 12;
+const LIP_W = PACK_W - 24;
+
+/** Jagged foil lip along the tear. `up` teeth point up (on the pack), otherwise down (on the torn-off strip). */
+function Lip({ up }: { up: boolean }) {
+  const n = 13;
+  const w = LIP_W / n;
+  let d = up ? `M0 ${TOOTH}` : 'M0 0';
+  for (let i = 0; i < n; i++) {
+    const x0 = i * w;
+    d += up ? ` L${x0 + w / 2} ${i % 2 ? 1 : 0} L${x0 + w} ${TOOTH}` : ` L${x0 + w / 2} ${TOOTH - (i % 2 ? 1 : 0)} L${x0 + w} 0`;
+  }
+  d += up ? ` V${TOOTH} H0 Z` : ' Z';
+  return (
+    <Svg width={LIP_W} height={TOOTH} style={{ position: 'absolute', left: LIP_X, top: up ? TEAR_Y - TOOTH + 1 : TEAR_Y - 1 }}>
+      <Path d={d} fill="#E4FF99" />
+    </Svg>
+  );
+}
 
 /** A four-point glint that twinkles; it sits on the pack so the foil looks like it catches light. */
 function Glint({ x, y, size, delay, reduced }: { x: number; y: number; size: number; delay: number; reduced: boolean }) {
@@ -69,12 +88,13 @@ function Glint({ x, y, size, delay, reduced }: { x: number; y: number; size: num
   );
 }
 
-/** The sealed pack with its foil seal. `stage` drives wobble, shake and the peel. */
+/** The sealed pack. `stage` drives the idle wobble, the shake and the tear of its top strip. */
 export function Pack({ stage }: { stage: PackStage }) {
   const reduced = useReduced();
   const wobble = useSharedValue(0);
   const shake = useSharedValue(0);
-  const peel = useSharedValue(0);
+  const tear = useSharedValue(0);
+  const light = useSharedValue(0);
   const out = useSharedValue(0);
 
   useEffect(() => {
@@ -84,19 +104,20 @@ export function Pack({ stage }: { stage: PackStage }) {
   }, [stage, reduced, wobble]);
 
   useEffect(() => {
-    if (stage !== 'peel') return;
+    if (stage !== 'tear') return;
     wobble.value = withTiming(0.5, { duration: 150 });
     shake.value = withSequence(
       withTiming(1, { duration: 70 }), withTiming(-1, { duration: 70 }), withTiming(0.7, { duration: 70 }),
       withTiming(-0.5, { duration: 70 }), withTiming(0, { duration: 70 }),
     );
-    // The seal lifts at its curled corner (slow), then rips away (fast).
-    peel.value = withDelay(400, withSequence(
-      withTiming(0.28, { duration: 380, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 520, easing: Easing.in(Easing.cubic) }),
+    // The strip resists for a moment, then rips off to the right.
+    tear.value = withDelay(320, withSequence(
+      withTiming(0.18, { duration: 260, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 480, easing: Easing.in(Easing.cubic) }),
     ));
-    out.value = withDelay(1300, withTiming(1, { duration: 650, easing: Easing.in(Easing.quad) }));
-  }, [stage, shake, peel, out]);
+    light.value = withDelay(640, withSequence(withTiming(1, { duration: 200 }), withTiming(0.55, { duration: 700 })));
+    out.value = withDelay(1250, withTiming(1, { duration: 650, easing: Easing.in(Easing.quad) }));
+  }, [stage, shake, tear, light, out]);
 
   const body = useAnimatedStyle(() => ({
     opacity: 1 - out.value,
@@ -107,31 +128,47 @@ export function Pack({ stage }: { stage: PackStage }) {
       { scale: (1 + 0.08 * Math.sin(Math.min(out.value * 2, 1) * Math.PI / 2)) * (1 - 0.6 * out.value) },
     ],
   }));
-  const seal = useAnimatedStyle(() => {
-    const p = peel.value;
+  const strip = useAnimatedStyle(() => {
+    const p = tear.value;
     return {
       opacity: p > 0.9 ? 1 - (p - 0.9) / 0.1 : 1,
       transformOrigin: 'right bottom',
       transform: [
-        { rotate: '-9deg' },
-        { translateX: -p * p * 230 },
-        { translateY: -p * 230 },
-        { rotate: `${p * 70}deg` },
-        { scale: 1 + 0.06 * Math.min(p * 4, 1) - p * 0.3 },
+        { translateX: p * p * 70 },
+        { translateY: -p * 150 },
+        { rotate: `${p * 62}deg` },
       ],
     };
   });
-  const sealShadow = useAnimatedStyle(() => ({ opacity: Math.min(peel.value * 4, 1) * 0.5 }));
+  const beam = useAnimatedStyle(() => ({ opacity: light.value, transform: [{ scaleY: 0.4 + 0.6 * light.value }] }));
 
   return (
     <Animated.View style={[{ width: PACK_W, height: PACK_H }, body]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="contain" />
-      <Glint x={PACK_W - 60} y={56} size={26} delay={0} reduced={reduced} />
+      <View style={{ position: 'absolute', left: 0, top: TEAR_Y, width: PACK_W, height: PACK_H - TEAR_Y, overflow: 'hidden' }}>
+        <Image source={PACK_IMG} style={{ position: 'absolute', left: 0, top: -TEAR_Y, width: PACK_W, height: PACK_H }} contentFit="contain" />
+      </View>
+      <Glint x={PACK_W - 60} y={90} size={26} delay={0} reduced={reduced} />
       <Glint x={26} y={PACK_H - 86} size={18} delay={900} reduced={reduced} />
       <Glint x={PACK_W - 40} y={PACK_H - 120} size={14} delay={1600} reduced={reduced} />
-      <Animated.View style={[{ position: 'absolute', left: (PACK_W - SEAL_W) / 2 + 2, top: 52, width: SEAL_W, height: SEAL_H }, seal]}>
-        <Animated.View style={[{ position: 'absolute', left: 6, right: -6, top: 10, bottom: -8, borderRadius: 16, backgroundColor: '#000' }, sealShadow]} />
-        <Image source={SEAL_IMG} style={{ width: SEAL_W, height: SEAL_H }} contentFit="contain" />
+      {stage !== 'idle' && <Lip up />}
+      {/* Light pouring out of the opening. */}
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -20, top: TEAR_Y - 80, width: PACK_W + 40, height: 160, transformOrigin: 'center center' }, beam]}>
+        <Svg width={PACK_W + 40} height={160}>
+          <Defs>
+            <RadialGradient id="packBeam" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.95} />
+              <Stop offset="0.45" stopColor={colors.l500} stopOpacity={0.5} />
+              <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x={0} y={0} width={PACK_W + 40} height={160} fill="url(#packBeam)" />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TEAR_Y + TOOTH }, strip]}>
+        <View style={{ width: PACK_W, height: TEAR_Y, overflow: 'hidden' }}>
+          <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="contain" />
+        </View>
+        <Lip up={false} />
       </Animated.View>
     </Animated.View>
   );

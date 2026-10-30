@@ -12,11 +12,11 @@ import { openSignInSheet } from '../ui/account.tsx';
 import { buzz, Cta, T } from '../ui/kit.tsx';
 import { toast } from '../ui/overlay.tsx';
 import { preloadModels } from '../ui/Model3D.tsx';
-import { Pack, BadgeCard, Rays, PACK_H, PEEL_MS, type PackStage } from '../ui/paket.tsx';
+import { Pack, BadgeCard, Rays, PACK_H, TEAR_MS, type PackStage } from '../ui/paket.tsx';
 import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design G "İlk rozet paketi"): a glowing sealed pack waits,
-// "Aç" peels its foil seal off like a sticker and the card with the first badge flips in.
+// tapping the pack tears its top strip off and the card with the first badge flips in.
 // "Devam" then starts an anonymous career, and the mahalle and character steps follow;
 // "Hesabım var" signs in to an account linked before (Apple, Google or an email code).
 // The pack and badge are vector placeholders until the Meshy models replace them.
@@ -41,9 +41,9 @@ export default function Giris() {
     if (stage !== 'idle') return;
     buzz('medium');
     sfx('whistle_start');
-    setStage('peel');
-    // The seal peels, the pack drops, then the card shows.
-    setTimeout(() => { buzz('success'); setStage('reveal'); }, PEEL_MS);
+    setStage('tear');
+    // The top strip tears off, the pack drops, then the card shows.
+    setTimeout(() => { buzz('success'); setStage('reveal'); }, TEAR_MS);
   }
 
   async function start() {
@@ -69,14 +69,18 @@ export default function Giris() {
         </T>
       </Animated.View>
 
-      <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ position: 'absolute' }}><Rays /></View>
+      <Pressable
+        onPress={open} disabled={stage !== 'idle'}
+        accessibilityRole="button" accessibilityLabel={t('login.tapA11y')} accessibilityElementsHidden={revealed}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <View pointerEvents="none" style={{ position: 'absolute' }}><Rays /></View>
         <Glow />
-        <Animated.View style={{ opacity: intro.hero, transform: [{ translateY: intro.heroY }, { scale: fit }], alignItems: 'center', justifyContent: 'center', height: PACK_H + 40 }}>
+        <Animated.View pointerEvents="none" style={{ opacity: intro.hero, transform: [{ translateY: intro.heroY }, { scale: fit }], alignItems: 'center', justifyContent: 'center', height: PACK_H + 40 }}>
           {revealed ? <BadgeCard /> : <Pack stage={stage} />}
         </Animated.View>
         <Floor />
-      </View>
+      </Pressable>
 
       <Pressable
         onPress={() => { buzz(); openSignInSheet(); }}
@@ -100,7 +104,7 @@ export default function Giris() {
         <Animated.View style={{ opacity: intro.logo }}>
           {revealed
             ? <Cta busy={busy} onPress={() => void start()} accessibilityLabel={t('common.continue')}>{t('common.continue')}</Cta>
-            : <Cta off={stage === 'peel'} onPress={open} accessibilityLabel={t('login.open')}>{t('login.open')}</Cta>}
+            : <TapHint hidden={stage !== 'idle'} />}
         </Animated.View>
         <Pressable
           onPress={() => { buzz(); router.push('/gizlilik'); }} hitSlop={6}
@@ -144,6 +148,30 @@ function useIntro() {
     return () => { alive = false; };
   }, [v, heroY]);
   return { ...v, heroY };
+}
+
+/** "DOKUN VE BAŞLA" under the pack: pulses until the pack is tapped. */
+function TapHint({ hidden }: { hidden: boolean }) {
+  const k = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | undefined;
+    let alive = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (reduce || !alive) return;
+      loop = Animated.loop(Animated.sequence([
+        Animated.timing(k, { toValue: 0.35, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
+        Animated.timing(k, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
+      ]));
+      loop.start();
+    });
+    return () => { alive = false; loop?.stop(); };
+  }, [k]);
+  return (
+    <Animated.View pointerEvents="none" style={{ height: 56, alignItems: 'center', justifyContent: 'center', gap: 8, opacity: hidden ? 0 : k }}>
+      <T w={700} size={16} style={{ letterSpacing: 3 }}>{t('login.tap')}</T>
+      <View style={{ width: 120, height: 4, borderRadius: 2, backgroundColor: colors.l600, shadowColor: colors.l600, shadowOpacity: 0.8, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }} />
+    </Animated.View>
+  );
 }
 
 /** Lime glow behind the pack. */
