@@ -16,7 +16,7 @@ import { Pack, BadgeCard, Rays, PACK_H, TEAR_MS, type PackStage } from '../ui/pa
 import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design G "İlk rozet paketi"): a glowing sealed pack waits,
-// tapping the pack tears its top strip off and the card with the first badge flips in.
+// tapping the pack cuts its top strip off and the card with the first badge flips in.
 // "Devam" then starts an anonymous career, and the mahalle and character steps follow;
 // "Hesabım var" signs in to an account linked before (Apple, Google or an email code).
 // The pack and badge are vector placeholders until the Meshy models replace them.
@@ -42,7 +42,7 @@ export default function Giris() {
     buzz('medium');
     sfx('whistle_start');
     setStage('tear');
-    // The top strip tears off, the pack drops, then the card shows.
+    // The top strip is cut off and slides away, the pack drops, then the card shows.
     setTimeout(() => { buzz('success'); setStage('reveal'); }, TEAR_MS);
   }
 
