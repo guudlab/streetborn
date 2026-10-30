@@ -35,7 +35,6 @@ export const en: Record<Key, string> = {
   'login.err': 'Could not connect, try again.',
   'login.entering': 'WALKING ONTO THE PITCH…',
   'login.tap': 'TAP TO START',
-  'login.open': 'Open',
   'login.packA': 'Your first badge is ', 'login.packB': 'ready',
   'login.badgeA': 'Street ', 'login.badgeB': 'Rookie',
   'login.badgeSaved': 'Your first badge is saved',
