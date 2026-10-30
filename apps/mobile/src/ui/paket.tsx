@@ -19,7 +19,7 @@ export const PACK_H = 360;
 export type PackStage = 'idle' | 'tear' | 'reveal';
 
 /** Milliseconds from the tap to the card showing; the sign-in screen waits this long. */
-export const TEAR_MS = 1950;
+export const TEAR_MS = 1450;
 
 const ease = Easing.bezier(0.2, 0.9, 0.25, 1);
 
@@ -49,22 +49,25 @@ function Sheen({ width, height, delay = 0, every = 3400, reduced }: { width: num
 }
 
 const BADGE_IMG = require('../../assets/meshy/rozet-cirak.webp');
-/** The pack art is cut along a jagged tear into two pieces (see assets/meshy/paket-ust|govde.webp). */
+/** The Meshy pack (GP1) is cut straight under its top seal into two pieces (assets/meshy/paket-ust|govde.webp). */
 const TOP_IMG = require('../../assets/meshy/paket-ust.webp');
 const BODY_IMG = require('../../assets/meshy/paket-govde.webp');
-/** Once the rip starts, a flash hides the swap to the opened pack and the torn-off strip (Meshy GP4 and GP5). */
-const OPEN_IMG = require('../../assets/meshy/paket-acik.webp');
-const STRIP_IMG = require('../../assets/meshy/paket-serit.webp');
-const OPEN_W = PACK_W * 1.06;
-const OPEN_H = OPEN_W * 929 / 560;
-const STRIP_W = PACK_W * 0.9;
-const STRIP_H = STRIP_W * 385 / 420;
-const RIP_AT = 720;
-const SC = PACK_W / 332;
-const TEAR_Y = 77 * SC;
-const TOP_H = 91 * SC;
-const BODY_TOP = (77 - 14) * SC;
-const BODY_H = 497 * SC;
+const TOP_H = PACK_W * 80 / 427;
+const BODY_H = PACK_W * 640 / 427;
+/** Where the strip is cut; the light and the sparks come out of this line. */
+const CUT_Y = TOP_H;
+const SLIDE_AT = 200;
+const FAN_H = 170;
+const FAN_W = PACK_W + 140;
+
+/** Light rays fanning up from the cut: [angle in degrees from vertical, half-width in degrees]. */
+const RAYS = [[-62, 5], [-46, 4], [-31, 6], [-16, 4], [0, 7], [16, 4], [31, 6], [46, 4], [62, 5]] as const;
+const rad = (d: number) => d * Math.PI / 180;
+const FAN_PATHS = RAYS.map(([a, w]) => {
+  const L = FAN_H * 1.1, cx = FAN_W / 2;
+  const pt = (d: number) => `${(cx + L * Math.sin(rad(d))).toFixed(1)} ${(FAN_H - L * Math.cos(rad(d))).toFixed(1)}`;
+  return `M ${cx} ${FAN_H} L ${pt(a - w)} L ${pt(a + w)} Z`;
+});
 
 /** A foil fragment that flies out of the tear when the strip rips free. */
 function Bit({ dx, dy, rot, size, delay, color, run }: { dx: number; dy: number; rot: number; size: number; delay: number; color: string; run: boolean }) {
@@ -76,7 +79,7 @@ function Bit({ dx, dy, rot, size, delay, color, run }: { dx: number; dy: number;
     opacity: k.value === 0 ? 0 : 1 - k.value * k.value,
     transform: [{ translateX: dx * k.value }, { translateY: dy * k.value + 90 * k.value * k.value }, { rotate: `${rot * k.value}deg` }],
   }));
-  return <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: PACK_W / 2, top: TEAR_Y, width: size, height: size * 0.6, backgroundColor: color, borderRadius: 1 }, anim]} />;
+  return <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: PACK_W / 2, top: CUT_Y, width: size, height: size * 0.6, backgroundColor: color, borderRadius: 1 }, anim]} />;
 }
 
 const BITS = [
@@ -101,16 +104,14 @@ function Glint({ x, y, size, delay, reduced }: { x: number; y: number; size: num
   );
 }
 
-/** The sealed pack. `stage` drives the idle wobble, the shake and the tear of its top strip. */
+/** The sealed pack. `stage` drives the idle wobble, then the strip is cut off and slides away with a burst of light. */
 export function Pack({ stage }: { stage: PackStage }) {
   const reduced = useReduced();
   const wobble = useSharedValue(0);
-  const shake = useSharedValue(0);
-  const tear = useSharedValue(0);
+  const press = useSharedValue(0);
+  const slide = useSharedValue(0);
   const light = useSharedValue(0);
   const out = useSharedValue(0);
-  const swap = useSharedValue(0);
-  const pop = useSharedValue(0);
 
   useEffect(() => {
     if (stage === 'idle' && !reduced) {
@@ -120,95 +121,63 @@ export function Pack({ stage }: { stage: PackStage }) {
 
   useEffect(() => {
     if (stage !== 'tear') return;
-    wobble.value = withTiming(0.5, { duration: 150 });
-    shake.value = withSequence(
-      withTiming(1, { duration: 70 }), withTiming(-1, { duration: 70 }), withTiming(0.7, { duration: 70 }),
-      withTiming(-0.5, { duration: 70 }), withTiming(0, { duration: 70 }),
-    );
-    // The strip lifts at its free end and strains (the torn edges part), then rips off.
-    tear.value = withDelay(300, withSequence(
-      withTiming(0.3, { duration: 420, easing: Easing.out(Easing.cubic) }),
-      withTiming(1, { duration: 420, easing: Easing.in(Easing.cubic) }),
-    ));
-    light.value = withDelay(500, withSequence(withTiming(1, { duration: 300 }), withTiming(0.55, { duration: 700 })));
-    swap.value = withDelay(RIP_AT, withTiming(1, { duration: 90 }));
-    pop.value = withDelay(RIP_AT - 60, withSequence(withTiming(1, { duration: 110 }), withTiming(0, { duration: 380 })));
-    out.value = withDelay(1300, withTiming(1, { duration: 620, easing: Easing.in(Easing.quad) }));
-  }, [stage, shake, tear, light, out, swap, pop]);
+    wobble.value = withTiming(0.5, { duration: 120 });
+    // The pack tenses for a beat, the strip is cut clean and slides off sideways, light pours out of the cut.
+    press.value = withSequence(withTiming(1, { duration: SLIDE_AT, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 260 }));
+    slide.value = withDelay(SLIDE_AT, withTiming(1, { duration: 560, easing: Easing.in(Easing.cubic) }));
+    light.value = withDelay(SLIDE_AT, withSequence(withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) }), withTiming(0.7, { duration: 700 })));
+    out.value = withDelay(1000, withTiming(1, { duration: 480, easing: Easing.in(Easing.quad) }));
+  }, [stage, press, slide, light, out, wobble]);
 
   const body = useAnimatedStyle(() => ({
     opacity: 1 - out.value,
     transform: [
-      { translateY: -10 * wobble.value + 120 * out.value },
-      { translateX: shake.value * 5 },
-      { rotate: `${(wobble.value - 0.5) * 5 + shake.value * 2}deg` },
-      { scale: (1 + 0.08 * Math.sin(Math.min(out.value * 2, 1) * Math.PI / 2)) * (1 - 0.6 * out.value) },
+      { translateY: -10 * wobble.value + 110 * out.value },
+      { rotate: `${(wobble.value - 0.5) * 5}deg` },
+      { scale: (1 + 0.05 * press.value) * (1 - 0.5 * out.value) },
     ],
   }));
-  const strip = useAnimatedStyle(() => {
-    const p = tear.value;
-    // Slow lift to 0.3 (about 17deg), then the rip swings it away.
-    const rise = Math.min(p / 0.3, 1);
-    const rip = Math.max((p - 0.3) / 0.7, 0);
-    return {
-      opacity: rip > 0.85 ? 1 - (rip - 0.85) / 0.15 : 1,
-      transformOrigin: `${PACK_W}px ${TEAR_Y}px`,
-      transform: [
-        { translateX: rip * rip * 90 },
-        { translateY: -rip * 170 - rise * 2 },
-        { rotate: `${rise * 17 + rip * 70}deg` },
-      ],
-    };
-  });
-  const gone = useAnimatedStyle(() => ({ opacity: 1 - swap.value }));
-  const shown = useAnimatedStyle(() => ({ opacity: swap.value }));
-  const flash = useAnimatedStyle(() => ({ opacity: pop.value * 0.95 }));
-  const beam = useAnimatedStyle(() => ({ opacity: light.value, transform: [{ scaleY: 0.4 + 0.6 * light.value }] }));
+  const strip = useAnimatedStyle(() => ({
+    opacity: slide.value > 0.6 ? 1 - (slide.value - 0.6) / 0.4 : 1,
+    transform: [{ translateX: slide.value * PACK_W * 1.2 }, { translateY: -slide.value * 6 }],
+  }));
+  const fan = useAnimatedStyle(() => ({ opacity: light.value, transform: [{ scaleY: 0.2 + 0.8 * light.value }, { scaleX: 0.7 + 0.3 * light.value }] }));
+  const glow = useAnimatedStyle(() => ({ opacity: light.value, transform: [{ scale: 0.5 + 0.5 * light.value }] }));
 
   return (
     <Animated.View style={[{ width: PACK_W, height: PACK_H }, body]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Animated.View style={[{ position: 'absolute', left: 0, top: BODY_TOP, width: PACK_W, height: BODY_H }, gone]}>
-        <Image source={BODY_IMG} style={{ width: PACK_W, height: BODY_H }} contentFit="fill" />
-      </Animated.View>
-      <Animated.View style={[{ position: 'absolute', left: -(OPEN_W - PACK_W) / 2, top: PACK_H - OPEN_H + 6, width: OPEN_W, height: OPEN_H }, shown]}>
-        <Image source={OPEN_IMG} style={{ width: OPEN_W, height: OPEN_H }} contentFit="fill" />
-      </Animated.View>
+      <Image source={BODY_IMG} style={{ position: 'absolute', left: 0, top: TOP_H, width: PACK_W, height: BODY_H }} contentFit="fill" />
       <Glint x={PACK_W - 60} y={90} size={26} delay={0} reduced={reduced} />
       <Glint x={26} y={PACK_H - 86} size={18} delay={900} reduced={reduced} />
       <Glint x={PACK_W - 40} y={PACK_H - 120} size={14} delay={1600} reduced={reduced} />
-      {/* Light pouring out of the opening. */}
-      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -20, top: TEAR_Y - 80, width: PACK_W + 40, height: 160, transformOrigin: 'center center' }, beam]}>
-        <Svg width={PACK_W + 40} height={160}>
+      {/* Light rays and a hot glow pouring out of the cut. */}
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -(FAN_W - PACK_W) / 2, top: CUT_Y - FAN_H, width: FAN_W, height: FAN_H, transformOrigin: '50% 100%' }, fan]}>
+        <Svg width={FAN_W} height={FAN_H}>
           <Defs>
-            <RadialGradient id="packBeam" cx="50%" cy="50%" rx="50%" ry="50%">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.95} />
-              <Stop offset="0.45" stopColor={colors.l500} stopOpacity={0.5} />
-              <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect x={0} y={0} width={PACK_W + 40} height={160} fill="url(#packBeam)" />
-        </Svg>
-      </Animated.View>
-      {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + 720} run={stage === 'tear'} />)}
-      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TOP_H }, strip]}>
-        <Animated.View style={[{ position: 'absolute', left: 0, top: 0 }, gone]}>
-          <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
-        </Animated.View>
-        <Animated.View style={[{ position: 'absolute', left: 0, top: TEAR_Y - STRIP_H * 0.7 }, shown]}>
-          <Image source={STRIP_IMG} style={{ width: STRIP_W, height: STRIP_H }} contentFit="fill" />
-        </Animated.View>
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -40, top: TEAR_Y - 110, width: PACK_W + 80, height: 220 }, flash]}>
-        <Svg width={PACK_W + 80} height={220}>
-          <Defs>
-            <RadialGradient id="packPop" cx="50%" cy="50%" rx="50%" ry="50%">
+            <LinearGradient id="packRay" gradientUnits="userSpaceOnUse" x1="0" y1={FAN_H} x2="0" y2="0">
               <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
-              <Stop offset="0.5" stopColor="#F4FFD0" stopOpacity={0.6} />
+              <Stop offset="0.45" stopColor="#F4FFD0" stopOpacity={0.5} />
+              <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          {FAN_PATHS.map((d, i) => <Path key={i} d={d} fill="url(#packRay)" />)}
+        </Svg>
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -20, top: CUT_Y - 70, width: PACK_W + 40, height: 110 }, glow]}>
+        <Svg width={PACK_W + 40} height={110}>
+          <Defs>
+            <RadialGradient id="packBeam" cx="50%" cy="64%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
+              <Stop offset="0.4" stopColor="#F4FFD0" stopOpacity={0.6} />
               <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
             </RadialGradient>
           </Defs>
-          <Rect x={0} y={0} width={PACK_W + 80} height={220} fill="url(#packPop)" />
+          <Rect x={0} y={0} width={PACK_W + 40} height={110} fill="url(#packBeam)" />
         </Svg>
+      </Animated.View>
+      {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + SLIDE_AT} run={stage === 'tear'} />)}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TOP_H }, strip]}>
+        <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
       </Animated.View>
     </Animated.View>
   );
