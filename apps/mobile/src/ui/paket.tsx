@@ -48,30 +48,43 @@ function Sheen({ width, height, delay = 0, every = 3400, reduced }: { width: num
   );
 }
 
-const PACK_IMG = require('../../assets/meshy/paket-kapali.webp');
 const BADGE_IMG = require('../../assets/meshy/rozet-cirak.webp');
-/** Where the pack tears: just under the crimped top seam. */
-const TEAR_Y = 50;
-const TOOTH = 7;
-const LIP_X = 12;
-const LIP_W = PACK_W - 24;
+/** The pack art is cut along a jagged tear into two pieces (see assets/meshy/paket-ust|govde.webp). */
+const TOP_IMG = require('../../assets/meshy/paket-ust.webp');
+const BODY_IMG = require('../../assets/meshy/paket-govde.webp');
+/** Once the rip starts, a flash hides the swap to the opened pack and the torn-off strip (Meshy GP4 and GP5). */
+const OPEN_IMG = require('../../assets/meshy/paket-acik.webp');
+const STRIP_IMG = require('../../assets/meshy/paket-serit.webp');
+const OPEN_W = PACK_W * 1.06;
+const OPEN_H = OPEN_W * 929 / 560;
+const STRIP_W = PACK_W * 0.9;
+const STRIP_H = STRIP_W * 385 / 420;
+const RIP_AT = 720;
+const SC = PACK_W / 332;
+const TEAR_Y = 77 * SC;
+const TOP_H = 91 * SC;
+const BODY_TOP = (77 - 14) * SC;
+const BODY_H = 497 * SC;
 
-/** Jagged foil lip along the tear. `up` teeth point up (on the pack), otherwise down (on the torn-off strip). */
-function Lip({ up }: { up: boolean }) {
-  const n = 13;
-  const w = LIP_W / n;
-  let d = up ? `M0 ${TOOTH}` : 'M0 0';
-  for (let i = 0; i < n; i++) {
-    const x0 = i * w;
-    d += up ? ` L${x0 + w / 2} ${i % 2 ? 1 : 0} L${x0 + w} ${TOOTH}` : ` L${x0 + w / 2} ${TOOTH - (i % 2 ? 1 : 0)} L${x0 + w} 0`;
-  }
-  d += up ? ` V${TOOTH} H0 Z` : ' Z';
-  return (
-    <Svg width={LIP_W} height={TOOTH} style={{ position: 'absolute', left: LIP_X, top: up ? TEAR_Y - TOOTH + 1 : TEAR_Y - 1 }}>
-      <Path d={d} fill="#E4FF99" />
-    </Svg>
-  );
+/** A foil fragment that flies out of the tear when the strip rips free. */
+function Bit({ dx, dy, rot, size, delay, color, run }: { dx: number; dy: number; rot: number; size: number; delay: number; color: string; run: boolean }) {
+  const k = useSharedValue(0);
+  useEffect(() => {
+    if (run) k.value = withDelay(delay, withTiming(1, { duration: 650, easing: Easing.out(Easing.quad) }));
+  }, [run, k, delay]);
+  const anim = useAnimatedStyle(() => ({
+    opacity: k.value === 0 ? 0 : 1 - k.value * k.value,
+    transform: [{ translateX: dx * k.value }, { translateY: dy * k.value + 90 * k.value * k.value }, { rotate: `${rot * k.value}deg` }],
+  }));
+  return <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: PACK_W / 2, top: TEAR_Y, width: size, height: size * 0.6, backgroundColor: color, borderRadius: 1 }, anim]} />;
 }
+
+const BITS = [
+  { dx: -90, dy: -90, rot: -300, size: 9, delay: 0, color: colors.l500 }, { dx: -40, dy: -130, rot: 220, size: 7, delay: 40, color: '#FFFFFF' },
+  { dx: 20, dy: -150, rot: -180, size: 10, delay: 20, color: colors.l600 }, { dx: 70, dy: -110, rot: 340, size: 7, delay: 60, color: '#FFFFFF' },
+  { dx: 110, dy: -70, rot: -260, size: 9, delay: 30, color: colors.l500 }, { dx: -120, dy: -40, rot: 200, size: 6, delay: 80, color: colors.l600 },
+  { dx: 130, dy: -30, rot: -150, size: 6, delay: 50, color: '#FFFFFF' },
+] as const;
 
 /** A four-point glint that twinkles; it sits on the pack so the foil looks like it catches light. */
 function Glint({ x, y, size, delay, reduced }: { x: number; y: number; size: number; delay: number; reduced: boolean }) {
@@ -96,6 +109,8 @@ export function Pack({ stage }: { stage: PackStage }) {
   const tear = useSharedValue(0);
   const light = useSharedValue(0);
   const out = useSharedValue(0);
+  const swap = useSharedValue(0);
+  const pop = useSharedValue(0);
 
   useEffect(() => {
     if (stage === 'idle' && !reduced) {
@@ -110,14 +125,16 @@ export function Pack({ stage }: { stage: PackStage }) {
       withTiming(1, { duration: 70 }), withTiming(-1, { duration: 70 }), withTiming(0.7, { duration: 70 }),
       withTiming(-0.5, { duration: 70 }), withTiming(0, { duration: 70 }),
     );
-    // The strip resists for a moment, then rips off to the right.
-    tear.value = withDelay(320, withSequence(
-      withTiming(0.18, { duration: 260, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 480, easing: Easing.in(Easing.cubic) }),
+    // The strip lifts at its free end and strains (the torn edges part), then rips off.
+    tear.value = withDelay(300, withSequence(
+      withTiming(0.3, { duration: 420, easing: Easing.out(Easing.cubic) }),
+      withTiming(1, { duration: 420, easing: Easing.in(Easing.cubic) }),
     ));
-    light.value = withDelay(640, withSequence(withTiming(1, { duration: 200 }), withTiming(0.55, { duration: 700 })));
-    out.value = withDelay(1250, withTiming(1, { duration: 650, easing: Easing.in(Easing.quad) }));
-  }, [stage, shake, tear, light, out]);
+    light.value = withDelay(500, withSequence(withTiming(1, { duration: 300 }), withTiming(0.55, { duration: 700 })));
+    swap.value = withDelay(RIP_AT, withTiming(1, { duration: 90 }));
+    pop.value = withDelay(RIP_AT - 60, withSequence(withTiming(1, { duration: 110 }), withTiming(0, { duration: 380 })));
+    out.value = withDelay(1300, withTiming(1, { duration: 620, easing: Easing.in(Easing.quad) }));
+  }, [stage, shake, tear, light, out, swap, pop]);
 
   const body = useAnimatedStyle(() => ({
     opacity: 1 - out.value,
@@ -130,27 +147,35 @@ export function Pack({ stage }: { stage: PackStage }) {
   }));
   const strip = useAnimatedStyle(() => {
     const p = tear.value;
+    // Slow lift to 0.3 (about 17deg), then the rip swings it away.
+    const rise = Math.min(p / 0.3, 1);
+    const rip = Math.max((p - 0.3) / 0.7, 0);
     return {
-      opacity: p > 0.9 ? 1 - (p - 0.9) / 0.1 : 1,
-      transformOrigin: 'right bottom',
+      opacity: rip > 0.85 ? 1 - (rip - 0.85) / 0.15 : 1,
+      transformOrigin: `${PACK_W}px ${TEAR_Y}px`,
       transform: [
-        { translateX: p * p * 70 },
-        { translateY: -p * 150 },
-        { rotate: `${p * 62}deg` },
+        { translateX: rip * rip * 90 },
+        { translateY: -rip * 170 - rise * 2 },
+        { rotate: `${rise * 17 + rip * 70}deg` },
       ],
     };
   });
+  const gone = useAnimatedStyle(() => ({ opacity: 1 - swap.value }));
+  const shown = useAnimatedStyle(() => ({ opacity: swap.value }));
+  const flash = useAnimatedStyle(() => ({ opacity: pop.value * 0.95 }));
   const beam = useAnimatedStyle(() => ({ opacity: light.value, transform: [{ scaleY: 0.4 + 0.6 * light.value }] }));
 
   return (
     <Animated.View style={[{ width: PACK_W, height: PACK_H }, body]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <View style={{ position: 'absolute', left: 0, top: TEAR_Y, width: PACK_W, height: PACK_H - TEAR_Y, overflow: 'hidden' }}>
-        <Image source={PACK_IMG} style={{ position: 'absolute', left: 0, top: -TEAR_Y, width: PACK_W, height: PACK_H }} contentFit="contain" />
-      </View>
+      <Animated.View style={[{ position: 'absolute', left: 0, top: BODY_TOP, width: PACK_W, height: BODY_H }, gone]}>
+        <Image source={BODY_IMG} style={{ width: PACK_W, height: BODY_H }} contentFit="fill" />
+      </Animated.View>
+      <Animated.View style={[{ position: 'absolute', left: -(OPEN_W - PACK_W) / 2, top: PACK_H - OPEN_H + 6, width: OPEN_W, height: OPEN_H }, shown]}>
+        <Image source={OPEN_IMG} style={{ width: OPEN_W, height: OPEN_H }} contentFit="fill" />
+      </Animated.View>
       <Glint x={PACK_W - 60} y={90} size={26} delay={0} reduced={reduced} />
       <Glint x={26} y={PACK_H - 86} size={18} delay={900} reduced={reduced} />
       <Glint x={PACK_W - 40} y={PACK_H - 120} size={14} delay={1600} reduced={reduced} />
-      {stage !== 'idle' && <Lip up />}
       {/* Light pouring out of the opening. */}
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -20, top: TEAR_Y - 80, width: PACK_W + 40, height: 160, transformOrigin: 'center center' }, beam]}>
         <Svg width={PACK_W + 40} height={160}>
@@ -164,11 +189,26 @@ export function Pack({ stage }: { stage: PackStage }) {
           <Rect x={0} y={0} width={PACK_W + 40} height={160} fill="url(#packBeam)" />
         </Svg>
       </Animated.View>
-      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TEAR_Y + TOOTH }, strip]}>
-        <View style={{ width: PACK_W, height: TEAR_Y, overflow: 'hidden' }}>
-          <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="contain" />
-        </View>
-        <Lip up={false} />
+      {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + 720} run={stage === 'tear'} />)}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TOP_H }, strip]}>
+        <Animated.View style={[{ position: 'absolute', left: 0, top: 0 }, gone]}>
+          <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
+        </Animated.View>
+        <Animated.View style={[{ position: 'absolute', left: 0, top: TEAR_Y - STRIP_H * 0.7 }, shown]}>
+          <Image source={STRIP_IMG} style={{ width: STRIP_W, height: STRIP_H }} contentFit="fill" />
+        </Animated.View>
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -40, top: TEAR_Y - 110, width: PACK_W + 80, height: 220 }, flash]}>
+        <Svg width={PACK_W + 80} height={220}>
+          <Defs>
+            <RadialGradient id="packPop" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
+              <Stop offset="0.5" stopColor="#F4FFD0" stopOpacity={0.6} />
+              <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x={0} y={0} width={PACK_W + 80} height={220} fill="url(#packPop)" />
+        </Svg>
       </Animated.View>
     </Animated.View>
   );
