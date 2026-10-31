@@ -11,7 +11,7 @@ export type Policy = { updated: string; intro: string; sections: { title: string
 
 export const PRIVACY: Record<Lang, Policy> = {
   tr: {
-    updated: 'Son güncelleme: 29 Ekim 2026',
+    updated: 'Son güncelleme: 31 Ekim 2026',
     intro: 'StreetBorn bir mobil futbol kariyer oyunu. Bu metin, oyunu oynarken hangi verilerin tutulduğunu, ne için kullanıldığını ve nasıl silebileceğini anlatır.',
     sections: [
       {
@@ -40,7 +40,8 @@ export const PRIVACY: Record<Lang, Policy> = {
         title: 'Verilerin nerede',
         body: [
           'Oyun sunucusu ve veritabanı Supabase altyapısında çalışır. Web sürümü Cloudflare üzerinden sunulur. Bu hizmetler verileri yalnızca oyunu çalıştırmak için işler.',
-          'Uygulamaya reklam ya da uygulama içi satın alma eklendiğinde bu metin, kullanılan hizmetlerle birlikte güncellenecek.',
+          'Elmas paketlerini telefonda App Store veya Google Play üzerinden satın alırsın. Satın almanı doğrulamak için RevenueCat, oyuncu kimliğini ve mağazanın satın alma kaydını (ürün, işlem numarası, fiyat, ülke) işler. Kart bilgilerin mağazada kalır; ne biz ne de RevenueCat onları görür.',
+          'Uygulamaya reklam eklendiğinde bu metin, kullanılan hizmetlerle birlikte güncellenecek.',
         ],
       },
       {
@@ -58,7 +59,7 @@ export const PRIVACY: Record<Lang, Policy> = {
     ],
   },
   en: {
-    updated: 'Last updated: 29 October 2026',
+    updated: 'Last updated: 31 October 2026',
     intro: 'StreetBorn is a mobile football career game. This page explains what data the game keeps while you play, what it is for, and how to delete it.',
     sections: [
       {
@@ -87,7 +88,8 @@ export const PRIVACY: Record<Lang, Policy> = {
         title: 'Where your data is',
         body: [
           'The game server and database run on Supabase. The web version is served by Cloudflare. These services process data only to run the game.',
-          'When ads or in-app purchases are added, this page will be updated with the services they use.',
+          'You buy gem packs on your phone through the App Store or Google Play. To verify a purchase, RevenueCat processes your player ID and the store\'s purchase record (product, transaction ID, price, country). Your card details stay with the store; neither we nor RevenueCat see them.',
+          'When ads are added to the app, this page will be updated with the services they use.',
         ],
       },
       {

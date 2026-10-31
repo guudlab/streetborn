@@ -74,6 +74,21 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: supabase/scripts/ci-run.sh "Configure auth" supabase/scripts/configure-auth.sh
+      - name: Set payment secrets
+        # RevenueCat (store gem packs). Optional: without these the iap function
+        # answers payments_off and the webhook refuses calls. Secrets:
+        # REVENUECAT_SECRET_KEY (API key, secret) and REVENUECAT_WEBHOOK_AUTH (the
+        # Authorization header value typed into RevenueCat's webhook settings).
+        env:
+          REVENUECAT_SECRET_KEY: ${{ secrets.REVENUECAT_SECRET_KEY }}
+          REVENUECAT_WEBHOOK_AUTH: ${{ secrets.REVENUECAT_WEBHOOK_AUTH }}
+        run: |
+          args=()
+          for name in REVENUECAT_SECRET_KEY REVENUECAT_WEBHOOK_AUTH; do
+            if [ -n "${!name}" ]; then args+=("$name=${!name}"); fi
+          done
+          if [ ${#args[@]} -eq 0 ]; then echo "::notice title=RevenueCat::No RevenueCat secrets set; gem packs stay off."; exit 0; fi
+          supabase/scripts/ci-run.sh "Set payment secrets" supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" "${args[@]}"
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
       - name: Deploy functions

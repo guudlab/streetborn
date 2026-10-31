@@ -418,3 +418,8 @@ enabled = true
 # function checks Google's signature instead.
 [functions.ad-reward]
 verify_jwt = false
+
+# RevenueCat calls its webhook without a Supabase JWT; the function checks the
+# Authorization header set in the RevenueCat dashboard instead.
+[functions.revenuecat-webhook]
+verify_jwt = false

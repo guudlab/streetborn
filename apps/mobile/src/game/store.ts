@@ -11,10 +11,11 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount, ensureSession, syncPurchases,
   type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Boots, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
+import { buyStoreProduct, iapAvailable, loadGemPrices, type IapResult } from '../net/iap';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
 import { mateNames, storyPins, type Pin } from './live.ts';
@@ -220,6 +221,12 @@ interface GameState {
   refreshShop(): Promise<void>;
   buyItem(id: string): Promise<'ok' | 'no_gem' | 'no_coin' | 'owned' | 'error'>;
   equip(id: string, on: boolean): Promise<void>;
+  /** Store price labels of the gem packs (iOS/Android with RevenueCat), by pack id. */
+  gemPrices: Record<string, string>;
+  /** Loads the store prices and collects any store purchase not paid yet; returns the gems it paid now. */
+  refreshGemPacks(): Promise<number>;
+  /** Buys a gem pack in the store; 'late' means the store charged but the gems come with the webhook. */
+  buyGemPack(pack: string): Promise<'ok' | 'late' | IapResult>;
   setAssisted(v: boolean): void;
 }
 
@@ -398,6 +405,7 @@ export const useGame = create<GameState>()((set, get) => ({
   refillsLeft: config.shop.refillsPerDay,
   owned: [],
   catalog: [],
+  gemPrices: {},
   assisted: false,
   match: null,
   post: null,
@@ -995,6 +1003,34 @@ export const useGame = create<GameState>()((set, get) => ({
       console.warn('buy failed', e);
       return 'error';
     }
+  },
+
+  async refreshGemPacks() {
+    if (get().mode !== 'online' || !iapAvailable) return 0;
+    try {
+      const playerId = await ensureSession();
+      set({ gemPrices: await loadGemPrices(DEFAULT_CONFIG.shop.gemPacks.map(p => p.id), playerId) });
+      const r = await syncPurchases();
+      set({ gems: r.gem });
+      return r.paid;
+    } catch (e) {
+      console.warn('Could not load the gem packs', e);
+      return 0;
+    }
+  },
+
+  async buyGemPack(pack) {
+    if (get().mode !== 'online' || !iapAvailable) return 'error';
+    const result = await buyStoreProduct(pack, await ensureSession());
+    if (result !== 'ok') return result;
+    // The store charged. Collect the gems now; if RevenueCat is slow, the webhook pays them.
+    for (let i = 0; i < 3; i++) {
+      const r = await syncPurchases().catch(() => null);
+      if (r) set({ gems: r.gem });
+      if (r && r.paid > 0) return 'ok';
+      await new Promise(res => setTimeout(res, 1500));
+    }
+    return 'late';
   },
 
   async equip(id, on) {

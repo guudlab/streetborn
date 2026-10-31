@@ -409,6 +409,10 @@ export const tr = {
   'shop.waitingStore': 'Mağaza onayı bekleniyor…',
   'shop.done': 'Tamamlandı',
   'shop.prototype': 'Prototip: gerçek ödeme alınmadı, hesaba bir şey eklenmedi.',
+  'shop.iap.paid': '{n} elmas hesabına eklendi',
+  'shop.iap.paidLater': 'Önceki satın alman: {n} elmas hesabına eklendi',
+  'shop.iap.late': 'Ödeme alındı. Elmaslar birkaç dakika içinde hesabına gelir.',
+  'shop.iap.pending': 'Ödeme onay bekliyor. Onaylanınca elmaslar hesabına gelir.',
 
   'energy.ad': 'Reklam izle',
   'energy.adSub': '+1 enerji · bugün {n} hak',

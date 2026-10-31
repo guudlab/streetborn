@@ -590,3 +590,43 @@ do $$ begin
   raise notice 'phone rls: ok';
 end $$;
 reset role;
+
+-- Store gem packs (RevenueCat): each store transaction pays once, a deleted account
+-- is skipped, a refund takes back no more than the balance, players read only their rows.
+insert into auth.users values ('00000000-0000-0000-0000-000000000971');
+insert into auth.users values ('00000000-0000-0000-0000-000000000972');
+set role service_role;
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000971'; g0 bigint; begin
+  select gem into g0 from wallets where player_id = p;
+  if grant_gem_purchase(p, 'APP_STORE', 'tx_a', 'gem_450', 450, true) <> 'paid' then raise exception 'gem purchase not paid'; end if;
+  if grant_gem_purchase(p, 'APP_STORE', 'tx_a', 'gem_450', 450, true) <> 'duplicate' then raise exception 'gem purchase paid twice'; end if;
+  if grant_gem_purchase(gen_random_uuid(), 'APP_STORE', 'tx_b', 'gem_80', 80, false) <> 'no_player' then raise exception 'unknown player paid'; end if;
+  if (select gem from wallets where player_id = p) <> g0 + 450 then raise exception 'gem purchase amount wrong'; end if;
+  if (select reason from ledger where idempotency_key = 'iap:tx_a') <> 'gem_purchase' then raise exception 'gem purchase not in ledger'; end if;
+
+  -- Spend most of it, then refund: only what is left comes back out.
+  perform grant_currency(p, 'gem', -(g0 + 400), 'test', null, 'iap-test-spend');
+  if reverse_gem_purchase('tx_a') <> 50 then raise exception 'refund took the wrong amount'; end if;
+  if (select gem from wallets where player_id = p) <> 0 then raise exception 'refund balance wrong'; end if;
+  if reverse_gem_purchase('tx_a') is not null then raise exception 'refund applied twice'; end if;
+  if reverse_gem_purchase('tx_none') is not null then raise exception 'unknown refund applied'; end if;
+  if grant_gem_purchase(p, 'APP_STORE', 'tx_a', 'gem_450', 450, true) <> 'duplicate' then raise exception 'refunded purchase paid again'; end if;
+
+  perform grant_gem_purchase('00000000-0000-0000-0000-000000000972', 'PLAY_STORE', 'tx_c', 'gem_80', 80, false);
+  raise notice 'gem purchases: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000971';
+do $$ begin
+  if (select count(*) from gem_purchases) <> 1 then raise exception 'gem purchases leak or hidden'; end if;
+  begin insert into gem_purchases (player_id, store, transaction_id, product_id, gem, sandbox) values (auth.uid(), 'APP_STORE', 'x', 'gem_80', 80, true); raise exception 'client inserted a purchase';
+  exception when insufficient_privilege then null; end;
+  begin update gem_purchases set status = 'paid'; raise exception 'client updated a purchase';
+  exception when insufficient_privilege then null; end;
+  begin perform grant_gem_purchase(auth.uid(), 'APP_STORE', 'tx_z', 'gem_80', 80, true); raise exception 'client granted a purchase';
+  exception when insufficient_privilege then null; end;
+  begin perform 1 from payment_events; raise exception 'payment events readable';
+  exception when insufficient_privilege then null; end;
+  raise notice 'gem purchase rls: ok';
+end $$;
+reset role;

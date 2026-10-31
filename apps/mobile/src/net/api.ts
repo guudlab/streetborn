@@ -293,6 +293,9 @@ export const equipItem = (itemId: string, on: boolean) => call<{ ok: true }>('sh
 /** Buys a pair of krampon at its config price (coin). */
 export const buyBoots = (itemId: string) => call<{ price: number; balance: number; usesLeft: number }>('shop', { action: 'boots', itemId });
 
+/** Collects the gems of the player's store purchases (read from RevenueCat on the server). */
+export const syncPurchases = () => call<{ paid: number; gem: number }>('iap', {});
+
 export interface OwnedItem { id: string; equipped: boolean; /** Boots only: talim left. */ usesLeft?: number | null }
 export interface CatalogItem { id: string; kind: string; priceGem: number | null; priceCoin: number | null }
 export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[] }

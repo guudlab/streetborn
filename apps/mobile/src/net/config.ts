@@ -13,3 +13,11 @@ export const SESSION_KEY = `sb-${SUPABASE_URL.replace(/^https?:\/\//, '').split(
 
 /** Where invite links point. The web build opens them directly; the app takes over once it has a domain. */
 export const INVITE_BASE = process.env.EXPO_PUBLIC_INVITE_BASE ?? 'https://streetborn.guudlab.workers.dev';
+
+/**
+ * RevenueCat public SDK keys (appl_… / goog_…, from RevenueCat → API keys). Public by
+ * design, like the Supabase publishable key. Empty: store purchases stay off and the
+ * shop keeps its prototype flow.
+ */
+export const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
+export const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '';

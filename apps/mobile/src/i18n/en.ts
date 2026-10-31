@@ -410,6 +410,10 @@ export const en: Record<Key, string> = {
   'shop.waitingStore': 'Waiting for store confirmation…',
   'shop.done': 'Done',
   'shop.prototype': 'Prototype: no real payment was taken and nothing was added to your account.',
+  'shop.iap.paid': '{n} gems added to your account',
+  'shop.iap.paidLater': 'Your earlier purchase: {n} gems added to your account',
+  'shop.iap.late': 'Payment received. Your gems arrive in a few minutes.',
+  'shop.iap.pending': 'Your payment is waiting for approval. The gems arrive once it is approved.',
 
   'energy.ad': 'Watch an ad',
   'energy.adSub': '+1 energy · {n} left today',

@@ -13,11 +13,14 @@ import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
 import { Amount, bootIcon, Ico, Tile } from '../../ui/sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
 import { HintBubble } from '../../ui/hint.tsx';
+import { iapAvailable } from '../../net/iap';
 import { t, type Key } from '../../i18n/index.ts';
 
-// Gem packs and the season pass are store purchases (RevenueCat comes later), so
-// their "buy" only shows the flow. Online, gem items are bought on the server at
-// the catalog price; offline they show the same prototype flow.
+// Gem packs are App Store / Google Play products sold through RevenueCat: the store
+// charges, the server pays the gems (iap function and RevenueCat's webhook). On the
+// web, offline, or before the RevenueCat keys are set, they show the prototype flow,
+// like the season pass (not sold yet). Online, gem items are bought on the server
+// at the catalog price; offline they show the same prototype flow.
 
 const JERSEY = 'forma_sonbahar';
 
@@ -209,7 +212,21 @@ function BootsSection() {
   );
 }
 
-const GEM_PACKS = [[80, 'shop.price.gem1', 40], [450, 'shop.price.gem2', 48], [1000, 'shop.price.gem3', 56]] as const;
+// Pack ids and gem counts match DEFAULT_CONFIG.shop.gemPacks; the server pays from the config.
+const GEM_PACKS = [['gem_80', 80, 'shop.price.gem1', 40], ['gem_450', 450, 'shop.price.gem2', 48], ['gem_1000', 1000, 'shop.price.gem3', 56]] as const;
+
+/** iOS/Android with RevenueCat: the store's own sheet confirms and charges; the server pays the gems. */
+async function buyGemPack(pack: string, n: number, price: string) {
+  const s = useGame.getState();
+  if (!iapAvailable || s.mode !== 'online') return buy(t('shop.gemPack', { n }), price, 'gem_sparkle');
+  openSheet(<><H3>{t('shop.waiting')}</H3><Spinner /><SheetText>{t('shop.waitingStore')}</SheetText></>);
+  const r = await s.buyGemPack(pack);
+  closeSheet();
+  if (r === 'ok') { sfx('gem_sparkle'); buzz('success'); toast(t('shop.iap.paid', { n }), 'success'); }
+  else if (r === 'late') toast(t('shop.iap.late'));
+  else if (r === 'pending') toast(t('shop.iap.pending'));
+  else if (r === 'error') toast(t('shop.buyFailed'), 'error');
+}
 
 export default function Dukkan() {
   const insets = useSafeAreaInsets();
@@ -219,6 +236,12 @@ export default function Dukkan() {
   const online = mode === 'online';
   const jerseyPrice = catalog.find(i => i.id === JERSEY)?.priceGem ?? 120;
   const jersey = owned.find(i => i.id === JERSEY);
+  const gemPrices = useGame(st => st.gemPrices);
+  // Store prices, and gems of a purchase the app did not collect last time (closed mid-purchase).
+  useEffect(() => {
+    if (!online) return;
+    void useGame.getState().refreshGemPacks().then(paid => { if (paid > 0) { sfx('gem_sparkle'); toast(t('shop.iap.paidLater', { n: paid }), 'success'); } });
+  }, [online]);
 
   const jerseyAction = () => {
     if (!online) return buy(t('shop.jersey'), t('shop.gemPack', { n: jerseyPrice }));
@@ -267,11 +290,11 @@ export default function Dukkan() {
       <EnergyTiles />
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        {GEM_PACKS.map(([n, pk, size]) => (
-          <Tile key={n} label={t('shop.gemPackA11y', { n, price: t(pk) })} onPress={() => buy(t('shop.gemPack', { n }), t(pk), 'gem_sparkle')} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
+        {GEM_PACKS.map(([pack, n, pk, size]) => (
+          <Tile key={pack} label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
             <T w={700} size={18}>{n}</T>
-            <T w={600} size={12} color={colors.g200}>{t(pk)}</T>
+            <T w={600} size={12} color={colors.g200}>{gemPrices[pack] ?? t(pk)}</T>
             {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={700} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
           </Tile>
         ))}
