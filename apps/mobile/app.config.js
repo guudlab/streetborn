@@ -10,6 +10,11 @@ module.exports = ({ config }) => ({
     // (ios-sideload.yml) lets Sideloadly rewrite it for a free Apple ID.
     bundleIdentifier: process.env.IOS_BUNDLE_ID ?? 'com.guudlab.streetborn',
   },
+  android: {
+    ...config.android,
+    // Kaan, 2026-10-31. The Play Store never lets an app change it after the first upload.
+    package: 'com.guudlab.streetborn',
+  },
   experiments: {
     ...config.experiments,
     baseUrl:
