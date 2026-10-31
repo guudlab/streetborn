@@ -39,7 +39,7 @@ Deno.serve(handle(async (req) => {
   if (!ENGINE_VERSIONS.includes(match.engine_version)) throw new HttpError(409, 'old_ticket');
 
   // Each match replays with the engine it was issued with.
-  const extra = match.setup_extra as { pace?: number; role?: Role } | null;
+  const setupExtra = match.setup_extra as { pace?: number; role?: Role } | null;
   const setup: MatchSetup = {
     ...(match.engine_version === 2 ? {} : { engineVersion: match.engine_version as EngineVersion }),
     seed: Number(match.seed),
@@ -48,7 +48,7 @@ Deno.serve(handle(async (req) => {
     passing: match.passing,
     opponentGoalkeeping: match.opponent_goalkeeping,
     opponentAttack: match.opponent_attack,
-    ...(match.engine_version === 4 ? { pace: extra?.pace, role: extra?.role } : {}),
+    ...(match.engine_version === 4 ? { pace: setupExtra?.pace, role: setupExtra?.role } : {}),
   };
   let sim;
   try {
