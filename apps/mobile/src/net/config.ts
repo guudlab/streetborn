@@ -21,3 +21,10 @@ export const INVITE_BASE = process.env.EXPO_PUBLIC_INVITE_BASE ?? 'https://stree
  */
 export const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
 export const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '';
+/**
+ * RevenueCat Test Store key (test_…): simulated purchases on every platform, the web
+ * included, without store accounts. When set it wins over the store keys. The server
+ * pays Test Store purchases only while REVENUECAT_ALLOW_TEST_STORE is on, so remove
+ * the key (and the flag) before a store release.
+ */
+export const REVENUECAT_TEST_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_KEY ?? 'test_iekILSwbavmgrzKnTJvZfjaYOQE';

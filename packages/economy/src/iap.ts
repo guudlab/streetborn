@@ -20,6 +20,11 @@ export function gemPackForProduct(packs: readonly GemPack[], productId: unknown)
   return typeof productId === 'string' ? packs.find((p) => p.id === productId) ?? null : null;
 }
 
+/** RevenueCat's simulated store (webhook: TEST_STORE, REST: test_store). Free purchases. */
+export function isTestStore(store: string): boolean {
+  return store.toUpperCase() === 'TEST_STORE';
+}
+
 /** Constant time for equal lengths; the length itself is not secret. */
 export function sameSecret(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

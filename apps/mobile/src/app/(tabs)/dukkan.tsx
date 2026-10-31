@@ -17,9 +17,10 @@ import { iapAvailable } from '../../net/iap';
 import { t, type Key } from '../../i18n/index.ts';
 
 // Gem packs are App Store / Google Play products sold through RevenueCat: the store
-// charges, the server pays the gems (iap function and RevenueCat's webhook). On the
-// web, offline, or before the RevenueCat keys are set, they show the prototype flow,
-// like the season pass (not sold yet). Online, gem items are bought on the server
+// charges, the server pays the gems (iap function and RevenueCat's webhook). With the
+// RevenueCat Test Store key they are simulated purchases, on the web too. Offline,
+// or before a RevenueCat key is set, they show the prototype flow, like the season
+// pass (not sold yet). Online, gem items are bought on the server
 // at the catalog price; offline they show the same prototype flow.
 
 const JERSEY = 'forma_sonbahar';

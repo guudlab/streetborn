@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CONFIG, gemPackForProduct, parseRevenueCatEvent, revenueCatPurchases, sameSecret } from './index.ts';
+import { DEFAULT_CONFIG, gemPackForProduct, isTestStore, parseRevenueCatEvent, revenueCatPurchases, sameSecret } from './index.ts';
 
 const PLAYER = '0b6f2a52-6a55-4c1c-9a59-5bb3a1c0e7d1';
 
@@ -8,6 +8,12 @@ describe('store purchases', () => {
     expect(gemPackForProduct(DEFAULT_CONFIG.shop.gemPacks, 'gem_450')?.gem).toBe(450);
     expect(gemPackForProduct(DEFAULT_CONFIG.shop.gemPacks, 'sezon_kart')).toBeNull();
     expect(gemPackForProduct(DEFAULT_CONFIG.shop.gemPacks, undefined)).toBeNull();
+  });
+
+  it('spots the Test Store in both spellings', () => {
+    expect(isTestStore('TEST_STORE')).toBe(true);
+    expect(isTestStore('test_store')).toBe(true);
+    expect(isTestStore('APP_STORE')).toBe(false);
   });
 
   it('compares secrets', () => {

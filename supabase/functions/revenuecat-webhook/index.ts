@@ -5,8 +5,9 @@
 // errors, so a database error answers 500 and the store transaction id keeps the
 // retry (and the app's own sync call) from paying twice.
 //
-// Environment: REVENUECAT_WEBHOOK_AUTH (the exact Authorization header value).
-import { gemPackForProduct, parseRevenueCatEvent, sameSecret } from '../../../packages/economy/src/index.ts';
+// Environment: REVENUECAT_WEBHOOK_AUTH (the exact Authorization header value);
+// REVENUECAT_ALLOW_TEST_STORE=1 pays Test Store (simulated, free) purchases too, for testing only.
+import { gemPackForProduct, isTestStore, parseRevenueCatEvent, sameSecret } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
 import { admin, loadEconomyConfig } from '../_shared/supabase.ts';
 
@@ -24,7 +25,10 @@ Deno.serve(handle(async (req) => {
   let outcome = 'ignored';
   const p = event.purchase;
   const pack = p ? gemPackForProduct((await loadEconomyConfig()).shop.gemPacks, p.productId) : null;
-  if (p && pack && PURCHASE.has(event.type) && event.playerId) {
+  const allowTest = Deno.env.get('REVENUECAT_ALLOW_TEST_STORE') === '1';
+  if (p && isTestStore(p.store) && !allowTest) {
+    outcome = 'test_store_off';
+  } else if (p && pack && PURCHASE.has(event.type) && event.playerId) {
     const { data, error } = await admin.rpc('grant_gem_purchase', {
       p_player: event.playerId, p_store: p.store, p_tx: p.transactionId, p_product: p.productId, p_gem: pack.gem, p_sandbox: p.sandbox,
     });
