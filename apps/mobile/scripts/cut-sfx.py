@@ -1,6 +1,8 @@
 """Cuts the recorded sound effects (ElevenLabs, 2026-10-29) into the app's m4a files.
 
-    python3 scripts/cut-sfx.py <folder with the .mp3 files>    # ffmpeg must be on PATH
+    python3 scripts/cut-sfx.py <folder with the .mp3 files> [name ...]    # ffmpeg must be on PATH
+
+Names limit the run to those sounds.
 
 Each source is trimmed to the one hit or phrase the game needs, faded out, made mono
 and peak-normalised to -3 dBFS, with its mean level capped at -16 dB so a long bed does
@@ -40,6 +42,10 @@ CUTS = {
     'energy_charge': (0.0, 1.3, 0.4),
     'coin_count': (0.54, 1.36, 0.35),
     'gem_sparkle': (0.0, 1.3, 0.5),
+    # Sign-in pack opening (2026-10-31): the tear builds to its snap at about 0.75 s.
+    'pack_tear': (2.05, 0.9, 0.12),
+    'pack_burst': (0.0, 1.8, 0.6),
+    'pack_land': (0.27, 1.0, 0.4),
 }
 
 PEAK_DB = -3.0
@@ -56,6 +62,8 @@ def levels(src: str, chain: str) -> tuple[float, float]:
 
 
 for name, (start, length, fade) in CUTS.items():
+    if sys.argv[2:] and name not in sys.argv[2:]:
+        continue
     src = os.path.join(sys.argv[1], f'{name}.mp3')
     chain = (f'atrim={start}:{start + length},asetpts=PTS-STARTPTS,aformat=sample_fmts=flt:channel_layouts=mono,'
              f'afade=t=in:d=0.005,afade=t=out:st={length - fade}:d={fade}')

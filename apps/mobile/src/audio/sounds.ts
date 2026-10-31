@@ -45,6 +45,9 @@ export const SFX = {
   energy_charge: { src: require('../../assets/audio/energy_charge.m4a'), gain: 0.7 },
   coin_count: { src: require('../../assets/audio/coin_count.m4a'), gain: 0.65 },
   gem_sparkle: { src: require('../../assets/audio/gem_sparkle.m4a'), gain: 0.7 },
+  pack_tear: { src: require('../../assets/audio/pack_tear.m4a'), gain: 0.8 },
+  pack_burst: { src: require('../../assets/audio/pack_burst.m4a'), gain: 0.7 },
+  pack_land: { src: require('../../assets/audio/pack_land.m4a'), gain: 0.75 },
 } as const;
 
 /** Looping beds. Only one music track and one ambience play at a time. */

@@ -228,8 +228,8 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   // Kept in a ref so a new callback from the screen never restarts the opening.
   const done = useRef(onDone);
   done.current = onDone;
-  const cueOff = () => { buzz('medium'); sfx('lane_whoosh'); };
-  const cueLand = () => { buzz('success'); sfx('card_pop'); setBurst(true); };
+  const cueOff = () => { buzz('medium'); sfx('pack_burst'); };
+  const cueLand = () => { buzz('success'); sfx('pack_land'); setBurst(true); };
   const cueDone = () => done.current();
   const wobble = useSharedValue(0);
   const press = useSharedValue(0);
@@ -251,19 +251,14 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     if (reduced) {
       tear.value = 1; fly.value = 1; rise.value = 1; settle.value = 1;
       buzz('success');
-      sfx('badge_shine');
+      sfx('pack_land');
       done.current();
       return;
     }
     wobble.value = withTiming(0.5, { duration: 120 });
     press.value = withSequence(withTiming(1, { duration: AT.tear, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 300 }));
-    // A real pull: a quick start, a short catch where the seal holds, then it gives all the way.
-    tear.value = withDelay(AT.tear, withSequence(
-      withTiming(0.25, { duration: 200, easing: Easing.out(Easing.quad) }),
-      withTiming(0.32, { duration: 120, easing: Easing.inOut(Easing.quad) }),
-      withTiming(0.72, { duration: 220, easing: Easing.inOut(Easing.quad) }),
-      withTiming(1, { duration: AT.off - AT.tear - 540, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
-    ));
+    // One continuous pull: easing to a stop between segments read as the peel freezing.
+    tear.value = withDelay(AT.tear, withTiming(1, { duration: AT.off - AT.tear, easing: Easing.bezier(0.4, 0.1, 0.6, 1) }, (fin) => { if (fin) runOnJS(cueOff)(); }));
     fly.value = withDelay(AT.off, withTiming(1, { duration: 360, easing: Easing.in(Easing.quad) }));
     // A soft white glow wells up from inside the pack once the seal is off, and stays while the card rises.
     bloom.value = withDelay(AT.off - 40, withSequence(withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) }), withTiming(0.7, { duration: 700 })));
@@ -274,13 +269,10 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
       withTiming(0, { duration: 800 }),
     ));
 
-    // Haptic ticks follow the pull; the big moments are cued by the animations themselves (below).
+    // The tear sound snaps as the seal comes free; the burst and the landing are cued by the animations themselves.
     const cues: [number, () => void][] = [
-      [AT.tear, () => { buzz('light'); sfx('sling_pull', 0.7); }],
-      [AT.tear + 200, () => buzz('light')],
-      [AT.tear + 320, () => buzz('light')],
-      [AT.tear + 540, () => buzz('light')],
-      [AT.rise, () => sfx('badge_shine')],
+      [AT.tear, () => { buzz('light'); sfx('pack_tear'); }],
+      [AT.tear + 370, () => buzz('light')],
     ];
     const ids = cues.map(([ms, fn]) => setTimeout(fn, ms));
     return () => ids.forEach(clearTimeout);
