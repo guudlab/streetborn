@@ -21,8 +21,9 @@ Deno.serve(handle(async (req) => {
   const kind = ['mahalle', 'league', 'trial'].includes(body.kind as string) ? body.kind as 'mahalle' | 'league' | 'trial' : 'energy';
   const mahalleMatch = kind === 'mahalle';
   const fixture = kind !== 'energy';
-  // Builds from before the live match do not send `engine` and keep playing engine 3.
-  const engineVersion: EngineVersion = body.engine === ENGINE_VERSION ? ENGINE_VERSION : 3;
+  // Builds from before the live match do not send `engine` and keep playing engine 3;
+  // builds on the first live match (engine 4) keep it until they update.
+  const engineVersion: EngineVersion = body.engine === ENGINE_VERSION ? ENGINE_VERSION : body.engine === 4 ? 4 : 3;
   const config = await loadEconomyConfig();
   const now = Date.now();
 
@@ -108,7 +109,7 @@ Deno.serve(handle(async (req) => {
     const tier = config.career.tiers[offer.tier]!;
     opponent = { name: offer.club_name, goalkeeping: tier.oppGoalkeeping, attack: tier.oppAttack };
   }
-  // Engine 4 also reads the pace and the position (character creation; bitirici when unset).
+  // Engines 4 and 5 also read the pace and the position (character creation; bitirici when unset).
   const position = (player.character as { position?: string } | null)?.position;
   const role: Role = ROLES.includes(position as Role) ? position as Role : 'bitirici';
   const setup: MatchSetup = {
@@ -119,7 +120,7 @@ Deno.serve(handle(async (req) => {
     passing: stats.passing,
     opponentGoalkeeping: opponent.goalkeeping,
     opponentAttack: opponent.attack,
-    ...(engineVersion === 4 ? { pace: stats.pace, role } : {}),
+    ...(engineVersion >= 4 ? { pace: stats.pace, role } : {}),
   };
   planMatch(setup); // throws on a bad setup before energy is spent
   const expiresAt = now + config.ticketTtlSeconds * 1000;
@@ -150,7 +151,7 @@ Deno.serve(handle(async (req) => {
   if (error?.message === 'no_contract') throw new HttpError(403, 'no_contract');
   if (error?.message === 'not_found') throw new HttpError(404, 'not_found');
   if (error) throw error;
-  if (engineVersion === 4) {
+  if (engineVersion >= 4) {
     // Stored next to the ticket; if this fails the client never gets the ticket, as with any lost reply.
     const { error: extraError } = await admin.from('matches').update({ setup_extra: { pace: setup.pace, role: setup.role } }).eq('id', matchId);
     if (extraError) throw extraError;

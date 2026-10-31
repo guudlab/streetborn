@@ -36,6 +36,7 @@ export {
   type Role,
   type Tactic,
   type MatchEvent,
+  type Spot,
   type EngineVersion,
   type MatchSetup,
   type MatchPlan,

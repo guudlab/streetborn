@@ -5,12 +5,18 @@ import type { PassOutcome, ShotInput, ShotOutcome } from './shot.ts';
  * 3: skill engine (GDD v3.1 "motor v2"): power timing, pass timing and defense moments.
  * 4: live match: 90 simulated minutes with commentary; the player plays the key moments,
  *    and what he does there changes the rest of the match.
+ * 5: attack chain: every five minutes one team attacks in two or three steps the
+ *    commentary and the radar follow; set pieces come from fouls, the player's moments
+ *    are the last step of an attack, and the opponent's strength sets who has the ball.
  */
-export type EngineVersion = 2 | 3 | 4;
+export type EngineVersion = 2 | 3 | 4 | 5;
 
 /** The player's position (character creation); engine 4 picks the mix of moments from it. */
 export type Role = 'bitirici' | 'oyunKurucu' | 'kanat';
 export const ROLES: readonly Role[] = ['bitirici', 'oyunKurucu', 'kanat'];
+
+/** Engine 5: a lane of the pitch, seen from the attacking team. */
+export type Spot = 'left' | 'center' | 'right';
 
 /** Engine 4: the half-time call. No call plays the second half balanced. */
 export type Tactic = 'push' | 'hold';
@@ -49,17 +55,36 @@ export interface Moment {
   best?: 'shot' | 'pass';
   /** Defense moments only (engine 3): where the forward goes; his shoulder drops to this side first. */
   attackSide?: Side;
+  /** Engine 5: where the shot or the free kick is taken from. */
+  spot?: Spot;
+  /** Engine 5: the teammate who set the moment up (0..3), for the commentary and the scene. */
+  mate?: number;
+  /** Engine 5, pass and decision moments: the teammates on the left and on the right (0..3). */
+  mates?: [number, number];
 }
 
-/** Something that happens without the player (engine 4), for the commentary. */
+/**
+ * Something that happens without the player (engine 4), for the commentary.
+ * Engine 5 also tells how each attack gets there: `win` (the ball is won), `counter`,
+ * `attack` (into the final third), `foul` (a free kick), `penalty` (a foul in the box),
+ * `run` and `space` (what a decision moment calls for) and `lost` (the attack dies).
+ */
 export interface MatchEvent {
   minute: number;
   team: 'us' | 'them';
-  kind: 'goal' | 'save' | 'miss' | 'post' | 'corner' | 'card' | 'offside';
+  kind: 'goal' | 'save' | 'miss' | 'post' | 'corner' | 'card' | 'offside'
+    | 'win' | 'counter' | 'attack' | 'foul' | 'penalty' | 'run' | 'space' | 'lost';
   /** Which teammate (or opponent) it was, 0..3. */
   who: number;
   /** Which line of commentary tells it, 0..3. */
   v: number;
+  /** Engine 5: where the ball is, 0..100 on both axes; we attack toward x = 100, y = 0 is the top touchline. */
+  x?: number;
+  y?: number;
+  /** Engine 5: the shot came from a set piece. */
+  set?: 'freekick' | 'penalty';
+  /** Engine 5: this step hands the ball to the player; his moment follows. */
+  me?: boolean;
 }
 
 /**
@@ -74,6 +99,8 @@ export interface MatchPlan {
   mateGoals?: number[];
   /** Engine 4: everything that happens off the player's moments, by minute. */
   events?: MatchEvent[];
+  /** Engine 5: who is pressing at the start of each five-minute slice, −2..2 (positive: us). */
+  momentum?: number[];
 }
 
 /**

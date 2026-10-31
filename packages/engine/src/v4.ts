@@ -35,19 +35,19 @@ const SLICE_STREAM = 2_000_100;
 /** Defense moments: one, and a second one this often (percent). */
 const SECOND_DEFENSE = 75;
 /** One extra attacking moment for fast players: chance = pace − 30, 10..60 percent. */
-const PACE_EXTRA_MIN = 10;
-const PACE_EXTRA_MAX = 60;
+export const PACE_EXTRA_MIN = 10;
+export const PACE_EXTRA_MAX = 60;
 /** Goals from slices without the player: base percent per attack, plus team vs keeper / their attack. */
 const MATE_BASE = 12;
 const THEIR_BASE = 20;
 
 /** Attacking moment mix per position: shot, pass, decision, free kick, penalty (weights). */
-const MIX: Record<Role, readonly [number, number, number, number, number]> = {
+export const MIX: Record<Role, readonly [number, number, number, number, number]> = {
   bitirici: [42, 15, 22, 15, 6],
   oyunKurucu: [15, 35, 30, 15, 5],
   kanat: [25, 25, 35, 10, 5],
 };
-const MIX_KINDS: readonly MomentKind[] = ['shot', 'pass', 'decision', 'freekick', 'penalty'];
+export const MIX_KINDS: readonly MomentKind[] = ['shot', 'pass', 'decision', 'freekick', 'penalty'];
 
 /** Penalties: the keeper is this much worse than in open play. */
 const PENALTY_KEEPER_MALUS = 10;
@@ -60,7 +60,7 @@ const ATTACK_BASE = 24;
 const MOMENTUM_STEP = 5;
 const MOMENTUM_MAX = 2;
 const COUNTER_BONUS = 25;
-const TACTIC: Record<Tactic, { us: number; them: number; mate: number; their: number }> = {
+export const TACTIC: Record<Tactic, { us: number; them: number; mate: number; their: number }> = {
   push: { us: 10, them: 6, mate: 3, their: 0 },
   hold: { us: -8, them: -10, mate: 0, their: -4 },
 };

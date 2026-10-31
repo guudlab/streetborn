@@ -6,8 +6,8 @@ import { DEFAULT_CONFIG } from './config.ts';
 import { computeRating } from './rating.ts';
 import { matchReward } from './rewards.ts';
 
-// The live match (engine 4) must pay about what engine 3 paid: same coin formula, and
-// win rates and coin per match close to engine 3 for the same player and the same hands.
+// The live match (engines 4 and 5) must pay about what engine 3 paid: same coin formula, and
+// win rates and coin per match close to the engine before for the same player and the same hands.
 
 interface Hands { aim(r: Rng): [number, number]; timing(r: Rng): number; read: number }
 const ORTA: Hands = { aim: (r) => [(r.int(2) ? 1 : -1) * r.range(450, 900), r.range(100, 850)], timing: (r) => TIMING_TARGET + r.range(-200, 200), read: 75 };
@@ -25,13 +25,13 @@ function input(m: Moment, chance: number, h: Hands, r: Rng): ChanceInput | null 
   return { chance, shot: { aim, lift, power: h.timing(r) } };
 }
 
-function average(engineVersion: 3 | 4) {
+function average(engineVersion: 3 | 4 | 5) {
   let coin = 0, wins = 0;
   const n = 1500;
   for (let seed = 1; seed <= n; seed++) {
     const s: MatchSetup = {
       engineVersion, seed, chances: DEFAULT_CONFIG.matchChances, shooting: 55, passing: 55, opponentGoalkeeping: 51, opponentAttack: 46,
-      ...(engineVersion === 4 ? { pace: 50, role: (['bitirici', 'oyunKurucu', 'kanat'] as const)[seed % 3] } : {}),
+      ...(engineVersion >= 4 ? { pace: 50, role: (['bitirici', 'oyunKurucu', 'kanat'] as const)[seed % 3] } : {}),
     };
     const r = createRng(seed * 7 + 3);
     const inputs: ChanceInput[] = [];
@@ -53,6 +53,12 @@ describe('live match economy', () => {
     const v3 = average(3), v4 = average(4);
     expect(Math.abs(v4.coin - v3.coin) / v3.coin).toBeLessThan(0.08);
     expect(Math.abs(v4.wins - v3.wins)).toBeLessThan(10);
+  });
+
+  it('pays with the attack chain (engine 5) what engine 4 paid', () => {
+    const v4 = average(4), v5 = average(5);
+    expect(Math.abs(v5.coin - v4.coin) / v4.coin).toBeLessThan(0.05);
+    expect(Math.abs(v5.wins - v4.wins)).toBeLessThan(8);
   });
 
   it('rates the right call in a decision moment', () => {
