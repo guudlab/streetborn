@@ -40,9 +40,20 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
   const [rect, setRect] = useState<Rect | null>(null);
   useEffect(() => {
     if (!spot) { setRect(null); return; }
-    // Wait for the tab bar's own layout animation to settle before measuring it.
-    const id = setTimeout(() => trainTab.current?.measureInWindow((x, y, w, h) => { if (w > 0) setRect({ x, y, w, h }); }), 700);
-    return () => clearTimeout(id);
+    // The pill resizes with a spring (and the screen underneath is still transitioning), and on iOS
+    // measureInWindow can report the frame from before that settles, which left the spotlight beside
+    // the tab. Poll until two reads in a row agree, then show it.
+    let last = '';
+    let tries = 0;
+    const id = setInterval(() => {
+      trainTab.current?.measureInWindow((x, y, w, h) => {
+        if (w <= 0) return;
+        const key = [x, y, w, h].map(Math.round).join(',');
+        if (key === last || ++tries > 20) { clearInterval(id); setRect({ x, y, w, h }); }
+        last = key;
+      });
+    }, 200);
+    return () => clearInterval(id);
   }, [spot]);
   const trainRoute = state.routes.find(r => r.name === 'gelisim');
   return (
