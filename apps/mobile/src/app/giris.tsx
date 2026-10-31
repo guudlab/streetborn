@@ -5,21 +5,20 @@ import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, u
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 
-import { setMusic, sfx } from '../audio/audio.ts';
+import { setMusic } from '../audio/audio.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { openSignInSheet } from '../ui/account.tsx';
 import { buzz, Cta, T } from '../ui/kit.tsx';
 import { toast } from '../ui/overlay.tsx';
 import { preloadModels } from '../ui/Model3D.tsx';
-import { Pack, BadgeCard, Rays, PACK_H, TEAR_MS, type PackStage } from '../ui/paket.tsx';
+import { PackOpening, Rays, PACK_H, type PackStage } from '../ui/paket.tsx';
 import { t } from '../i18n/index.ts';
 
 // First screen for a new player (design G "İlk rozet paketi"): a glowing sealed pack waits,
-// tapping the pack cuts its top strip off and the card with the first badge flips in.
+// tapping the pack tears its top strip off and the card with the first badge rises out of it.
 // "Devam" then starts an anonymous career, and the mahalle and character steps follow;
 // "Hesabım var" signs in to an account linked before (Apple, Google or an email code).
-// The pack and badge are vector placeholders until the Meshy models replace them.
 
 const BURAK_3D = require('../../assets/models/burak.glb');
 const LOGO = require('../../assets/brand/logo.png');
@@ -40,10 +39,8 @@ export default function Giris() {
   function open() {
     if (stage !== 'idle') return;
     buzz('medium');
-    sfx('whistle_start');
+    // PackOpening plays the tear, the light and the card, then calls back for "Devam".
     setStage('tear');
-    // The top strip is cut off and slides away, the pack drops, then the card shows.
-    setTimeout(() => { buzz('success'); setStage('reveal'); }, TEAR_MS);
   }
 
   async function start() {
@@ -58,15 +55,23 @@ export default function Giris() {
   }
 
   const revealed = stage === 'reveal';
+  // The headline steps aside while the card rises past it, then names the badge.
+  const head = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (stage === 'idle') return;
+    Animated.timing(head, { toValue: stage === 'tear' ? 0 : 1, duration: stage === 'tear' ? 200 : 350, easing: ease, useNativeDriver: native }).start();
+  }, [stage, head]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, overflow: 'hidden' }}>
       <Animated.View pointerEvents="none" style={{ alignItems: 'center', marginTop: insets.top + 28, opacity: intro.logo }}>
         <Image source={LOGO} style={{ width: 168, height: 31, alignSelf: 'flex-start', marginLeft: 20 }} contentFit="contain" accessibilityLabel="StreetBorn" />
+        <Animated.View style={{ opacity: head }}>
         <T w={700} size={26} style={{ letterSpacing: -0.4, marginTop: 28, height: 32 }}>
           {revealed ? <>{t('login.badgeA')}<T w={700} size={26} color={colors.l600}>{t('login.badgeB')}</T></>
             : <>{t('login.packA')}<T w={700} size={26} color={colors.l600}>{t('login.packB')}</T></>}
         </T>
+        </Animated.View>
       </Animated.View>
 
       <Pressable
@@ -77,7 +82,7 @@ export default function Giris() {
         <View pointerEvents="none" style={{ position: 'absolute' }}><Rays /></View>
         <Glow />
         <Animated.View pointerEvents="none" style={{ opacity: intro.hero, transform: [{ translateY: intro.heroY }, { scale: fit }], alignItems: 'center', justifyContent: 'center', height: PACK_H + 40 }}>
-          {revealed ? <BadgeCard /> : <Pack stage={stage} />}
+          <PackOpening stage={stage} onDone={() => setStage('reveal')} />
         </Animated.View>
         <Floor />
       </Pressable>
