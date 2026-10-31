@@ -30,9 +30,12 @@ const KICK_PLANT = 0.3, KICK_STEP = 0.8;   // the clip's plant foot lands at 0.3
 const SLIDE_CONTACT = 0.45;  // the slide foot reaches the ball here (clip seconds)
 const DEF_Z = -6.5, ATT_START = 10;   // defender spot, attacker start distance
 const PASS_PERIOD = 1.6;     // seconds for the pass ring 0 → 1 → 0
-// where the shots are taken from, in turn (x, z); free kicks are further out, past a wall
+// where the shots are taken from (x, z), in turn unless the engine names the lane; free kicks
+// are further out, past a wall. Looking at the goal, screen left is +x.
 const SHOT_SPOTS = [[0, 0], [-3.1, -1.2], [2.7, -0.8]];
 const FREEKICK_SPOTS = [[-2.2, -10.5], [2.4, -11]];
+const SHOT_LANE = { center: [0, 0], right: [-3.1, -1.2], left: [2.7, -0.8] };
+const FREEKICK_LANE = { center: [0.3, -11.2], right: [-2.2, -10.5], left: [2.4, -11] };
 const PENALTY_SPOT = [0, 0.5];   // straight on, nobody but the keeper
 const WALL_GAP = 5.5, WALL_H = 2.05;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -552,8 +555,9 @@ export function createMatch(env) {
   function setupShot(m, first) {
     setPhase('intro');
     const freekick = m.kind === 'freekick';
-    const spot = freekick ? FREEKICK_SPOTS[S.freekicks++ % FREEKICK_SPOTS.length]
-      : m.kind === 'penalty' ? PENALTY_SPOT : SHOT_SPOTS[S.shots++ % SHOT_SPOTS.length];
+    const spot = m.kind === 'penalty' ? PENALTY_SPOT
+      : freekick ? (m.spot ? FREEKICK_LANE[m.spot] : FREEKICK_SPOTS[S.freekicks++ % FREEKICK_SPOTS.length])
+      : m.spot ? SHOT_LANE[m.spot] : SHOT_SPOTS[S.shots++ % SHOT_SPOTS.length];
     const B0 = shot.B0.set(spot[0], BALL_R, spot[1]);
     shot.dir.set(-B0.x * 0.95, 0, GOAL_Z - B0.z).normalize();          // toward the goal, a touch inside the far post
     shot.right.set(-shot.dir.z, 0, shot.dir.x);                            // screen right when looking at the goal

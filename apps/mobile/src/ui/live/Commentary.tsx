@@ -1,6 +1,6 @@
 import type { MatchEvent, Moment } from '@streetborn/engine';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, Easing, Pressable, View } from 'react-native';
 
 import { sfx } from '../../audio/audio.ts';
 import { burakLine, eventLine, eventsBetween } from '../../game/live.ts';
@@ -40,6 +40,9 @@ const EVENT_ICON: Record<MatchEvent['kind'], FeedLine['icon']> = {
 /** Steps of an attack, not finishes: they move the ball but not the momentum bar of engine 4. */
 const STEP: ReadonlySet<MatchEvent['kind']> = new Set(['card', 'offside', 'win', 'counter', 'attack', 'foul', 'penalty', 'run', 'space', 'lost']);
 const CENTER = { x: 0.5, y: 0.5 };
+const RADAR_H = 168;
+/** How far the radar closes in on the ball before the player's moment. */
+const ZOOM = 2.6;
 
 export interface CommentaryProps {
   match: LiveMatch;
@@ -60,6 +63,9 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
   const reduce = useReduceMotion();
   const [speed, setSpeed] = useState<1 | 3>(speedPref);
   const [arrived, setArrived] = useState(false);
+  /** On arrival the radar closes in on the ball, where the 3D scene opens. */
+  const zoom = useRef(new Animated.Value(0)).current;
+  const [radarW, setRadarW] = useState(0);
   const speedRef = useRef(speed);
   const skip = useRef(false);
   const pausedRef = useRef(paused);
@@ -128,6 +134,9 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
       if (cancelled) return;
       if (next) handlers.current.onClock(next.minute);
       setArrived(true);
+      if (next && next.kind !== 'halftime' && !reduce) {
+        Animated.timing(zoom, { toValue: 1, duration: 750, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start();
+      }
       if (next) {
         sfx('whistle_start', 0.5);
         buzz('medium');
@@ -152,7 +161,20 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
 
   return (
     <View style={{ flex: 1, gap: 14 }}>
-      <Radar ball={ball} owner={owner} reduce={reduce} duration={MINUTE_MS / speed} />
+      <View onLayout={e => setRadarW(e.nativeEvent.layout.width)} style={{ height: RADAR_H, borderRadius: 18, overflow: 'hidden' }}>
+        <Animated.View
+          style={{
+            opacity: zoom.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0.15] }),
+            transform: [
+              { translateX: zoom.interpolate({ inputRange: [0, 1], outputRange: [0, (0.5 - ball.x) * radarW * ZOOM] }) },
+              { translateY: zoom.interpolate({ inputRange: [0, 1], outputRange: [0, (0.5 - ball.y) * RADAR_H * ZOOM] }) },
+              { scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, ZOOM] }) },
+            ],
+          }}
+        >
+          <Radar ball={ball} owner={owner} reduce={reduce} duration={MINUTE_MS / speed} height={RADAR_H} />
+        </Animated.View>
+      </View>
       <Momentum value={momentum} />
       <View accessibilityLiveRegion="polite" style={{ flex: 1, gap: 10, overflow: 'hidden' }}>
         {recent.map((l, i) => <Line key={l.id} line={l} old={i < recent.length - 1} />)}

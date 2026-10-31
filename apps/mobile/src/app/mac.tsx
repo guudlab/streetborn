@@ -1,4 +1,4 @@
-import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type MomentKind, type Side, type Tactic } from '@streetborn/engine';
+import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type Moment, type MomentKind, type Side, type Tactic } from '@streetborn/engine';
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -10,8 +10,8 @@ import { duckMusic, preloadSfx, setAmbience, setMusic, sfx, type SfxId } from '.
 import { crestCode } from '../game/career.ts';
 import { delta } from '../game/format.ts';
 import { markHint, useHints } from '../game/hints.ts';
-import { myLine } from '../game/live.ts';
-import { clamp, MOMENT_TITLE } from '../game/rules.ts';
+import { myLine, sideMate } from '../game/live.ts';
+import { clamp, momentTitle } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
@@ -46,10 +46,9 @@ const IMPACT: Record<ShotAnim['out'], [SfxId, SfxId]> = {
 };
 const SPOT: Record<Side, { x: number; y: number }> = { left: { x: 92, y: 330 }, right: { x: 300, y: 300 } };
 
-/** Can runs left, Mert right; the plan decides who is open. The player has to see the marker. */
-const NAME: Record<Side, string> = { left: 'Can', right: 'Mert' };
-function matesFor(openSide: Side): Mate[] {
-  return (['left', 'right'] as const).map(side => ({ name: NAME[side], open: side === openSide, ...SPOT[side] }));
+/** One teammate runs left, one right, named as the commentary named them; the plan decides who is open. The player has to see the marker. */
+function matesFor(names: readonly string[], moment: Moment, openSide: Side): Mate[] {
+  return (['left', 'right'] as const).map(side => ({ name: sideMate(names, moment, side), open: side === openSide, ...SPOT[side] }));
 }
 const otherSide = (s: Side): Side => (s === 'left' ? 'right' : 'left');
 
@@ -195,7 +194,7 @@ function Match2D() {
     if (ok) { sfx('net'); sfx('crowd_cheer', 0.7); duckMusic(2000); } else sfx('crowd_groan');
     setCard({
       good: ok, title: ok ? t('match.assist') : t('match.lostBall'), icon: ok ? 'check' : 'x',
-      desc: ok ? t('match.assistDesc', { name: NAME[side], delta: delta(0.7) })
+      desc: ok ? t('match.assistDesc', { name: sideMate(match.names, moment, side), delta: delta(0.7) })
         : mate.open ? t('match.cutDesc', { delta: delta(-0.3) }) : t('match.markedDesc', { name: mate.name, delta: delta(-0.3) }),
     });
     setLine(ok ? t('match.coach.assistOk') : !mate.open ? t('match.coach.passMarked', { name: mate.name })
@@ -257,7 +256,7 @@ function Match2D() {
     if (mo.kind !== 'halftime') {
       const o = m.outcomes[m.i] ?? null;
       const good = !!o && (o.outcome === 'goal' || o.outcome === 'assist' || o.outcome === 'stopped');
-      addLine(feedLine(mo.minute, myLine(o, mo, NAME[mo.openSide ?? 'left']), good ? 'me' : 'info', good ? 'star' : 'x'));
+      addLine(feedLine(mo.minute, myLine(o, mo, sideMate(m.names, mo, mo.openSide ?? 'left')), good ? 'me' : 'info', good ? 'star' : 'x'));
     }
     const n = useGame.getState().advance();
     setCard(null);
@@ -318,7 +317,7 @@ function Match2D() {
             ref={scene}
             mode={busy || card || !shooting ? 'none' : 'aim'}
             wall={playKind === 'freekick'}
-            mates={playKind === 'pass' && moment.openSide && !card && !busy ? matesFor(moment.openSide) : undefined}
+            mates={playKind === 'pass' && moment.openSide && !card && !busy ? matesFor(m?.names ?? [], moment, moment.openSide) : undefined}
             onMate={pass}
             onTarget={setTarget}
           />
@@ -353,7 +352,7 @@ function Match2D() {
         {moment && playKind && finishing === 'no' && (
           <View accessible accessibilityLabel={t('match.moment', { i: (m?.i ?? 0) + 1, kind: KIND[moment.kind] })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ico name={MOMENT_ICON[moment.kind]} size={40} />
-            <H3>{MOMENT_TITLE[moment.kind]}</H3>
+            <H3>{momentTitle(moment)}</H3>
           </View>
         )}
         {finishing === 'no' ? (line ? <Bubble text={line} size={36} /> : null) : (
@@ -405,7 +404,7 @@ function Match2D() {
             <Halftime us={score.us} them={score.them} onPick={halftime} />
           ) : moment ? (
             <Decision
-              key={m.i} moment={moment} mate={NAME[moment.openSide ?? 'left']} first={!useHints.getState().seen.liveDecide}
+              key={m.i} moment={moment} mate={sideMate(m.names, moment, moment.openSide ?? 'left')} first={!useHints.getState().seen.liveDecide}
               onPick={k => { markHint('liveDecide'); setPickMode(null); play(k); }}
             />
           ) : null}

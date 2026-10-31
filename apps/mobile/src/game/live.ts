@@ -1,4 +1,4 @@
-import type { ChanceOutcome, MatchEvent, MatchPlan, Moment } from '@streetborn/engine';
+import type { ChanceOutcome, MatchEvent, MatchPlan, Moment, Side } from '@streetborn/engine';
 
 import { t, type Key } from '../i18n/index.ts';
 
@@ -30,10 +30,22 @@ const ME_VARIANTS: Partial<Record<MatchEvent['kind'], number>> = { win: 1, attac
 /** "Rakip kontradan attı" only fits after a counter. */
 const THEIR_COUNTER_GOAL = 1;
 
-/** The lane an engine 5 event happens in, seen from the attacking team (we attack toward x = 100, y = 0 is our left). */
+/**
+ * The lane an engine 5 event happens in, always seen from our side (we attack toward x = 100,
+ * y = 0 is our left), as the radar and the 3D cameras show it.
+ */
 export function laneOf(e: MatchEvent): 'left' | 'center' | 'right' {
-  const y = e.team === 'us' ? e.y ?? 50 : 100 - (e.y ?? 50);
+  const y = e.y ?? 50;
   return y < 35 ? 'left' : y > 65 ? 'right' : 'center';
+}
+
+/** Can on the left, Mert on the right, when the plan does not name the teammates (engine 4 and older). */
+const SIDE_MATE: Record<Side, string> = { left: DEFAULT_MATES[0], right: DEFAULT_MATES[1] };
+
+/** The teammate on one side in a pass or decision moment: the same name the commentary used. */
+export function sideMate(names: readonly string[], moment: Moment | undefined, side: Side): string {
+  const who = moment?.mates?.[side === 'left' ? 0 : 1];
+  return who === undefined ? SIDE_MATE[side] : names[who % names.length] ?? SIDE_MATE[side];
 }
 
 /** `opener` is the event that started this attack (engine 5), so a goal reads like the attack that led to it. */
@@ -54,14 +66,20 @@ export function burakLine(e: MatchEvent, names: readonly string[]): string | nul
   return e.team === 'us' ? t('live.burak.goal', { name: names[e.who % names.length] ?? DEFAULT_MATES[0] }) : t('live.burak.conceded');
 }
 
-/** The feed line after one of the player's own moments. */
-export function myLine(o: ChanceOutcome | null, moment: Moment, passTo: string): string {
+/**
+ * The feed line after one of the player's own moments. `shown` is what the 3D scene showed for
+ * a shot (it plays some wide shots off the post), so the line says what the player just saw.
+ */
+export function myLine(o: ChanceOutcome | null, moment: Moment, passTo: string, shown?: 'goal' | 'save' | 'post' | 'miss'): string {
   if (!o) return moment.kind === 'defense' ? t('live.me.conceded') : t('live.me.skipped');
   switch (o.kind) {
     case 'halftime': return t('live.secondHalf');
     case 'pass': return o.outcome === 'assist' ? t('live.me.assist', { name: passTo }) : t('live.me.lost');
     case 'defense': return t(`live.me.${o.outcome}`);
-    default: return o.outcome === 'goal' ? t('live.me.goal') : t('live.me.shotMiss');
+    default:
+      if (o.outcome === 'goal') return t('live.me.goal');
+      if (shown === 'post') return t('live.me.post');
+      return t(`live.me.${o.outcome}`);
   }
 }
 

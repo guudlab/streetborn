@@ -23,6 +23,8 @@ export interface SceneMoment {
   kind: 'shot' | 'freekick' | 'pass' | 'defense' | 'penalty';
   attackSide?: 'left' | 'right';
   openSide?: 'left' | 'right';
+  /** Shots and free kicks (engine 5): the lane the commentary named; otherwise the spots take turns. */
+  spot?: 'left' | 'center' | 'right';
   /** Defense only: what happens if the player never slides. */
   skip?: 'stopped' | 'conceded' | 'survived';
 }
