@@ -8,6 +8,8 @@ import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { setAmbience, setMusic, sfx } from '../../audio/audio.ts';
 import { colors, motion } from '../../theme.ts';
 import { Icon, type IconName } from '../../ui/Icon.tsx';
+import { dailyDrill, istanbulDay } from '@streetborn/economy';
+import { SERVER_STAT } from '../../game/store.ts';
 import { markHint, useHint } from '../../game/hints.ts';
 import { useGame } from '../../game/store.ts';
 import { Spotlight, type Rect } from '../../ui/hint.tsx';
@@ -40,10 +42,27 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
   const [rect, setRect] = useState<Rect | null>(null);
   useEffect(() => {
     if (!spot) { setRect(null); return; }
-    // Wait for the tab bar's own layout animation to settle before measuring it.
-    const id = setTimeout(() => trainTab.current?.measureInWindow((x, y, w, h) => { if (w > 0) setRect({ x, y, w, h }); }), 700);
-    return () => clearTimeout(id);
+    // The pill resizes with a spring (and the screen underneath is still transitioning), and on iOS
+    // measureInWindow can report the frame from before that settles, which left the spotlight beside
+    // the tab. Poll until two reads in a row agree, then show it.
+    let last = '';
+    let tries = 0;
+    const id = setInterval(() => {
+      trainTab.current?.measureInWindow((x, y, w, h) => {
+        if (w <= 0) return;
+        const key = [x, y, w, h].map(Math.round).join(',');
+        if (key === last || ++tries > 20) { clearInterval(id); setRect({ x, y, w, h }); }
+        last = key;
+      });
+    }, 200);
+    return () => clearInterval(id);
   }, [spot]);
+  // A lime dot on Gelişim while today's drill of the day has not reached 3 stars.
+  const trainDot = useGame(s => {
+    const today = dailyDrill(istanbulDay(Date.now()));
+    const key = (['sut', 'pas', 'hiz', 'fizik'] as const).find(k => SERVER_STAT[k] === today);
+    return !!s.character && !s.tutorial && !!key && (s.drillStars[key] ?? 0) < 3;
+  });
   const trainRoute = state.routes.find(r => r.name === 'gelisim');
   return (
     <View
@@ -76,6 +95,9 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
                 }}
               >
                 <Icon name={tab.icon} size={22} color={on ? colors.ink : colors.g200} />
+                {route.name === 'gelisim' && trainDot && !on && (
+                  <View style={{ position: 'absolute', top: 9, right: 9, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.l600 }} />
+                )}
                 {on && (
                   <Animated.View entering={FadeIn.duration(motion.base)}>
                     <T w={600} size={14} color={colors.ink} numberOfLines={1}>{tab.label}</T>
@@ -104,6 +126,9 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(p) => <TabBar {...p} />}
+      // Detaching inactive screens is driven by an interpolated Animated value that can stay stuck on
+      // native: the tab you switched to then shows only black until you leave and come back.
+      detachInactiveScreens={false}
       // 'shift' slides the screens in the direction of the tab that was tapped (a fade with Reduce Motion).
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.ink },
         animation: still ? 'fade' : 'shift', transitionSpec: { animation: 'timing', config: { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) } },

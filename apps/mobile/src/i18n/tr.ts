@@ -393,6 +393,8 @@ export const tr = {
   'shop.price.gem2': '199,99 TL',
   'shop.price.gem3': '399,99 TL',
   'shop.jersey': 'Sezon forması',
+  'shop.best': 'En iyi',
+  'shop.cosmetic': 'Kozmetik',
   'shop.jerseyTag': 'Kozmetik',
   'shop.jerseySub': 'Kozmetik · maçta avantaj vermez',
   'shop.releasable': 'Serbest bırakılabilir · zincir katmanı açılınca',

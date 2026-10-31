@@ -83,15 +83,10 @@ export function FormStrip() {
       style={{ minHeight: 56, paddingVertical: 6, paddingRight: 8, gap: 10, borderRadius: 18 }}
     >
       <FormMark level={c.form.level} size={34} />
-      <View style={{ minWidth: 64 }}>
-        <Caps style={{ fontSize: 10 }}>{t('form.formLabel')}</Caps>
-        <T w={700} size={15} color={FORM_COLOR[c.form.level]} numberOfLines={1}>{label}</T>
-      </View>
-      <View style={{ width: 1, alignSelf: 'stretch', marginVertical: 6, backgroundColor: colors.line }} />
       <View style={{ flex: 1, gap: 5 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <Caps style={{ fontSize: 10 }}>{t('form.moraleLabel')}</Caps>
-          <T w={700} size={14} color={low ? colors.bad : colors.g100}>{c.morale}</T>
+          <T w={700} size={13} color={FORM_COLOR[c.form.level]} numberOfLines={1}>{label}</T>
+          <T w={700} size={13} color={low ? colors.bad : colors.g100}>{c.morale}</T>
         </View>
         <Track value={c.morale / 100} height={5} color={low ? colors.bad : colors.l600} />
       </View>

@@ -7,7 +7,7 @@ import { markHint, useHint, useHints, type HintId } from '../game/hints.ts';
 import { useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { T } from './kit.tsx';
-import { Bubble, Segments } from './sade.tsx';
+import { Bubble, Ico, Segments } from './sade.tsx';
 
 const HINT_MS = 9000;
 
@@ -74,6 +74,20 @@ export function useJobs() {
   ];
   const next = jobs.find(j => !j.done);
   return { jobs, next, done: jobs.filter(j => j.done).length, online, show: !tutorial && level <= 3 && (!online || mahalleReady) };
+}
+
+/** Under Burak abi's bubble: one pip per first job and the coin reward, with the next task as the accessibility label. */
+export function JobsPips() {
+  const loaded = useHints(s => s.loaded);
+  const { jobs, next, done, online, show } = useJobs();
+  if (!loaded || !show || !next) return null;
+  return (
+    <View accessible accessibilityLabel={`${t('jobs.title')} ${done}/${jobs.length}. ${t('jobs.next', { task: t(next.key) })}`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 46, marginTop: 6 }}>
+      {jobs.map((j, i) => <View key={i} style={{ width: 16, height: 5, borderRadius: 3, backgroundColor: j.done ? colors.l600 : colors.s3 }} />)}
+      {online && <><Ico name="coin" size={16} style={{ marginLeft: 4 }} /><T w={700} size={12} color={colors.g200}>{DEFAULT_CONFIG.shop.jobsCoin}</T></>}
+    </View>
+  );
 }
 
 /** Home card: Burak abi's first jobs and what comes next. The coin reward is paid by the server (claim_jobs), never here. */

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 
 import { DRILLS, ovr, type DrillKey, type StatKey } from '../../game/rules.ts';
 import { markHint } from '../../game/hints.ts';
@@ -17,6 +18,22 @@ import { PressableScale } from '../../ui/motion.tsx';
 import { Amount, bootIcon, Bubble, Ico, Segments, Tile, type IconAsset } from '../../ui/sade.tsx';
 import { Star } from '../../ui/drills/common.tsx';
 import { t, type Key } from '../../i18n/index.ts';
+
+/** Progress ring around a stat's icon: full means the next point is earned. */
+function Ring({ progress, size, children }: { progress: number; size: number; children: React.ReactNode }) {
+  const stroke = 5, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(1, progress));
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.s3} strokeWidth={stroke} fill="none" />
+        {p > 0 && <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.l600} strokeWidth={stroke} fill="none" strokeLinecap="round"
+          strokeDasharray={`${c * p} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />}
+      </Svg>
+      {children}
+    </View>
+  );
+}
 
 const KEYS: StatKey[] = ['sut', 'pas', 'hiz', 'fizik'];
 const GRADES = {
@@ -93,19 +110,13 @@ export default function Gelisim() {
           const stars = g.drillStars[k] ?? 0;
           return (
             <Tile
-              key={k} role="radio" selected={on} onPress={() => pick(k)} style={{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }}
+              key={k} role="radio" selected={on} onPress={() => pick(k)}
+              style={[{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }, k === daily && !on && { borderColor: colors.l600 }]}
               label={`${DRILLS[k].stat} ${g.stats[k]}, ${k === daily ? `${t('daily.tag')}, ` : ''}${t('talim.stars', { n: stars })}, ${t('train.progressA11y', { n: g.drillProgress[k] })}`}
             >
-              {k === daily && <View style={{ position: 'absolute', top: 12, right: 12, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.l600 }} />}
-              <Ico name={STAT_ICON[k]} size={56} />
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-                <T w={600} size={13} color={colors.g200}>{DRILLS[k].stat}</T>
-                <T w={700} size={26} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                {[0, 1, 2].map(i => <Star key={i} size={16} on={i < stars} />)}
-              </View>
-              <Segments n={g.drillProgress[k]} of={need(k)} height={5} gap={4} style={{ alignSelf: 'stretch', paddingHorizontal: 26 }} />
+              {k === daily && <View style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={14} color={colors.ink} /></View>}
+              <Ring progress={g.drillProgress[k] / need(k)} size={72}><Ico name={STAT_ICON[k]} size={48} /></Ring>
+              <T w={700} size={26} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
             </Tile>
           );
         })}
