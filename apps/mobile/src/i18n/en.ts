@@ -394,6 +394,8 @@ export const en: Record<Key, string> = {
   'shop.price.gem2': '$4.99',
   'shop.price.gem3': '$9.99',
   'shop.jersey': 'Season kit',
+  'shop.best': 'Best value',
+  'shop.cosmetic': 'Cosmetic',
   'shop.jerseyTag': 'Cosmetic',
   'shop.jerseySub': 'Cosmetic · no advantage in matches',
   'shop.releasable': 'Releasable · when the chain layer opens',

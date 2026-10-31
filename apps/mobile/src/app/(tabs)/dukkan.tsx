@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sfx } from '../../audio/audio.ts';
 import type { SfxId } from '../../audio/sounds.ts';
 import { useGame } from '../../game/store.ts';
-import { colors, TAB_BAR_SPACE } from '../../theme.ts';
+import { colors, shadow, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { EnergyTiles, energyLeft } from '../../ui/energy.tsx';
 import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
@@ -170,10 +170,7 @@ function BootsSection() {
   useEffect(() => { if (mode === 'online') void useGame.getState().refreshTraining(); }, [mode]);
   return (
     <View style={{ gap: 10 }}>
-      <View style={{ gap: 2 }}>
-        <H3>{t('shop.boots')}</H3>
-        <T w={500} size={13} color={colors.g200}>{t('shop.bootsSub')}</T>
-      </View>
+      <H3>{t('shop.boots')}</H3>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {BOOTS.map(b => {
           const inUse = boots?.id === b.id ? boots : null;
@@ -239,6 +236,19 @@ export default function Dukkan() {
         </View>
       </View>
       <HintBubble id="shopTab" text={t('hint.shopTab')} />
+      <Tile row selected label={`${t('shop.pass')}, ${t('shop.price.pass')}`} onPress={openPass} style={[shadow.lime, { paddingVertical: 14 }]}>
+        <Ico name="sezonKart" size={64} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <T w={700} size={17}>{t('shop.pass')}</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icon name="bolt" size={14} color={colors.l600} /><T w={700} size={13} color={colors.g200}>6</T></View>
+            <Ico name="coin" size={18} />
+            <Ico name="milliForma" size={22} />
+          </View>
+        </View>
+        <T w={700} size={15} color={colors.l500}>{t('shop.price.pass')}</T>
+      </Tile>
+
       <BootsSection />
 
       <View
@@ -258,33 +268,23 @@ export default function Dukkan() {
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {GEM_PACKS.map(([n, pk, size]) => (
-          <Tile key={n} label={t('shop.gemPackA11y', { n, price: t(pk) })} onPress={() => buy(t('shop.gemPack', { n }), t(pk), 'gem_sparkle')} style={{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }}>
+          <Tile key={n} label={t('shop.gemPackA11y', { n, price: t(pk) })} onPress={() => buy(t('shop.gemPack', { n }), t(pk), 'gem_sparkle')} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
             <T w={700} size={18}>{n}</T>
             <T w={600} size={12} color={colors.g200}>{t(pk)}</T>
+            {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={700} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
           </Tile>
         ))}
       </View>
 
-      <Tile row selected label={`${t('shop.pass')}, ${t('shop.price.pass')}`} onPress={openPass}>
-        <Ico name="sezonKart" size={60} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <T w={700} size={17}>{t('shop.pass')}</T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icon name="bolt" size={14} color={colors.l600} /><T w={700} size={13} color={colors.g200}>6</T></View>
-            <T w={700} size={13} color={colors.g200}>{t('shop.passShort')}</T>
-          </View>
-        </View>
-        <T w={700} size={15} color={colors.l500}>{t('shop.price.pass')}</T>
-      </Tile>
-
+      <H3>{t('shop.cosmetic')}</H3>
       <Tile row label={`${t('shop.jersey')}, ${jersey ? (jersey.equipped ? t('shop.equipped') : t('shop.owned')) : `${jerseyPrice} ${t('shop.gems')}`}`} onPress={jerseyAction}>
         <Ico name="milliForma" size={60} />
         <View style={{ flex: 1, gap: 2 }}>
           <T w={700} size={16} numberOfLines={1}>{t('shop.jersey')}</T>
           <Pressable accessibilityRole="button" accessibilityLabel={t('shop.releasableTitle')} hitSlop={8} onPress={openJersey}
             style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <T w={600} size={13} color={colors.g200}>{t('shop.jerseyTag')}</T><Icon name="info" size={14} color={colors.g300} />
+            <Icon name="info" size={16} color={colors.g300} />
           </Pressable>
         </View>
         {jersey
