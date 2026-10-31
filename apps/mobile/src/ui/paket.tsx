@@ -61,10 +61,20 @@ const PACK_IMG = require('../../assets/meshy/paket-tam.webp');
 /** The same art cut straight under its top seal into two pieces (assets/meshy/paket-ust|govde.webp). */
 const TOP_IMG = require('../../assets/meshy/paket-ust.webp');
 const BODY_IMG = require('../../assets/meshy/paket-govde.webp');
-const TOP_H = PACK_W * 80 / 427;
-const BODY_H = PACK_W * 640 / 427;
+const SRC = PACK_W / 427; // the pack art is 427 px wide
+/** The seal and the body meet along a torn, irregular line around y = 80 of the art (see scratch cut4). */
+const TOP_H = 94 * SRC;
+const BODY_TOP = 66 * SRC;
+const BODY_H = 654 * SRC;
 /** Where the strip is cut; the light and the sparks come out of this line. */
-const CUT_Y = TOP_H;
+const CUT_Y = 80 * SRC;
+/** A ragged vertical rim for the flap's torn leading edge. */
+const TEAR_EDGE = (() => {
+  const steps = [0, 0.14, 0.27, 0.41, 0.52, 0.66, 0.78, 0.9, 1];
+  const jag = [3, 1.2, 4, 2, 3.6, 1, 3.2, 1.6, 2.8];
+  const right = steps.map((k, i) => `${(5 - jag[i] + 2).toFixed(1)} ${(k * TOP_H).toFixed(1)}`);
+  return `M 5 0 L ${right.join(' L ')} L 5 ${TOP_H.toFixed(1)} Z`;
+})();
 /** The peeled-back flap slides over the part still stuck down by this share of the peeled length. */
 const FOLD = 0.55;
 /** How far the flap lifts off the pack while it is pulled. */
@@ -301,7 +311,7 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   const cut = useAnimatedStyle(() => ({ opacity: tear.value > 0 || fly.value > 0 ? 1 : 0 }));
   const peekStyle = useAnimatedStyle(() => ({
     opacity: 1 - 0.6 * fly.value,
-    width: Math.max(0, Math.min(PACK_W - 12, tear.value * PACK_W * FOLD + fly.value * PACK_W - 6)),
+    width: Math.max(0, Math.min(PACK_W - 24, tear.value * PACK_W * FOLD + fly.value * PACK_W - 12)),
   }));
   const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value, transform: [{ scale: 0.6 + 0.4 * bloom.value }] }));
   const fan = useAnimatedStyle(() => ({
@@ -357,19 +367,19 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: PACK_H }, sealed]}>
           <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="fill" />
         </Animated.View>
-        <Animated.View style={[{ position: 'absolute', left: 0, top: TOP_H, width: PACK_W, height: BODY_H }, cut]}>
+        <Animated.View style={[{ position: 'absolute', left: 0, top: BODY_TOP, width: PACK_W, height: BODY_H }, cut]}>
           <Image source={BODY_IMG} style={{ width: PACK_W, height: BODY_H }} contentFit="fill" />
         </Animated.View>
         <Glint x={PACK_W - 60} y={90} size={26} delay={0} reduced={reduced} />
         <Glint x={26} y={PACK_H - 86} size={18} delay={900} reduced={reduced} />
         <Glint x={PACK_W - 40} y={PACK_H - 120} size={14} delay={1600} reduced={reduced} />
         {/* The light that shows through the opening as the seal slides off it; the strip's own edge hides its end. */}
-        <Animated.View style={[{ position: 'absolute', left: 6, top: CUT_Y - 13, height: 22, overflow: 'hidden' }, peekStyle]}>
+        <Animated.View style={[{ position: 'absolute', left: 12, top: CUT_Y - 13, height: 22, overflow: 'hidden' }, peekStyle]}>
           <Svg width={PACK_W - 12} height={22}>
             <Defs>
               <LinearGradient id="packPeek" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
-                <Stop offset="0.62" stopColor="#FFFFFF" stopOpacity={0.8} />
+                <Stop offset="0.62" stopColor="#FFFFFF" stopOpacity={0.65} />
                 <Stop offset="1" stopColor="#F4FFD0" stopOpacity={0} />
               </LinearGradient>
             </Defs>
@@ -387,6 +397,10 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
           {/* The peeled flap, on top of it, with a soft shadow where it lifts. */}
           <Animated.View style={[{ position: 'absolute', left: 0, top: 0, height: TOP_H, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.55, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } }, flap]}>
             <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
+            {/* Its leading edge is torn too: a ragged pale rim where the foil gave way. */}
+            <Svg width={5} height={TOP_H} style={{ position: 'absolute', right: 0, top: 0 }}>
+              <Path d={TEAR_EDGE} fill="#ECF0E2" fillOpacity={0.9} />
+            </Svg>
           </Animated.View>
         </Animated.View>
       </Animated.View>
