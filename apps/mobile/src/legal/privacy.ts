@@ -2,7 +2,7 @@ import type { Lang } from '../i18n/index.ts';
 
 // The privacy policy shown at /gizlilik (in the app and at the public web URL the store
 // listings link to). Keep it true to what the code collects: when ads (AdMob), purchases
-// (RevenueCat, Dodo Payments on the web) or analytics are added, this text changes in the same pull request.
+// (RevenueCat) or analytics are added, this text changes in the same pull request.
 
 /** Where players write about their data. */
 export const PRIVACY_CONTACT: string | null = 'support@streetborn.app';
@@ -40,8 +40,8 @@ export const PRIVACY: Record<Lang, Policy> = {
         title: 'Verilerin nerede',
         body: [
           'Oyun sunucusu ve veritabanı Supabase altyapısında çalışır. Web sürümü Cloudflare üzerinden sunulur. Bu hizmetler verileri yalnızca oyunu çalıştırmak için işler.',
-          'Web sürümünde elmas satın alırsan ödeme, satıcı kaydı (Merchant of Record) olarak Dodo Payments tarafından alınır. Makbuz için e-posta adresin Dodo Payments\'e iletilir. Kart bilgilerin ve fatura adresin Dodo Payments\'te kalır; biz yalnızca hangi paketi aldığını, ödeme numarasını ve ödemenin durumunu tutarız.',
-          'Uygulamaya reklam ya da mağaza içi satın alma eklendiğinde bu metin, kullanılan hizmetlerle birlikte güncellenecek.',
+          'Elmas paketlerini telefonda App Store veya Google Play üzerinden satın alırsın. Satın almanı doğrulamak için RevenueCat, oyuncu kimliğini ve mağazanın satın alma kaydını (ürün, işlem numarası, fiyat, ülke) işler. Kart bilgilerin mağazada kalır; ne biz ne de RevenueCat onları görür.',
+          'Uygulamaya reklam eklendiğinde bu metin, kullanılan hizmetlerle birlikte güncellenecek.',
         ],
       },
       {
@@ -88,8 +88,8 @@ export const PRIVACY: Record<Lang, Policy> = {
         title: 'Where your data is',
         body: [
           'The game server and database run on Supabase. The web version is served by Cloudflare. These services process data only to run the game.',
-          'If you buy gems on the web version, Dodo Payments takes the payment as Merchant of Record. Your email address is passed to Dodo Payments for the receipt. Your card details and billing address stay with Dodo Payments; we only keep which pack you bought, the payment ID and its status.',
-          'When ads or in-app purchases are added to the app, this page will be updated with the services they use.',
+          'You buy gem packs on your phone through the App Store or Google Play. To verify a purchase, RevenueCat processes your player ID and the store\'s purchase record (product, transaction ID, price, country). Your card details stay with the store; neither we nor RevenueCat see them.',
+          'When ads are added to the app, this page will be updated with the services they use.',
         ],
       },
       {

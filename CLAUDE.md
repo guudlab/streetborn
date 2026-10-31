@@ -20,7 +20,7 @@ The owner (Kaan) writes in Turkish. User-facing strings are Turkish; code, ident
 
 ```bash
 npm run typecheck && npm test
-(cd supabase/functions && deno check match-start/index.ts match-finish/index.ts mahalle/index.ts mahalle-close/index.ts profile-set/index.ts career/index.ts train/index.ts shop/index.ts ad-reward/index.ts oyuncu/index.ts account-delete/index.ts dodo-checkout/index.ts dodo-webhook/index.ts)
+(cd supabase/functions && deno check match-start/index.ts match-finish/index.ts mahalle/index.ts mahalle-close/index.ts profile-set/index.ts career/index.ts train/index.ts shop/index.ts ad-reward/index.ts oyuncu/index.ts account-delete/index.ts iap/index.ts revenuecat-webhook/index.ts)
 supabase/tests/run.sh   # needs a Postgres; see the CI workflow
 ```
 

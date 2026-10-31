@@ -130,16 +130,13 @@ export {
 } from './drills.ts';
 export { adDoubleCoin, levelGemLevels, parseAdReward, type AdReward } from './shop.ts';
 export {
-  WEBHOOK_TOLERANCE_SECONDS,
-  findGemPack,
-  parseDodoEvent,
-  parseProductMap,
-  signWebhook,
-  verifyWebhook,
-  type DodoEvent,
-  type WebhookCheck,
-  type WebhookHeaders,
-} from './dodo.ts';
+  gemPackForProduct,
+  parseRevenueCatEvent,
+  revenueCatPurchases,
+  sameSecret,
+  type RevenueCatEvent,
+  type StorePurchase,
+} from './iap.ts';
 export { derToRaw, parseSsv, verifySsv, type SsvCallback, type SsvKey } from './ssv.ts';
 export {
   ACHIEVEMENTS,

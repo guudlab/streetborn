@@ -419,7 +419,7 @@ enabled = true
 [functions.ad-reward]
 verify_jwt = false
 
-# Dodo Payments calls its webhook without a Supabase JWT; the function checks
-# Dodo's Standard Webhooks signature instead.
-[functions.dodo-webhook]
+# RevenueCat calls its webhook without a Supabase JWT; the function checks the
+# Authorization header set in the RevenueCat dashboard instead.
+[functions.revenuecat-webhook]
 verify_jwt = false

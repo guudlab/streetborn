@@ -1,7 +1,6 @@
 import { DEFAULT_CONFIG, type BootsItem } from '@streetborn/economy';
-import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sfx } from '../../audio/audio.ts';
@@ -14,15 +13,14 @@ import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
 import { Amount, bootIcon, Ico, Tile } from '../../ui/sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
 import { HintBubble } from '../../ui/hint.tsx';
-import { openLinkSheet } from '../../ui/account.tsx';
+import { iapAvailable } from '../../net/iap';
 import { t, type Key } from '../../i18n/index.ts';
 
-// Gem packs and the season pass are store purchases (RevenueCat comes later), so
-// in the iOS/Android app their "buy" only shows the flow. On the web, gem packs
-// are sold through Dodo Payments' hosted checkout (store rules keep Dodo out of
-// the native app); the gems arrive with Dodo's webhook on the server. Online, gem
-// items are bought on the server at the catalog price; offline they show the same
-// prototype flow.
+// Gem packs are App Store / Google Play products sold through RevenueCat: the store
+// charges, the server pays the gems (iap function and RevenueCat's webhook). On the
+// web, offline, or before the RevenueCat keys are set, they show the prototype flow,
+// like the season pass (not sold yet). Online, gem items are bought on the server
+// at the catalog price; offline they show the same prototype flow.
 
 const JERSEY = 'forma_sonbahar';
 
@@ -216,69 +214,18 @@ function BootsSection() {
 
 // Pack ids and gem counts match DEFAULT_CONFIG.shop.gemPacks; the server pays from the config.
 const GEM_PACKS = [['gem_80', 80, 'shop.price.gem1', 40], ['gem_450', 450, 'shop.price.gem2', 48], ['gem_1000', 1000, 'shop.price.gem3', 56]] as const;
-const WEB_PAY = Platform.OS === 'web';
 
-/** Web: a linked account opens Dodo's checkout; the page leaves the app and comes back to /dukkan?odeme=<id>. */
+/** iOS/Android with RevenueCat: the store's own sheet confirms and charges; the server pays the gems. */
 async function buyGemPack(pack: string, n: number, price: string) {
   const s = useGame.getState();
-  if (!WEB_PAY || s.mode !== 'online') return buy(t('shop.gemPack', { n }), price, 'gem_sparkle');
-  if (!s.account) await s.refreshAccount();
-  const account = useGame.getState().account;
-  if (!account || account.anonymous) {
-    openSheet(
-      <>
-        <H3>{t('shop.web.linkTitle')}</H3>
-        <SheetText>{t('shop.web.linkText')}</SheetText>
-        <Cta onPress={openLinkSheet}>{t('shop.web.link')}</Cta>
-        <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
-      </>,
-    );
-    return;
-  }
-  openSheet(
-    <>
-      <H3>{t('shop.gemPack', { n })}</H3>
-      <SheetText>{t('shop.priceLabel')}<T w={600} color={colors.g100}>{price}</T>{t('shop.web.priceTail')}</SheetText>
-      <Cta onPress={async () => {
-        openSheet(<><H3>{t('shop.web.opening')}</H3><Spinner /></>);
-        const r = await useGame.getState().gemCheckout(pack);
-        if ('url' in r) { window.location.assign(r.url); return; }
-        closeSheet();
-        if (r.error === 'link_account') openLinkSheet();
-        else toast(t(r.error === 'payments_off' ? 'shop.web.off' : r.error === 'limit' ? 'shop.web.limit' : 'shop.web.failed'), 'error');
-      }}>{t('shop.confirm', { price })}</Cta>
-      <Ghost onPress={closeSheet}>{t('common.cancel')}</Ghost>
-    </>,
-  );
-}
-
-/** Back from Dodo's checkout: waits a little for the webhook, then shows what happened. */
-function useGemReturn(purchaseId: string | undefined, online: boolean) {
-  useEffect(() => {
-    if (!WEB_PAY || !online || !purchaseId) return;
-    let stop = false;
-    openSheet(<><H3>{t('shop.web.checking')}</H3><Spinner /></>);
-    const check = async () => {
-      for (let i = 0; i < 12 && !stop; i++) {
-        const p = await useGame.getState().checkGemPurchase(purchaseId);
-        if (stop) return;
-        if (!p) break;
-        if (p.status === 'paid') {
-          closeSheet(); sfx('gem_sparkle'); buzz('success');
-          toast(t('shop.web.paid', { n: p.gem }), 'success');
-          return;
-        }
-        if (p.status !== 'pending') break;
-        await new Promise(r => setTimeout(r, 2500));
-      }
-      if (stop) return;
-      // Not paid yet (or a cancelled checkout): a late webhook still pays; the wallet shows it on the next load.
-      openSheet(<><H3>{t('shop.waiting')}</H3><SheetText>{t('shop.web.pending')}</SheetText><Cta onPress={closeSheet}>{t('common.ok')}</Cta></>);
-    };
-    // Drop ?odeme= only when done, so a reload in between checks again and clearing it does not stop this run.
-    void check().finally(() => { if (!stop) router.setParams({ odeme: undefined }); });
-    return () => { stop = true; };
-  }, [purchaseId, online]);
+  if (!iapAvailable || s.mode !== 'online') return buy(t('shop.gemPack', { n }), price, 'gem_sparkle');
+  openSheet(<><H3>{t('shop.waiting')}</H3><Spinner /><SheetText>{t('shop.waitingStore')}</SheetText></>);
+  const r = await s.buyGemPack(pack);
+  closeSheet();
+  if (r === 'ok') { sfx('gem_sparkle'); buzz('success'); toast(t('shop.iap.paid', { n }), 'success'); }
+  else if (r === 'late') toast(t('shop.iap.late'));
+  else if (r === 'pending') toast(t('shop.iap.pending'));
+  else if (r === 'error') toast(t('shop.buyFailed'), 'error');
 }
 
 export default function Dukkan() {
@@ -289,8 +236,12 @@ export default function Dukkan() {
   const online = mode === 'online';
   const jerseyPrice = catalog.find(i => i.id === JERSEY)?.priceGem ?? 120;
   const jersey = owned.find(i => i.id === JERSEY);
-  const { odeme } = useLocalSearchParams<{ odeme?: string }>();
-  useGemReturn(typeof odeme === 'string' ? odeme : undefined, online);
+  const gemPrices = useGame(st => st.gemPrices);
+  // Store prices, and gems of a purchase the app did not collect last time (closed mid-purchase).
+  useEffect(() => {
+    if (!online) return;
+    void useGame.getState().refreshGemPacks().then(paid => { if (paid > 0) { sfx('gem_sparkle'); toast(t('shop.iap.paidLater', { n: paid }), 'success'); } });
+  }, [online]);
 
   const jerseyAction = () => {
     if (!online) return buy(t('shop.jersey'), t('shop.gemPack', { n: jerseyPrice }));
@@ -340,10 +291,10 @@ export default function Dukkan() {
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {GEM_PACKS.map(([pack, n, pk, size]) => (
-          <Tile key={pack} label={t('shop.gemPackA11y', { n, price: t(pk) })} onPress={() => void buyGemPack(pack, n, t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
+          <Tile key={pack} label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
             <T w={700} size={18}>{n}</T>
-            <T w={600} size={12} color={colors.g200}>{t(pk)}</T>
+            <T w={600} size={12} color={colors.g200}>{gemPrices[pack] ?? t(pk)}</T>
             {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={700} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
           </Tile>
         ))}

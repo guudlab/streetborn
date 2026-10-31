@@ -591,43 +591,39 @@ do $$ begin
 end $$;
 reset role;
 
--- Web gem packs (Dodo): paid once from our own row, a wrong product refused,
--- a refund takes back no more than the balance, and players only read their own rows.
+-- Store gem packs (RevenueCat): each store transaction pays once, a deleted account
+-- is skipped, a refund takes back no more than the balance, players read only their rows.
 insert into auth.users values ('00000000-0000-0000-0000-000000000971');
 insert into auth.users values ('00000000-0000-0000-0000-000000000972');
 set role service_role;
-do $$ declare p uuid := '00000000-0000-0000-0000-000000000971'; g0 bigint; a uuid; b uuid; begin
+do $$ declare p uuid := '00000000-0000-0000-0000-000000000971'; g0 bigint; begin
   select gem into g0 from wallets where player_id = p;
-  insert into gem_purchases (player_id, pack, gem, product_id, test_mode, checkout_session_id)
-    values (p, 'gem_450', 450, 'pdt_b', true, 'cks_a') returning id into a;
-  if complete_gem_purchase(a, 'pay_x', 'cks_a', array['pdt_a']) <> 'mismatch' then raise exception 'wrong product paid'; end if;
-  if complete_gem_purchase(a, 'pay_x', 'cks_other', array['pdt_b']) <> 'mismatch' then raise exception 'wrong checkout paid'; end if;
-  if complete_gem_purchase(gen_random_uuid(), 'pay_x', null, array['pdt_b']) <> 'unknown' then raise exception 'unknown purchase'; end if;
-  if complete_gem_purchase(a, 'pay_a', 'cks_a', array['pdt_b']) <> 'paid' then raise exception 'gem purchase not paid'; end if;
-  if complete_gem_purchase(a, 'pay_a', 'cks_a', array['pdt_b']) <> 'duplicate' then raise exception 'gem purchase paid twice'; end if;
+  if grant_gem_purchase(p, 'APP_STORE', 'tx_a', 'gem_450', 450, true) <> 'paid' then raise exception 'gem purchase not paid'; end if;
+  if grant_gem_purchase(p, 'APP_STORE', 'tx_a', 'gem_450', 450, true) <> 'duplicate' then raise exception 'gem purchase paid twice'; end if;
+  if grant_gem_purchase(gen_random_uuid(), 'APP_STORE', 'tx_b', 'gem_80', 80, false) <> 'no_player' then raise exception 'unknown player paid'; end if;
   if (select gem from wallets where player_id = p) <> g0 + 450 then raise exception 'gem purchase amount wrong'; end if;
-  if (select reason from ledger where idempotency_key = 'dodo:pay_a') <> 'gem_purchase' then raise exception 'gem purchase not in ledger'; end if;
+  if (select reason from ledger where idempotency_key = 'iap:tx_a') <> 'gem_purchase' then raise exception 'gem purchase not in ledger'; end if;
 
   -- Spend most of it, then refund: only what is left comes back out.
-  perform grant_currency(p, 'gem', -(g0 + 400), 'test', null, 'dodo-test-spend');
-  if reverse_gem_purchase('pay_a') <> 50 then raise exception 'refund took the wrong amount'; end if;
+  perform grant_currency(p, 'gem', -(g0 + 400), 'test', null, 'iap-test-spend');
+  if reverse_gem_purchase('tx_a') <> 50 then raise exception 'refund took the wrong amount'; end if;
   if (select gem from wallets where player_id = p) <> 0 then raise exception 'refund balance wrong'; end if;
-  if reverse_gem_purchase('pay_a') is not null then raise exception 'refund applied twice'; end if;
-  if (select status from gem_purchases where id = a) <> 'reversed' then raise exception 'refund status'; end if;
-  if complete_gem_purchase(a, 'pay_a', 'cks_a', array['pdt_b']) <> 'duplicate' then raise exception 'reversed purchase paid again'; end if;
+  if reverse_gem_purchase('tx_a') is not null then raise exception 'refund applied twice'; end if;
+  if reverse_gem_purchase('tx_none') is not null then raise exception 'unknown refund applied'; end if;
+  if grant_gem_purchase(p, 'APP_STORE', 'tx_a', 'gem_450', 450, true) <> 'duplicate' then raise exception 'refunded purchase paid again'; end if;
 
-  insert into gem_purchases (player_id, pack, gem, product_id, test_mode) values ('00000000-0000-0000-0000-000000000972', 'gem_80', 80, 'pdt_a', true);
+  perform grant_gem_purchase('00000000-0000-0000-0000-000000000972', 'PLAY_STORE', 'tx_c', 'gem_80', 80, false);
   raise notice 'gem purchases: ok';
 end $$;
 reset role;
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000971';
 do $$ begin
   if (select count(*) from gem_purchases) <> 1 then raise exception 'gem purchases leak or hidden'; end if;
-  begin insert into gem_purchases (player_id, pack, gem, product_id, test_mode) values (auth.uid(), 'gem_80', 80, 'pdt_a', true); raise exception 'client inserted a purchase';
+  begin insert into gem_purchases (player_id, store, transaction_id, product_id, gem, sandbox) values (auth.uid(), 'APP_STORE', 'x', 'gem_80', 80, true); raise exception 'client inserted a purchase';
   exception when insufficient_privilege then null; end;
-  begin update gem_purchases set status = 'pending'; raise exception 'client updated a purchase';
+  begin update gem_purchases set status = 'paid'; raise exception 'client updated a purchase';
   exception when insufficient_privilege then null; end;
-  begin perform complete_gem_purchase(gen_random_uuid(), 'pay_z', null, array['pdt_a']); raise exception 'client completed a purchase';
+  begin perform grant_gem_purchase(auth.uid(), 'APP_STORE', 'tx_z', 'gem_80', 80, true); raise exception 'client granted a purchase';
   exception when insufficient_privilege then null; end;
   begin perform 1 from payment_events; raise exception 'payment events readable';
   exception when insufficient_privilege then null; end;

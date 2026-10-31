@@ -133,13 +133,14 @@ export interface ShopConfig {
   /** One-time coin for Burak abi's first jobs (first match, first training, joining a mahalle). Paid once per account. */
   jobsCoin: number;
   /**
-   * Gem packs sold for money. On the web they go through Dodo Payments; the price
-   * lives on the Dodo product (and later the store product), the gem count here.
+   * Gem packs sold for money in the App Store / Google Play (through RevenueCat).
+   * The price lives on the store product, the gem count here.
    */
   gemPacks: GemPack[];
 }
 
 export interface GemPack {
+  /** Also the product id in App Store Connect and the Play Console. */
   id: string;
   gem: number;
 }
