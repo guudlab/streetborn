@@ -84,13 +84,16 @@ jobs:
         env:
           REVENUECAT_SECRET_KEY: ${{ secrets.REVENUECAT_SECRET_KEY }}
           REVENUECAT_WEBHOOK_AUTH: ${{ secrets.REVENUECAT_WEBHOOK_AUTH }}
-          REVENUECAT_ALLOW_TEST_STORE: ${{ vars.REVENUECAT_ALLOW_TEST_STORE }}
+          # Read as a variable or, if it was saved there, as a secret.
+          REVENUECAT_ALLOW_TEST_STORE: ${{ vars.REVENUECAT_ALLOW_TEST_STORE || secrets.REVENUECAT_ALLOW_TEST_STORE }}
         run: |
           args=()
           for name in REVENUECAT_SECRET_KEY REVENUECAT_WEBHOOK_AUTH; do
             if [ -n "${!name}" ]; then args+=("$name=${!name}"); fi
           done
-          if [ ${#args[@]} -gt 0 ]; then args+=("REVENUECAT_ALLOW_TEST_STORE=${REVENUECAT_ALLOW_TEST_STORE:-0}"); fi
+          allow="$(echo "${REVENUECAT_ALLOW_TEST_STORE:-0}" | tr -d '[:space:]')"
+          if [ ${#args[@]} -gt 0 ]; then args+=("REVENUECAT_ALLOW_TEST_STORE=$allow"); fi
+          if [ "$allow" = "1" ]; then echo "::notice title=RevenueCat::Test Store purchases pay gems (REVENUECAT_ALLOW_TEST_STORE=1)."; else echo "::notice title=RevenueCat::Test Store purchases do not pay gems."; fi
           if [ ${#args[@]} -eq 0 ]; then echo "::notice title=RevenueCat::No RevenueCat secrets set; gem packs stay off."; exit 0; fi
           supabase/scripts/ci-run.sh "Set payment secrets" supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" "${args[@]}"
       - name: Vendor shared packages
