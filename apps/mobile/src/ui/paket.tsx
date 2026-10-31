@@ -388,10 +388,10 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
         </Animated.View>
         {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + AT.off} run={stage === 'tear' && !reduced} />)}
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TOP_H }, strip, cut]}>
-          {/* The part still stuck down. */}
+          {/* The part not torn yet is the untouched pack, so the tear line only shows where it has torn. */}
           <Animated.View style={[{ position: 'absolute', top: 0, height: TOP_H, overflow: 'hidden' }, stuck]}>
-            <Animated.View style={[{ position: 'absolute', top: 0, width: PACK_W, height: TOP_H }, stuckImg]}>
-              <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
+            <Animated.View style={[{ position: 'absolute', top: 0, width: PACK_W, height: PACK_H }, stuckImg]}>
+              <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="fill" />
             </Animated.View>
           </Animated.View>
           {/* The peeled flap, on top of it, with a soft shadow where it lifts. */}
