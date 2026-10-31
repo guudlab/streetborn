@@ -131,6 +131,7 @@ export {
 export { adDoubleCoin, levelGemLevels, parseAdReward, type AdReward } from './shop.ts';
 export {
   gemPackForProduct,
+  isTestStore,
   parseRevenueCatEvent,
   revenueCatPurchases,
   sameSecret,
