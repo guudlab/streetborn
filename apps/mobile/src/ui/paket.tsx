@@ -13,7 +13,7 @@ import { buzz } from './kit.tsx';
 // The first-badge pack of the sign-in screen (design G). A sealed Meshy pack waits; tapped,
 // its top seal peels back from the left along a ragged tear, the torn flap folding over the part
 // still stuck down, a soft white glow follows when it comes free and then
-// rays slowly pour out, the badge card rises out of the pack and the pack drops away.
+// the badge card rises out of the pack, growing as it comes, and the pack drops away.
 
 export const PACK_W = 214;
 export const PACK_H = 360;
@@ -23,7 +23,6 @@ export type PackStage = 'idle' | 'tear' | 'reveal';
 const AT = {
   tear: 160, // the seal starts to peel back from the left edge
   off: 1500, // it comes free and flies off
-  rays: 1700, // the rays start to pour out, slowly
   rise: 1900, // the card rises out of the pack
   settle: 2600, // the pack drops away and the card takes the stage; "Devam" shows when it lands
 };
@@ -100,21 +99,11 @@ const FLAP_Y = -10 * SRC;
 const FLAP_H = 90 * SRC;
 /** Where the seal tears off; the light and the sparks come out of this line. */
 const CUT_Y = 80 * SRC;
-const FAN_H = 170;
-const FAN_W = PACK_W + 140;
-/** Light rays fanning up from the cut: [angle in degrees from vertical, half-width in degrees]. */
-const RAYS = [[-62, 5], [-46, 4], [-31, 6], [-16, 4], [0, 7], [16, 4], [31, 6], [46, 4], [62, 5]] as const;
-const rad = (d: number) => d * Math.PI / 180;
-const FAN_PATHS = RAYS.map(([a, w]) => {
-  const L = FAN_H * 1.1, cx = FAN_W / 2;
-  const pt = (d: number) => `${(cx + L * Math.sin(rad(d))).toFixed(1)} ${(FAN_H - L * Math.cos(rad(d))).toFixed(1)}`;
-  return `M ${cx} ${FAN_H} L ${pt(a - w)} L ${pt(a + w)} Z`;
-});
-
-/** The card rises at this scale, small enough to hide behind the pack body. */
-const CARD_IN = 0.76;
+/** The card starts small inside the pack and grows as it rises out; it lands at full size. */
+const CARD_START = 0.42;
+const CARD_IN = 0.8;
 /** Card centre offsets from its final place: hidden in the pack, then risen out of it. */
-const CARD_HIDDEN_Y = CUT_Y + 14 + PACK_H * CARD_IN / 2 - PACK_H / 2;
+const CARD_HIDDEN_Y = CUT_Y + 12 + PACK_H * CARD_START / 2 - PACK_H / 2;
 const CARD_RISEN_Y = CUT_Y + 90 - PACK_H * CARD_IN / 2 - PACK_H / 2;
 
 /** One frame of the peel; shown while `tear` is on it. */
@@ -245,7 +234,6 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   const tear = useSharedValue(0);
   const fly = useSharedValue(0);
   const bloom = useSharedValue(0);
-  const rays = useSharedValue(0);
   const rise = useSharedValue(0);
   const settle = useSharedValue(0);
   const flash = useSharedValue(0);
@@ -275,9 +263,8 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
       withTiming(1, { duration: AT.off - AT.tear - 1040, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
     ));
     fly.value = withDelay(AT.off, withTiming(1, { duration: 440, easing: Easing.in(Easing.quad) }));
-    // A soft white glow when the seal comes free, then the rays pour out slowly.
-    bloom.value = withDelay(AT.off - 40, withSequence(withTiming(1, { duration: 260, easing: Easing.out(Easing.quad) }), withTiming(0.55, { duration: 600 })));
-    rays.value = withDelay(AT.rays, withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }));
+    // A soft white glow wells up from inside the pack once the seal is off, and stays while the card rises.
+    bloom.value = withDelay(AT.off - 40, withSequence(withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) }), withTiming(0.7, { duration: 700 })));
     rise.value = withDelay(AT.rise, withTiming(1, { duration: 650, easing: Easing.bezier(0.2, 1.15, 0.4, 1) }));
     settle.value = withDelay(AT.settle, withTiming(1, { duration: 520, easing: ease }, (fin) => { if (fin) runOnJS(cueDone)(); }));
     flash.value = withDelay(AT.settle + 120, withSequence(
@@ -295,7 +282,7 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     ];
     const ids = cues.map(([ms, fn]) => setTimeout(fn, ms));
     return () => ids.forEach(clearTimeout);
-  }, [stage, reduced, wobble, press, tear, fly, bloom, rays, rise, settle, flash]);
+  }, [stage, reduced, wobble, press, tear, fly, bloom, rise, settle, flash]);
 
   const pack = useAnimatedStyle(() => ({
     opacity: 1 - settle.value,
@@ -305,7 +292,7 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
       { scale: 1 + 0.04 * press.value },
     ],
   }));
-  // The rays and the glow stay at the cut while the pack falls away, so the card rises through the light.
+  // The glow stays at the opening while the pack falls away, so the card rises out of the light.
   const lightAt = useAnimatedStyle(() => ({
     opacity: 1 - settle.value,
     transform: [{ translateY: -10 * wobble.value }],
@@ -323,14 +310,10 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   const sealed = useAnimatedStyle(() => ({ opacity: tear.value > 0 || fly.value > 0 ? 0 : 1 }));
   const cut = useAnimatedStyle(() => ({ opacity: tear.value > 0 || fly.value > 0 ? 1 : 0 }));
   const opened = useAnimatedStyle(() => ({ opacity: fly.value > 0 ? 1 : 0 }));
-  const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value, transform: [{ scale: 0.6 + 0.4 * bloom.value }] }));
-  const fan = useAnimatedStyle(() => ({
-    opacity: rays.value * 0.9,
-    transform: [{ scaleY: 0.15 + 0.85 * rays.value }, { scaleX: 0.6 + 0.4 * rays.value }],
-  }));
+  const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value, transform: [{ scaleY: 0.4 + 0.6 * bloom.value }, { scaleX: 0.7 + 0.3 * bloom.value }] }));
   const card = useAnimatedStyle(() => {
     const y = CARD_HIDDEN_Y + (CARD_RISEN_Y - CARD_HIDDEN_Y) * rise.value;
-    const s = CARD_IN + (1 - CARD_IN) * settle.value;
+    const s = settle.value > 0 ? CARD_IN + (1 - CARD_IN) * settle.value : CARD_START + (CARD_IN - CARD_START) * rise.value;
     const pop = 1 + 0.07 * Math.sin(settle.value * Math.PI);
     return {
       opacity: rise.value > 0 ? 1 : 0,
@@ -346,27 +329,19 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
 
   return (
     <View style={{ width: PACK_W, height: PACK_H }} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {/* Rays pour out of the cut behind the card. */}
-      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: PACK_H }, lightAt]}>
-        <Animated.View style={[{ position: 'absolute', left: -(FAN_W - PACK_W) / 2, top: CUT_Y - FAN_H, width: FAN_W, height: FAN_H, transformOrigin: '50% 100%' }, fan]}>
-          <Svg width={FAN_W} height={FAN_H}>
-            <Defs>
-              <LinearGradient id="packRay" gradientUnits="userSpaceOnUse" x1="0" y1={FAN_H} x2="0" y2="0">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
-                <Stop offset="0.45" stopColor="#F4FFD0" stopOpacity={0.5} />
-                <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            {FAN_PATHS.map((d, i) => <Path key={i} d={d} fill="url(#packRay)" />)}
-          </Svg>
-        </Animated.View>
-      </Animated.View>
-
       {/* Flash and ring when the card lands. */}
       <Animated.View style={[{ position: 'absolute', left: -28, top: 10, width: PACK_W + 56, height: PACK_H - 20 }, flashStyle]}>
         <Glow id="cardFlash" width={PACK_W + 56} height={PACK_H - 20} strength={0.9} />
       </Animated.View>
       <Animated.View style={[{ position: 'absolute', left: PACK_W / 2 - 100, top: PACK_H / 2 - 100, width: 200, height: 200, borderRadius: 100, borderWidth: 4, borderColor: colors.l500 }, ring]} />
+
+      {/* The soft white glow comes from inside: it sits behind the pack front, so only the part
+          above the opening shows, and the card rises through it. */}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: PACK_H }, lightAt]}>
+        <Animated.View style={[{ position: 'absolute', left: -20, top: CUT_Y - 70, width: PACK_W + 40, height: 140, transformOrigin: '50% 50%' }, bloomStyle]}>
+          <Glow id="packBloom" width={PACK_W + 40} height={140} />
+        </Animated.View>
+      </Animated.View>
 
       {/* The card sits in the pack, behind its front. */}
       <Animated.View style={[{ position: 'absolute', left: 0, top: 0 }, card]}>
@@ -390,13 +365,6 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
         {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + AT.off} run={stage === 'tear' && !reduced} />)}
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: FLAP_H }, flyStyle]}>
           <Image source={FLAP_IMG} style={{ width: PACK_W, height: FLAP_H }} contentFit="fill" />
-        </Animated.View>
-      </Animated.View>
-
-      {/* The soft white glow at the opening, in front so the card comes up out of the light. */}
-      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: PACK_H }, lightAt]}>
-        <Animated.View style={[{ position: 'absolute', left: -30, top: CUT_Y - 60, width: PACK_W + 60, height: 100 }, bloomStyle]}>
-          <Glow id="packBloom" width={PACK_W + 60} height={100} cy="60%" />
         </Animated.View>
       </Animated.View>
 
