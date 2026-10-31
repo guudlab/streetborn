@@ -93,10 +93,11 @@ export default function Gelisim() {
           const stars = g.drillStars[k] ?? 0;
           return (
             <Tile
-              key={k} role="radio" selected={on} onPress={() => pick(k)} style={{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }}
+              key={k} role="radio" selected={on} onPress={() => pick(k)}
+              style={[{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }, k === daily && !on && { borderColor: colors.l600 }]}
               label={`${DRILLS[k].stat} ${g.stats[k]}, ${k === daily ? `${t('daily.tag')}, ` : ''}${t('talim.stars', { n: stars })}, ${t('train.progressA11y', { n: g.drillProgress[k] })}`}
             >
-              {k === daily && <View style={{ position: 'absolute', top: 12, right: 12, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.l600 }} />}
+              {k === daily && <View style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={14} color={colors.ink} /></View>}
               <Ico name={STAT_ICON[k]} size={56} />
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                 <T w={600} size={13} color={colors.g200}>{DRILLS[k].stat}</T>

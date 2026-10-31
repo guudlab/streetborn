@@ -133,7 +133,7 @@ export default function Hub() {
           style={{ position: 'absolute', right: 20, bottom: 24, alignItems: 'flex-end' }}
         >
           <T w={700} size={44} style={{ lineHeight: 46, letterSpacing: -1 }}>{ovr(g.stats)}</T>
-          <Caps>{t('hub.ovr')}</Caps>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Caps>{t('hub.ovr')}</Caps><Icon name="chev" size={14} color={colors.g200} /></View>
         </PressableScale>
       </View>
 
