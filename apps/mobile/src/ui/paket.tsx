@@ -21,11 +21,11 @@ export type PackStage = 'idle' | 'tear' | 'reveal';
 
 /** Timeline of the opening, in ms after the tap. */
 const AT = {
-  tear: 160, // the pull starts at the left edge
-  off: 1000, // the strip comes free and flies off
-  rays: 1200, // the rays start to pour out, slowly
-  rise: 1400, // the card rises out of the pack
-  settle: 2100, // the pack drops away and the card takes the stage; "Devam" shows when it lands
+  tear: 160, // the seal starts to peel back from the left edge
+  off: 1500, // it comes free and flies off
+  rays: 1700, // the rays start to pour out, slowly
+  rise: 1900, // the card rises out of the pack
+  settle: 2600, // the pack drops away and the card takes the stage; "Devam" shows when it lands
 };
 
 const ease = Easing.bezier(0.2, 0.9, 0.25, 1);
@@ -65,9 +65,10 @@ const TOP_H = PACK_W * 80 / 427;
 const BODY_H = PACK_W * 640 / 427;
 /** Where the strip is cut; the light and the sparks come out of this line. */
 const CUT_Y = TOP_H;
-/** How far the strip is dragged sideways (and lifted) before it comes free. */
-const PULL_X = PACK_W * 0.42;
-const PULL_Y = 7;
+/** The peeled-back flap slides over the part still stuck down by this share of the peeled length. */
+const FOLD = 0.55;
+/** How far the flap lifts off the pack while it is pulled. */
+const PULL_Y = 6;
 
 const FAN_H = 170;
 const FAN_W = PACK_W + 140;
@@ -226,10 +227,10 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     press.value = withSequence(withTiming(1, { duration: AT.tear, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 300 }));
     // A real pull: a quick start, a short catch where the seal holds, then it gives all the way.
     tear.value = withDelay(AT.tear, withSequence(
-      withTiming(0.3, { duration: 260, easing: Easing.out(Easing.quad) }),
-      withTiming(0.4, { duration: 200, easing: Easing.inOut(Easing.quad) }),
-      withTiming(0.82, { duration: 230, easing: Easing.inOut(Easing.quad) }),
-      withTiming(1, { duration: AT.off - AT.tear - 690, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
+      withTiming(0.25, { duration: 380, easing: Easing.out(Easing.quad) }),
+      withTiming(0.32, { duration: 240, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.72, { duration: 420, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: AT.off - AT.tear - 1040, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
     ));
     // A thin white light shows through the cut as it opens...
     peek.value = withDelay(AT.tear + 120, withTiming(1, { duration: AT.off - AT.tear - 120, easing: Easing.in(Easing.quad) }));
@@ -247,9 +248,9 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     // Haptic ticks follow the pull; the big moments are cued by the animations themselves (below).
     const cues: [number, () => void][] = [
       [AT.tear, () => { buzz('light'); sfx('sling_pull', 0.7); }],
-      [AT.tear + 260, () => buzz('light')],
-      [AT.tear + 460, () => buzz('light')],
-      [AT.tear + 690, () => buzz('light')],
+      [AT.tear + 380, () => buzz('light')],
+      [AT.tear + 620, () => buzz('light')],
+      [AT.tear + 1040, () => buzz('light')],
       [AT.rise, () => sfx('badge_shine')],
     ];
     const ids = cues.map(([ms, fn]) => setTimeout(fn, ms));
@@ -269,17 +270,29 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     opacity: 1 - settle.value,
     transform: [{ translateY: -10 * wobble.value }],
   }));
-  // The seal is gripped at its left end and dragged off to the right: it slides and lifts a little
-  // while it is pulled, then comes free and flies on.
+  // The seal is peeled back from its left end: the peeled flap lifts and slides over the part
+  // still stuck down, more of it comes away as the pull goes on, then it comes free and flies on.
   const strip = useAnimatedStyle(() => {
-    const p = tear.value, f = fly.value;
+    const f = fly.value;
     return {
       opacity: f > 0.55 ? 1 - (f - 0.55) / 0.45 : 1,
       transformOrigin: `${PACK_W}px ${TOP_H}px`,
+      transform: [{ translateX: f * PACK_W * 1.1 }, { translateY: -f * 36 }, { rotate: `${f * 12}deg` }],
+    };
+  });
+  const stuck = useAnimatedStyle(() => {
+    const x = tear.value * PACK_W;
+    return { left: x, width: PACK_W - x };
+  });
+  const stuckImg = useAnimatedStyle(() => ({ left: -tear.value * PACK_W }));
+  const flap = useAnimatedStyle(() => {
+    const p = tear.value;
+    return {
+      width: p * PACK_W,
       transform: [
-        { translateX: p * PULL_X + f * PACK_W * 1.1 },
-        { translateY: -Math.min(1, p * 4) * PULL_Y * (0.5 + 0.5 * p) - f * 36 },
-        { rotate: `${-1.5 * Math.min(1, p * 4) * (1 - f) + f * 12}deg` },
+        { translateX: p * PACK_W * FOLD },
+        { translateY: -PULL_Y * Math.min(1, p * 5) },
+        { rotate: `${-2 * Math.min(1, p * 5)}deg` },
       ],
     };
   });
@@ -288,7 +301,7 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   const cut = useAnimatedStyle(() => ({ opacity: tear.value > 0 || fly.value > 0 ? 1 : 0 }));
   const peekStyle = useAnimatedStyle(() => ({
     opacity: 1 - 0.6 * fly.value,
-    width: Math.max(0, Math.min(PACK_W - 12, tear.value * PULL_X + fly.value * PACK_W - 6)),
+    width: Math.max(0, Math.min(PACK_W - 12, tear.value * PACK_W * FOLD + fly.value * PACK_W - 6)),
   }));
   const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value, transform: [{ scale: 0.6 + 0.4 * bloom.value }] }));
   const fan = useAnimatedStyle(() => ({
@@ -365,7 +378,16 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
         </Animated.View>
         {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + AT.off} run={stage === 'tear' && !reduced} />)}
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TOP_H }, strip, cut]}>
-          <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
+          {/* The part still stuck down. */}
+          <Animated.View style={[{ position: 'absolute', top: 0, height: TOP_H, overflow: 'hidden' }, stuck]}>
+            <Animated.View style={[{ position: 'absolute', top: 0, width: PACK_W, height: TOP_H }, stuckImg]}>
+              <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
+            </Animated.View>
+          </Animated.View>
+          {/* The peeled flap, on top of it, with a soft shadow where it lifts. */}
+          <Animated.View style={[{ position: 'absolute', left: 0, top: 0, height: TOP_H, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.55, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } }, flap]}>
+            <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
+          </Animated.View>
         </Animated.View>
       </Animated.View>
 
