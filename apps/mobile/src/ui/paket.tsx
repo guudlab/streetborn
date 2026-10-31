@@ -22,9 +22,9 @@ export type PackStage = 'idle' | 'tear' | 'reveal';
 /** Timeline of the opening, in ms after the tap. */
 const AT = {
   tear: 160, // the seal starts to peel back from the left edge
-  off: 1500, // it comes free and flies off
-  rise: 1900, // the card rises out of the pack
-  settle: 2600, // the pack drops away and the card takes the stage; "Devam" shows when it lands
+  off: 900, // it comes free and flies off
+  rise: 1250, // the card rises out of the pack
+  settle: 1950, // the pack drops away and the card takes the stage; "Devam" shows when it lands
 };
 
 const ease = Easing.bezier(0.2, 0.9, 0.25, 1);
@@ -101,7 +101,9 @@ const FLAP_H = 90 * SRC;
 const CUT_Y = 80 * SRC;
 /** The card starts small inside the pack and grows as it rises out; it lands at full size. */
 const CARD_START = 0.42;
-const CARD_IN = 0.8;
+const CARD_IN = 0.72;
+// Final size: the card stays a little inside the pack's outline, even at the top of the pop.
+const CARD_END = 0.86;
 /** Card centre offsets from its final place: hidden in the pack, then risen out of it. */
 const CARD_HIDDEN_Y = CUT_Y + 12 + PACK_H * CARD_START / 2 - PACK_H / 2;
 const CARD_RISEN_Y = CUT_Y + 90 - PACK_H * CARD_IN / 2 - PACK_H / 2;
@@ -257,12 +259,12 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     press.value = withSequence(withTiming(1, { duration: AT.tear, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 300 }));
     // A real pull: a quick start, a short catch where the seal holds, then it gives all the way.
     tear.value = withDelay(AT.tear, withSequence(
-      withTiming(0.25, { duration: 380, easing: Easing.out(Easing.quad) }),
-      withTiming(0.32, { duration: 240, easing: Easing.inOut(Easing.quad) }),
-      withTiming(0.72, { duration: 420, easing: Easing.inOut(Easing.quad) }),
-      withTiming(1, { duration: AT.off - AT.tear - 1040, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
+      withTiming(0.25, { duration: 200, easing: Easing.out(Easing.quad) }),
+      withTiming(0.32, { duration: 120, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.72, { duration: 220, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: AT.off - AT.tear - 540, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
     ));
-    fly.value = withDelay(AT.off, withTiming(1, { duration: 440, easing: Easing.in(Easing.quad) }));
+    fly.value = withDelay(AT.off, withTiming(1, { duration: 360, easing: Easing.in(Easing.quad) }));
     // A soft white glow wells up from inside the pack once the seal is off, and stays while the card rises.
     bloom.value = withDelay(AT.off - 40, withSequence(withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) }), withTiming(0.7, { duration: 700 })));
     rise.value = withDelay(AT.rise, withTiming(1, { duration: 650, easing: Easing.bezier(0.2, 1.15, 0.4, 1) }));
@@ -275,9 +277,9 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     // Haptic ticks follow the pull; the big moments are cued by the animations themselves (below).
     const cues: [number, () => void][] = [
       [AT.tear, () => { buzz('light'); sfx('sling_pull', 0.7); }],
-      [AT.tear + 380, () => buzz('light')],
-      [AT.tear + 620, () => buzz('light')],
-      [AT.tear + 1040, () => buzz('light')],
+      [AT.tear + 200, () => buzz('light')],
+      [AT.tear + 320, () => buzz('light')],
+      [AT.tear + 540, () => buzz('light')],
       [AT.rise, () => sfx('badge_shine')],
     ];
     const ids = cues.map(([ms, fn]) => setTimeout(fn, ms));
@@ -313,8 +315,8 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value, transform: [{ scaleY: 0.4 + 0.6 * bloom.value }, { scaleX: 0.7 + 0.3 * bloom.value }] }));
   const card = useAnimatedStyle(() => {
     const y = CARD_HIDDEN_Y + (CARD_RISEN_Y - CARD_HIDDEN_Y) * rise.value;
-    const s = settle.value > 0 ? CARD_IN + (1 - CARD_IN) * settle.value : CARD_START + (CARD_IN - CARD_START) * rise.value;
-    const pop = 1 + 0.07 * Math.sin(settle.value * Math.PI);
+    const s = settle.value > 0 ? CARD_IN + (CARD_END - CARD_IN) * settle.value : CARD_START + (CARD_IN - CARD_START) * rise.value;
+    const pop = 1 + 0.04 * Math.sin(settle.value * Math.PI);
     return {
       opacity: rise.value > 0 ? 1 : 0,
       transform: [
