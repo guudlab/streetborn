@@ -53,8 +53,8 @@ function toAnim(o: Extract<ChanceOutcome, { x: number }>): ShotAnim {
 interface Card { good: boolean; title: string; desc: string; icon: IconName }
 
 /**
- * The match screen. The browser plays the 3D halısaha (match3d/); native builds and
- * browsers without WebGL play the 2D scenes below. `?mac2d` forces 2D. Both send the
+ * The match screen. The browser and the native WebView play the 3D halısaha (match3d/); when it fails
+ * to start, or the browser has no WebGL, the 2D scenes below are used. `?mac2d` forces 2D. Both send the
  * same inputs to the same engine, so the result does not depend on which one ran.
  */
 export default function Mac() {
@@ -74,7 +74,8 @@ export default function Mac() {
 }
 
 function can3d(): boolean {
-  if (Platform.OS !== 'web' || /[?&]mac2d\b/.test(window.location.search)) return false;
+  if (Platform.OS !== 'web') return true; // the WebView page reports its own failure through onFail
+  if (/[?&]mac2d\b/.test(window.location.search)) return false;
   try {
     const c = document.createElement('canvas');
     const gl = c.getContext('webgl2') ?? c.getContext('webgl');
@@ -85,7 +86,7 @@ function can3d(): boolean {
   }
 }
 
-/** The 2D match: native builds, and browsers without WebGL. */
+/** The 2D match: fallback when the 3D scene fails or WebGL is missing. */
 function Match2D() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
