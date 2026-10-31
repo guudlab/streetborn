@@ -14,6 +14,7 @@ import { buzz, Cta, Ghost, H3, Ring, T, Track, useCountUp, wait } from '../ui/ki
 import { Pop, PressableScale, useReduceMotion } from '../ui/motion.tsx';
 import { closeSheet, openSheet } from '../ui/overlay.tsx';
 import { achName, injuryName, timeLeft } from '../ui/kariyer.tsx';
+import { MatchStrip } from '../ui/live/MatchStrip.tsx';
 import { Amount, Bubble, Ico } from '../ui/sade.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -107,6 +108,8 @@ export default function MacSonu() {
           <T w={700} size={14} color={badgeFg}>{RES[r.result]}</T>
         </View>
       </View>
+
+      {r.pins.length > 0 && <MatchStrip pins={r.pins} goals={r.us + r.them} />}
 
       <Bubble text={quote} style={{ alignSelf: 'center' }} />
 

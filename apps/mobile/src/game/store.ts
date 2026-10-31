@@ -17,6 +17,7 @@ import {
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
 import { offline } from '../net/config.ts';
 import { DEFAULT_CHARACTER, NICK_MIN, type Character } from './character.ts';
+import { mateNames, storyPins, type Pin } from './live.ts';
 import { clamp, OFFERS, type DrillKey, type StatKey, type Stats } from './rules.ts';
 import { t } from '../i18n/index.ts';
 import { HINTS_KEY, useHints } from './hints.ts';
@@ -35,7 +36,7 @@ export type Mode = 'loading' | 'online' | 'local';
 /** `none`: show the sign-in screen. `in`: the player pressed Başla (or had a session). */
 export type Auth = 'unknown' | 'none' | 'in';
 
-export interface LogEntry { minute: number; kind: MomentKind; outcome: ChanceOutcome['outcome'] }
+export interface LogEntry { minute: number; kind: MomentKind; outcome: Exclude<ChanceOutcome, { kind: 'halftime' }>['outcome'] }
 
 export interface PostMatch {
   kind: MatchKind;
@@ -46,6 +47,8 @@ export interface PostMatch {
   result: TeamResult; us: number; them: number; rating: number; goals: number; assists: number;
   coins: number; xp: number; trustDelta: number; ups: number; scout: boolean; flagged: boolean;
   log: LogEntry[];
+  /** The match strip: the player's moments and the other goals, by minute. */
+  pins: Pin[];
   /** The player's very first match: the result screen also offers to link an account. */
   first: boolean;
   /** Morale, a possible injury and achievements from this match (online). */
@@ -60,9 +63,12 @@ export interface LiveMatch {
   opponentName: string | null;
   matchId: string | null;
   setup: MatchSetup;
+  /** Engine 4 plays the match on after every input, so the plan grows with the match. */
   plan: MatchPlan;
   /** Index of the moment being played (attacking chances and defense moments). */
   i: number;
+  /** Teammates' names for the commentary. */
+  names: string[];
   inputs: ChanceInput[];
   outcomes: (ChanceOutcome | null)[];
   startedAt: number;
@@ -194,8 +200,8 @@ interface GameState {
   play(input: ChanceInput): ChanceOutcome;
   /** A defense moment the player let pass: shows the engine's outcome, records no input. */
   skip(chance: number): void;
-  /** Moves to the next moment; returns the opponent goals scored in between. */
-  advance(): { done: boolean; events: { minute: number }[] };
+  /** Moves to the next moment; `from` and `to` are the minutes the commentary covers. */
+  advance(): { done: boolean; from: number; to: number };
   finishMatch(): Promise<PostMatch>;
   /** Starts a mini game: spends today's free drill or 1 energy. Online the server hands out the seed. */
   startDrill(key: DrillKey): Promise<'ok' | 'no_energy' | 'error'>;
@@ -217,14 +223,15 @@ interface GameState {
   setAssisted(v: boolean): void;
 }
 
-/** Team score so far: the player's goals and assists, and the opponent goals before `minute`. */
+/** Team score so far: the player's goals and assists, and the other goals before `minute`. */
 export function liveScore(m: LiveMatch, minute: number) {
   let us = 0, conceded = 0;
   for (const o of m.outcomes) {
-    if (!o) continue;
+    if (!o || o.kind === 'halftime') continue;
     if (o.kind === 'defense') { if (o.outcome === 'conceded') conceded++; }
     else if (o.outcome === 'goal' || o.outcome === 'assist') us++;
   }
+  us += (m.plan.mateGoals ?? []).filter(g => g < minute).length;
   return { us, them: m.plan.opponentGoals.filter(g => g < minute).length + conceded };
 }
 
@@ -674,14 +681,16 @@ export const useGame = create<GameState>()((set, get) => ({
         engineVersion: ENGINE_VERSION, seed: randomSeed(), chances: config.matchChances,
         shooting: clamp(s.stats.sut, 1, 100), passing: clamp(s.stats.pas, 1, 100),
         opponentGoalkeeping: Math.min(95, 35 + s.level * 2), opponentAttack: Math.min(95, 30 + s.level * 2),
+        pace: clamp(s.stats.hiz, 1, 100), role: (s.character ?? DEFAULT_CHARACTER).position,
       };
       const wasFull = s.energy >= s.energyMax;
       set({ energy: s.energy - config.matchEnergyCost, energyUpdatedAt: wasFull ? Date.now() : s.energyUpdatedAt });
     }
     const plan = planMatch(setup);
+    const names = mateNames(kind === 'mahalle' ? s.mahalle?.members : undefined, s.name);
     set({
       match: {
-        kind, opponentName, matchId, setup, plan, i: 0, inputs: [],
+        kind, opponentName, matchId, setup, plan, i: 0, inputs: [], names,
         outcomes: plan.moments.map(() => null), startedAt: Date.now(),
       },
     });
@@ -693,7 +702,10 @@ export const useGame = create<GameState>()((set, get) => ({
     const outcome = playChance(m.setup, m.plan, input);
     const outcomes = m.outcomes.slice();
     outcomes[input.chance] = outcome;
-    set({ match: { ...m, inputs: [...m.inputs, input], outcomes } });
+    const inputs = [...m.inputs, input];
+    // Engine 4: the rest of the match follows from how this moment went.
+    const plan = m.setup.engineVersion === 4 ? planMatch(m.setup, inputs) : m.plan;
+    set({ match: { ...m, inputs, outcomes, plan } });
     return outcome;
   },
 
@@ -712,7 +724,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const done = i >= m.plan.moments.length;
     const to = done ? 91 : m.plan.moments[i]!.minute;
     set({ match: { ...m, i } });
-    return { done, events: m.plan.opponentGoals.filter(g => g >= from && g < to).map(minute => ({ minute })) };
+    return { done, from, to };
   },
 
   async finishMatch() {
@@ -720,8 +732,12 @@ export const useGame = create<GameState>()((set, get) => ({
     const m = s.match!;
     const durationMs = Date.now() - m.startedAt;
     const log: LogEntry[] = m.inputs
-      .map(inp => ({ minute: m.plan.moments[inp.chance]!.minute, kind: m.plan.moments[inp.chance]!.kind, outcome: m.outcomes[inp.chance]!.outcome }))
+      .flatMap((inp): LogEntry[] => {
+        const o = m.outcomes[inp.chance]!;
+        return o.kind === 'halftime' ? [] : [{ minute: m.plan.moments[inp.chance]!.minute, kind: m.plan.moments[inp.chance]!.kind, outcome: o.outcome }];
+      })
       .sort((a, b) => a.minute - b.minute);
+    const pins = storyPins(m.plan, m.outcomes, i => skippedDefense(m.setup, i) === 'conceded');
     const before = { level: s.level, xp: s.xp, trust: s.trust };
 
     let sim, rating: number, coins: number, xpGain: number, after: { level: number; xp: number }, flagged = false;
@@ -760,7 +776,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const scout = server ? server.offersBefore === 0 && server.offersAfter > 0 : rating >= 65;
     const post: PostMatch = {
       kind: m.kind, coachTrust, trialPassed: server?.trialPassed, result: sim.result, us: sim.us, them: sim.them, rating, goals: sim.goals, assists: sim.assists,
-      coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, first: s.tutorial, kariyer,
+      coins, xp: xpGain, trustDelta, ups: Math.max(0, after.level - before.level), scout, flagged, log, pins, first: s.tutorial, kariyer,
       before, after: { ...after, trust },
     };
     set({

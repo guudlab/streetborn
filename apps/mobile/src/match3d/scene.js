@@ -33,6 +33,7 @@ const PASS_PERIOD = 1.6;     // seconds for the pass ring 0 → 1 → 0
 // where the shots are taken from, in turn (x, z); free kicks are further out, past a wall
 const SHOT_SPOTS = [[0, 0], [-3.1, -1.2], [2.7, -0.8]];
 const FREEKICK_SPOTS = [[-2.2, -10.5], [2.4, -11]];
+const PENALTY_SPOT = [0, 0.5];   // straight on, nobody but the keeper
 const WALL_GAP = 5.5, WALL_H = 2.05;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const V2 = (x = 0, y = 0) => new THREE.Vector2(x, y);
@@ -522,7 +523,7 @@ export function createMatch(env) {
     fans.forEach((f, i) => { if (f.a.cur !== f.a.A.idle) { f.a.snap('idle', { from: i % 4, speed: 0.8 + (i % 3) * 0.12 }); f.feet.reset(); } });
     resetScene();
     const first = S.first; S.first = false;
-    if (m.kind === 'shot' || m.kind === 'freekick') setupShot(m, first);
+    if (m.kind === 'shot' || m.kind === 'freekick' || m.kind === 'penalty') setupShot(m, first);
     else if (m.kind === 'pass') setupPass(m);
     else setupDefense(m);
   }
@@ -551,7 +552,8 @@ export function createMatch(env) {
   function setupShot(m, first) {
     setPhase('intro');
     const freekick = m.kind === 'freekick';
-    const spot = freekick ? FREEKICK_SPOTS[S.freekicks++ % FREEKICK_SPOTS.length] : SHOT_SPOTS[S.shots++ % SHOT_SPOTS.length];
+    const spot = freekick ? FREEKICK_SPOTS[S.freekicks++ % FREEKICK_SPOTS.length]
+      : m.kind === 'penalty' ? PENALTY_SPOT : SHOT_SPOTS[S.shots++ % SHOT_SPOTS.length];
     const B0 = shot.B0.set(spot[0], BALL_R, spot[1]);
     shot.dir.set(-B0.x * 0.95, 0, GOAL_Z - B0.z).normalize();          // toward the goal, a touch inside the far post
     shot.right.set(-shot.dir.z, 0, shot.dir.x);                            // screen right when looking at the goal

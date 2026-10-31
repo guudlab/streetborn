@@ -1,4 +1,4 @@
-import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type Side } from '@streetborn/engine';
+import { TIMED_WINDOW as TIMED, TIMING_TARGET, type ChanceOutcome, type MomentKind, type Side, type Tactic } from '@streetborn/engine';
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { duckMusic, preloadSfx, setAmbience, setMusic, sfx, type SfxId } from '../audio/audio.ts';
 import { crestCode } from '../game/career.ts';
 import { delta } from '../game/format.ts';
+import { markHint, useHints } from '../game/hints.ts';
+import { myLine } from '../game/live.ts';
 import { clamp, MOMENT_TITLE } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
@@ -16,17 +18,26 @@ import { Icon, type IconName } from '../ui/Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
 import { Bubble, Ico, type IconAsset } from '../ui/sade.tsx';
 import { useShake } from '../ui/motion.tsx';
-import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
+import { closeSheet, openSheet, SheetText, toast, useOverlay } from '../ui/overlay.tsx';
 import { AssistToggle } from '../ui/AssistToggle.tsx';
 import { DefenseScene, type DefenseSceneHandle } from '../ui/DefenseScene.tsx';
 import { SkillBar, type SkillBarHandle } from '../ui/SkillBar.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
 import { t } from '../i18n/index.ts';
+import { Commentary, feedLine, type FeedLine } from '../ui/live/Commentary.tsx';
+import { Decision, Halftime } from '../ui/live/Picks.tsx';
 import { Match3D } from '../match3d/Match3D.tsx';
 
-const MOMENT_ICON: Record<'shot' | 'pass' | 'freekick' | 'defense', IconAsset> = { shot: 'sut', pass: 'pas', freekick: 'sut', defense: 'oyuncuKosu' };
-const KIND = { shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick'), defense: t('kind.defense') } as const;
+const MOMENT_ICON: Record<MomentKind, IconAsset> = {
+  shot: 'sut', pass: 'pas', freekick: 'sut', defense: 'oyuncuKosu', penalty: 'sut', decision: 'sut', halftime: 'sut',
+};
+const KIND: Record<MomentKind, string> = {
+  shot: t('kind.shot'), pass: t('kind.pass'), freekick: t('kind.freekick'), defense: t('kind.defense'),
+  penalty: t('kind.penalty'), decision: t('kind.decision'), halftime: t('kind.halftime'),
+};
+/** What the 2D scene plays: a decision becomes a shot or a pass, a penalty is a shot without the wall. */
+type PlayKind = 'shot' | 'pass' | 'freekick' | 'defense' | 'penalty';
 const SHOT_TEXT = { gol: t('match.shot.goal'), kurtardi: t('match.shot.saved'), aut: t('match.shot.wide'), ust: t('match.shot.over') } as const;
 const OUT = { goal: 'gol', saved: 'kurtardi', wide: 'aut', over: 'ust' } as const;
 /** What the ball hits, and how the crowd reacts. */
@@ -100,7 +111,14 @@ function Match2D() {
   const bar = useRef<SkillBarHandle>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [card, setCard] = useState<Card | null>(null);
-  const [ticker, setTicker] = useState<string | null>(null);
+  // The live match: commentary up to the first moment, then between moments; pick screens for decisions and half-time.
+  const [between, setBetween] = useState<{ from: number; to: number } | null>(() => (match ? { from: 0, to: match.plan.moments[0]!.minute } : null));
+  const [clock, setClock] = useState(0);
+  const [feed, setFeed] = useState<FeedLine[]>(() => [feedLine(0, t('live.kickoff'), 'info', 'whistle')]);
+  const [pickMode, setPickMode] = useState<'decision' | 'halftime' | null>(null);
+  const [playKind, setPlayKind] = useState<PlayKind | null>(null);
+  const addLine = (l: FeedLine) => setFeed(f => [...f.slice(-30), l]);
+  const sheetOpen = useOverlay(s => s.sheet !== null);
   const [line, setLine] = useState('');
   const [busy, setBusy] = useState(false);
   const [nudge, setNudge] = useState(false);
@@ -118,18 +136,19 @@ function Match2D() {
   }, []);
 
   const moment = match ? match.plan.moments[match.i] : undefined;
-  const shooting = moment?.kind === 'shot' || moment?.kind === 'freekick';
+  const shooting = playKind === 'shot' || playKind === 'freekick' || playKind === 'penalty';
 
   // Coach line at the start of each moment.
   useEffect(() => {
-    if (!moment || card) return;
-    setLine(moment.kind === 'pass' ? t('match.coach.pass')
-      : moment.kind === 'defense' ? t('match.coach.defense')
-        : moment.kind === 'freekick' ? t('match.coach.freekick')
-          : assisted ? t('match.coach.assisted')
-            : tutorial && match?.i === 0 ? t('match.coach.first')
-              : t('match.coach.aim'));
-  }, [moment, assisted, card, tutorial, match?.i]);
+    if (!moment || card || !playKind) return;
+    setLine(playKind === 'pass' ? t('match.coach.pass')
+      : playKind === 'defense' ? t('match.coach.defense')
+        : playKind === 'freekick' ? t('match.coach.freekick')
+          : playKind === 'penalty' ? t('m3.coach.penalty')
+            : assisted ? t('match.coach.assisted')
+              : tutorial && match?.i === 0 ? t('match.coach.first')
+                : t('match.coach.aim'));
+  }, [moment, assisted, card, tutorial, match?.i, playKind]);
 
   if (leaving.current) return null;
   if (!match && !card && finishing === 'no') return <Redirect href="/" />;
@@ -146,7 +165,7 @@ function Match2D() {
         ...(assisted ? { power: TIMING_TARGET, assisted: true } : { power }),
       },
     });
-    if (o.kind !== 'shot' && o.kind !== 'freekick') return;
+    if (o.kind !== 'shot' && o.kind !== 'freekick' && o.kind !== 'penalty') return;
     const res = toAnim(o);
     sfx(o.perfect ? 'kick_power' : 'kick');
     await scene.current?.animateShot(res);
@@ -217,21 +236,55 @@ function Match2D() {
     }
   };
 
-  const next = async () => {
+  /** Starts the current moment: a pick screen, or the scene. */
+  const begin = () => {
+    const m = useGame.getState().match;
+    if (!m) return;
+    const mo = m.plan.moments[m.i]!;
+    if (mo.kind === 'halftime' || mo.kind === 'decision') { setPickMode(mo.kind); return; }
+    play(mo.kind);
+  };
+  const play = (kind: PlayKind) => {
+    scene.current?.reset();
+    setPlayKind(kind);
+    setBusy(false);
+  };
+
+  /** After a moment: its line in the feed, then the commentary runs on. */
+  const next = () => {
+    const m = useGame.getState().match!;
+    const mo = m.plan.moments[m.i]!;
+    if (mo.kind !== 'halftime') {
+      const o = m.outcomes[m.i] ?? null;
+      const good = !!o && (o.outcome === 'goal' || o.outcome === 'assist' || o.outcome === 'stopped');
+      addLine(feedLine(mo.minute, myLine(o, mo, NAME[mo.openSide ?? 'left']), good ? 'me' : 'info', good ? 'star' : 'x'));
+    }
     const n = useGame.getState().advance();
     setCard(null);
-    for (const ev of n.events) {
-      const m = useGame.getState().match!;
-      const score = liveScore(m, ev.minute + 1);
-      setTicker(t('match.ticker', { minute: ev.minute, us: score.us, them: score.them }));
-      setLine(t('match.coach.conceded'));
-      sfx('crowd_groan');
-      await wait(1300);
-      setTicker(null);
+    setPlayKind(null);
+    setBetween({ from: n.from, to: n.to });
+  };
+
+  const arrive = () => {
+    const m = useGame.getState().match;
+    setBetween(null);
+    if (!m || m.i >= m.plan.moments.length) {
+      addLine(feedLine(90, t('live.fulltime'), 'info', 'whistle'));
+      setBusy(true);
+      void finish();
+      return;
     }
-    if (n.done) return finish();
-    scene.current?.reset();
-    setBusy(false);
+    begin();
+  };
+
+  const halftime = (tactic: Tactic | null) => {
+    const m = useGame.getState().match;
+    if (!m) return;
+    if (tactic) useGame.getState().play({ chance: m.i, tactic });
+    setPickMode(null);
+    addLine(feedLine(45, t('live.halftime'), 'info', 'whistle'));
+    addLine(feedLine(46, t('live.secondHalf'), 'info', 'whistle'));
+    next();
   };
 
   const pause = () => openSheet(
@@ -240,13 +293,13 @@ function Match2D() {
       <SheetText>{t('match.pauseText')}</SheetText>
       <SoundToggles />
       <Cta onPress={closeSheet}>{t('match.resume')}</Cta>
-      <Ghost onPress={() => { closeSheet(); setCard(null); setBusy(true); void finish(); }}>{t('match.simulate')}</Ghost>
+      <Ghost onPress={() => { closeSheet(); setCard(null); setBetween(null); setPickMode(null); setBusy(true); void finish(); }}>{t('match.simulate')}</Ghost>
     </>,
   );
 
   const m = match;
-  const minute = moment ? moment.minute : 90;
-  const score = m ? liveScore(m, minute) : { us: 0, them: 0 };
+  const minute = between ? clock : moment ? moment.minute : 90;
+  const score = m ? liveScore(m, between ? clock + 1 : minute) : { us: 0, them: 0 };
   const total = m?.plan.moments.length ?? 3;
   // Fixture matches name the real sides: the club in the league, the mahalle in a mahalle match.
   const homeName = m?.kind === 'league' ? career?.contract?.clubName : m?.kind === 'mahalle' ? mahalleName : undefined;
@@ -257,15 +310,15 @@ function Match2D() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <Reanimated.View style={[{ height: sceneH }, impact.style]}>
-        {moment?.kind === 'defense' && moment.attackSide ? (
+        {playKind === 'defense' && moment?.attackSide ? (
           <DefenseScene key={m?.i} ref={duel} attackSide={moment.attackSide} />
         ) : moment && (
           <ShotScene
             key={m?.i}
             ref={scene}
             mode={busy || card || !shooting ? 'none' : 'aim'}
-            wall={moment.kind === 'freekick'}
-            mates={moment.kind === 'pass' && moment.openSide && !card && !busy ? matesFor(moment.openSide) : undefined}
+            wall={playKind === 'freekick'}
+            mates={playKind === 'pass' && moment.openSide && !card && !busy ? matesFor(moment.openSide) : undefined}
             onMate={pass}
             onTarget={setTarget}
           />
@@ -292,18 +345,12 @@ function Match2D() {
           </View>
         </View>
 
-        {ticker && (
-          <View accessibilityLiveRegion="polite" style={{ position: 'absolute', top: insets.top + 68, left: 16, right: 16, padding: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(13,13,13,.82)' }}>
-            <T w={600} size={15}>{ticker}</T>
-          </View>
-        )}
-
         {card && <ResultCard card={card} />}
       </Reanimated.View>
 
       {/* Panel */}
       <View style={{ flex: 1, paddingTop: 18, paddingHorizontal: 20, paddingBottom: insets.bottom + 20, gap: 14 }}>
-        {moment && finishing === 'no' && (
+        {moment && playKind && finishing === 'no' && (
           <View accessible accessibilityLabel={t('match.moment', { i: (m?.i ?? 0) + 1, kind: KIND[moment.kind] })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ico name={MOMENT_ICON[moment.kind]} size={40} />
             <H3>{MOMENT_TITLE[moment.kind]}</H3>
@@ -323,10 +370,10 @@ function Match2D() {
             <Cta style={{ width: 104, height: 48, minHeight: 48 }} onPress={() => void shoot(target)}>{t('match.shoot')}</Cta>
           </View>
         )}
-        {moment?.kind === 'pass' && !card && !busy && finishing === 'no' && (
+        {playKind === 'pass' && !card && !busy && finishing === 'no' && (
           <SkillBar key={`pass${m?.i}`} ref={bar} label={t('match.bar.pass')} hint={t('match.bar.passHint')} />
         )}
-        {moment?.kind === 'defense' && !card && !busy && finishing === 'no' && (
+        {playKind === 'defense' && !card && !busy && finishing === 'no' && (
           <View style={{ gap: 12 }}>
             <SkillBar key={`def${m?.i}`} ref={bar} speed={1.1} label={t('match.bar.slide')} hint={t('match.bar.slideHint')} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -344,6 +391,26 @@ function Match2D() {
           {finishing === 'failed' && <Cta style={{ width: 170, height: 48, minHeight: 48 }} onPress={finish}>{t('match.retry')}</Cta>}
         </View>
       </View>
+
+      {/* The live match between moments; the score row above stays visible. */}
+      {m && finishing === 'no' && (between || pickMode) && (
+        <View style={{ position: 'absolute', top: insets.top + 60, left: 0, right: 0, bottom: 0, paddingTop: 8, paddingBottom: insets.bottom + 20, paddingHorizontal: 16, backgroundColor: colors.ink }}>
+          {between ? (
+            <Commentary
+              key={`${between.from}-${between.to}`} match={m} from={between.from} to={between.to}
+              next={m.plan.moments[m.i] ?? null} feed={feed} paused={sheetOpen}
+              onLine={addLine} onClock={setClock} onArrive={arrive}
+            />
+          ) : pickMode === 'halftime' ? (
+            <Halftime us={score.us} them={score.them} onPick={halftime} />
+          ) : moment ? (
+            <Decision
+              key={m.i} moment={moment} mate={NAME[moment.openSide ?? 'left']} first={!useHints.getState().seen.liveDecide}
+              onPick={k => { markHint('liveDecide'); setPickMode(null); play(k); }}
+            />
+          ) : null}
+        </View>
+      )}
     </View>
   );
 }

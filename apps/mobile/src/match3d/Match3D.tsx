@@ -1,4 +1,4 @@
-import { skippedDefense, TIMED_WINDOW, TIMING_TARGET, type Moment, type Side } from '@streetborn/engine';
+import { skippedDefense, TIMED_WINDOW, TIMING_TARGET, type ChanceOutcome, type Moment, type Side, type Tactic } from '@streetborn/engine';
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import type React from 'react';
@@ -10,6 +10,7 @@ import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audi
 import { crestCode } from '../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_MODEL, JERSEYS, jerseyTint, STARTERS, type Hero } from '../game/character.ts';
 import { markHint, useHints } from '../game/hints.ts';
+import { myLine } from '../game/live.ts';
 import type { HowToKind } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
@@ -19,6 +20,8 @@ import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, Ghost, H3, T, wait } from '../ui/kit.tsx';
 import { kitTinter, loadMatchScene, loadModel } from '../ui/Model3D.tsx';
 import { closeSheet, openSheet, SheetText, toast, useOverlay } from '../ui/overlay.tsx';
+import { Commentary, feedLine, type FeedLine } from '../ui/live/Commentary.tsx';
+import { Decision, Halftime } from '../ui/live/Picks.tsx';
 import { Bubble } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
 import { t, type Key } from '../i18n/index.ts';
@@ -26,7 +29,7 @@ import { assembleG } from './assemble.ts';
 import type { SceneBridge } from './bridgeTypes.ts';
 import { NativeSceneView } from './nativeScene';
 import { RingButton, type RingHandle } from './RingButton.tsx';
-import type { DefenseGrade, Gltf, MatchEnv, MatchScene, SceneResult, ScenePhase, ShotGrade } from './scene.d.ts';
+import type { DefenseGrade, Gltf, MatchEnv, MatchScene, SceneMoment, SceneResult, ScenePhase, ShotGrade } from './scene.d.ts';
 
 // The 3D match screen (web, and iOS/Android through a WebView). The scene (scene.js) acts each moment out; this screen
 // owns the HUD and the engine: it sends the player's input to the engine through the
@@ -69,7 +72,17 @@ type Tone = 'lime' | 'white' | 'red' | 'muted';
 const TONE: Record<Tone, string> = { lime: colors.l600, white: colors.g100, red: colors.bad, muted: colors.g200 };
 const SHOT_GRADE: Record<ShotGrade, Tone> = { perfect: 'lime', good: 'white', over: 'red', weak: 'muted' };
 
-const BANNER: Record<Moment['kind'], Key> = { shot: 'm3.banner.shot', freekick: 'm3.banner.freekick', pass: 'm3.banner.pass', defense: 'm3.banner.defense' };
+const BANNER: Record<Moment['kind'], Key> = {
+  shot: 'm3.banner.shot', freekick: 'm3.banner.freekick', pass: 'm3.banner.pass', defense: 'm3.banner.defense',
+  penalty: 'm3.banner.penalty', decision: 'm3.banner.decision', halftime: 'm3.banner.halftime',
+};
+
+/** The feed line after the player's own moment: lime when it went well. */
+function mineLine(o: ChanceOutcome | null, mo: Moment, mate: string): FeedLine {
+  const good = !!o && (o.outcome === 'goal' || o.outcome === 'assist' || o.outcome === 'stopped');
+  const conceded = mo.kind === 'defense' && (!o || o.outcome === 'conceded');
+  return feedLine(mo.minute, myLine(o, mo, mate), good ? 'me' : conceded ? 'them' : 'info', good ? 'star' : conceded ? 'ball' : 'x');
+}
 
 interface Pop { text: string; tone: Tone; id: number }
 
@@ -103,10 +116,17 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const [coach, setCoach] = useState<{ text: string; id: number } | null>(null);
   const [big, setBig] = useState<Pop | null>(null);
   const [grade, setGrade] = useState<Pop | null>(null);
-  const [ticker, setTicker] = useState<string | null>(null);
   const [nudge, setNudge] = useState(false);
   const [finishing, setFinishing] = useState<'no' | 'sending' | 'failed'>('no');
-  const [demo, setDemo] = useState<HowToKind | null>(null);
+  const [demo, setDemo] = useState<{ howto: HowToKind; kind: SceneMoment['kind'] } | null>(null);
+  // The live match: commentary runs between `from` and `to`; a pick screen for decision and half-time moments.
+  const [between, setBetween] = useState<{ from: number; to: number } | null>(null);
+  const [clock, setClock] = useState(0);
+  const [feed, setFeed] = useState<FeedLine[]>([]);
+  const [pickMode, setPickMode] = useState<'decision' | 'halftime' | null>(null);
+  // What the scene acts out for the current moment: a decision becomes a shot or a pass, a penalty a shot.
+  const [playKind, setPlayKind] = useState<SceneMoment['kind'] | null>(null);
+  const addLine = useCallback((l: FeedLine) => setFeed(f => [...f.slice(-30), l]), []);
 
   const say = useCallback((key: Key, vars?: Record<string, string | number>) => setCoach({ text: t(key, vars), id: Date.now() }), []);
   const pop = useCallback((key: Key, tone: Tone) => setBig({ text: t(key), tone, id: Date.now() }), []);
@@ -140,49 +160,89 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     }
   }, []);
 
-  /** Starts the store's current moment in the scene. */
-  const begin = useCallback(() => {
+  /** Acts the current moment out in the scene as `kind`. */
+  const startScene = useCallback((kind: SceneMoment['kind']) => {
     const m = useGame.getState().match;
     const sc = scene.current;
-    if (!m || !sc) return;
+    if (!m || !sc || ended.current) return;
     const mo = m.plan.moments[m.i]!;
     // The first shot, pass and defense moment of a player's life opens with a short hand demo.
-    const howto: HowToKind = mo.kind === 'pass' ? 'mPass' : mo.kind === 'defense' ? 'mDefense' : 'mShot';
+    const howto: HowToKind = kind === 'pass' ? 'mPass' : kind === 'defense' ? 'mDefense' : 'mShot';
     if (!useHints.getState().seen[`howto_${howto}`]) {
       sc.setPaused(true);
-      setDemo(howto);
+      setDemo({ howto, kind });
       return;
     }
+    sc.setPaused(false);
+    setPlayKind(kind);
     acted.current = -1; lastSide.current = null; lastTiming.current = 0;
     setAimed(false); setNudge(false);
-    setBanner({ text: t(BANNER[mo.kind], { minute: mo.minute }), def: mo.kind === 'defense', id: Date.now() });
+    setBanner({ text: t(BANNER[mo.kind], { minute: mo.minute }), def: kind === 'defense', id: Date.now() });
     const shots = m.plan.moments.slice(0, m.i).filter(x => x.kind === 'shot').length;
-    if (mo.kind === 'defense') say('m3.coach.defense');
-    else if (mo.kind === 'pass') say('m3.coach.pass');
-    else if (mo.kind === 'freekick') say('m3.coach.freekick');
+    if (kind === 'defense') say('m3.coach.defense');
+    else if (mo.kind === 'decision') say(kind === 'pass' ? 'm3.coach.decidedPass' : 'm3.coach.decidedShot');
+    else if (kind === 'pass') say('m3.coach.pass');
+    else if (kind === 'freekick') say('m3.coach.freekick');
+    else if (kind === 'penalty') say('m3.coach.penalty');
     else if (useGame.getState().assisted) say('match.coach.assisted');
-    else say(m.i === 0 ? 'm3.coach.first' : shots % 3 === 0 ? 'm3.coach.shot' : 'm3.coach.angle');
+    else say(shots === 0 ? 'm3.coach.first' : shots % 3 === 0 ? 'm3.coach.shot' : 'm3.coach.angle');
     sc.start({
-      kind: mo.kind, attackSide: mo.attackSide, openSide: mo.openSide,
-      skip: mo.kind === 'defense' ? skippedDefense(m.setup, m.i) : undefined,
+      kind, attackSide: mo.attackSide, openSide: mo.openSide,
+      skip: kind === 'defense' ? skippedDefense(m.setup, m.i) : undefined,
     });
   }, [say]);
 
-  const next = useCallback(async () => {
-    if (ended.current) return;
-    const n = useGame.getState().advance();
-    for (const ev of n.events) {
-      const m = useGame.getState().match!;
-      const score = liveScore(m, ev.minute + 1);
-      setTicker(t('match.ticker', { minute: ev.minute, us: score.us, them: score.them }));
-      say('match.coach.conceded');
-      sfx('crowd_groan');
-      await wait(1300);
-      setTicker(null);
+  /** Starts the store's current moment: a pick screen, or straight into the scene. */
+  const begin = useCallback(() => {
+    const m = useGame.getState().match;
+    if (!m || !scene.current || ended.current) return;
+    const mo = m.plan.moments[m.i]!;
+    if (mo.kind === 'halftime' || mo.kind === 'decision') {
+      scene.current.setPaused(true);
+      setPickMode(mo.kind);
+      return;
     }
-    if (n.done) return finish();
-    if (!ended.current) begin();
-  }, [begin, finish, say]);
+    startScene(mo.kind);
+  }, [startScene]);
+
+  /** After a moment: its line in the feed, then the commentary runs on to the next one (or to full time). */
+  const next = useCallback(() => {
+    if (ended.current) return;
+    const m = useGame.getState().match!;
+    const mo = m.plan.moments[m.i]!;
+    if (mo.kind !== 'halftime') addLine(mineLine(m.outcomes[m.i] ?? null, mo, NAME[lastSide.current ?? mo.openSide ?? 'left']));
+    const n = useGame.getState().advance();
+    setPlayKind(null);
+    scene.current?.setPaused(true);
+    setBetween({ from: n.from, to: n.to });
+  }, [addLine]);
+
+  const arrive = useCallback(() => {
+    const m = useGame.getState().match;
+    setBetween(null);
+    if (!m || m.i >= m.plan.moments.length) {
+      addLine(feedLine(90, t('live.fulltime'), 'info', 'whistle'));
+      void finish();
+      return;
+    }
+    begin();
+  }, [addLine, begin, finish]);
+
+  const decide = useCallback((kind: 'shot' | 'pass') => {
+    markHint('liveDecide');
+    setPickMode(null);
+    startScene(kind);
+  }, [startScene]);
+
+  const halftime = useCallback((tactic: Tactic | null) => {
+    const m = useGame.getState().match;
+    if (!m) return;
+    if (tactic) useGame.getState().play({ chance: m.i, tactic });
+    setPickMode(null);
+    addLine(feedLine(45, t('live.halftime'), 'info', 'whistle'));
+    addLine(feedLine(46, t('live.secondHalf'), 'info', 'whistle'));
+    next();
+  }, [addLine, next]);
 
   const onResult = useCallback((r: SceneResult) => {
     const m = useGame.getState().match;
@@ -226,8 +286,18 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   // Load the models, build the scene, kick off. Once: the scene lives as long as the screen.
   // The browser draws into a canvas here; iOS and Android host the same scene in a WebView
   // (nativeScene.native.tsx), which hands over its bridge once its page is ready.
-  const handlers = useRef({ next, onResult });
-  handlers.current = { next, onResult };
+  const handlers = useRef({ next, onResult, kickoff: () => {} });
+  handlers.current = {
+    next, onResult,
+    // The match opens with the commentary up to the player's first moment.
+    kickoff: () => {
+      const m = useGame.getState().match;
+      if (!m) return;
+      addLine(feedLine(0, t('live.kickoff'), 'info', 'whistle'));
+      scene.current?.setPaused(true);
+      setBetween({ from: 0, to: m.plan.moments[0]!.minute });
+    },
+  };
   const [bridge, setBridge] = useState<SceneBridge | null>(null);
   useEffect(() => {
     const native = Platform.OS !== 'web';
@@ -258,7 +328,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
         },
         result: (r) => handlers.current.onResult(r),
         skipped: () => { const m = useGame.getState().match; if (m) useGame.getState().skip(m.i); },
-        done: () => { void handlers.current.next(); },
+        done: () => { handlers.current.next(); },
       };
       if (native) {
         sc = await bridge!.start({ keys: files.map(f => f[0]), tint, board, kit, away }, files, setProgress, { on, sfx: (id, gain) => sfx(id, gain) });
@@ -283,13 +353,13 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       await sc.ready;
       if (cancelled) return;
       setReady(true);
-      begin();
+      handlers.current.kickoff();
     })().catch((e: unknown) => { if (!cancelled) onFail(e); });
     return () => { cancelled = true; sc?.dispose(); bridge?.dispose(); scene.current = null; };
   }, [bridge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const moment = match ? match.plan.moments[match.i] : undefined;
-  const live = !!moment && finishing === 'no';
+  const live = !!moment && finishing === 'no' && !between && !pickMode && !!playKind;
 
   // --- inputs: each goes to the engine first, then the scene acts out the outcome
   const shoot = useCallback((power: number) => {
@@ -303,7 +373,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       chance: m.i,
       shot: { aim, lift, ...(helped ? { power: TIMING_TARGET, assisted: true } : { power: Math.round(power * 1000) }) },
     });
-    if (o.kind !== 'shot' && o.kind !== 'freekick') return;
+    if (o.kind !== 'shot' && o.kind !== 'freekick' && o.kind !== 'penalty') return;
     setNudge(false);
     sc.shoot({ power: helped ? TIMING_TARGET / 1000 : power, outcome: o.outcome, x: o.x, y: o.y, perfect: !!o.perfect, assisted: helped });
   }, []);
@@ -330,12 +400,14 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     sc.tackle(side === 'right' ? 1 : -1, timing, o.outcome);
   }, []);
 
+  const kindRef = useRef(playKind);
+  kindRef.current = playKind;
   // Keyboard on the web: space charges the shot, arrows slide or pass.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const down = (e: KeyboardEvent) => {
-      const k = useGame.getState().match?.plan.moments[useGame.getState().match!.i]?.kind;
-      if (e.code === 'Space' && !e.repeat && (k === 'shot' || k === 'freekick')) { e.preventDefault(); shootRing.current?.press(); }
+      const k = kindRef.current;
+      if (e.code === 'Space' && !e.repeat && (k === 'shot' || k === 'freekick' || k === 'penalty')) { e.preventDefault(); shootRing.current?.press(); }
       if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         const side: Side = e.code === 'ArrowLeft' ? 'left' : 'right';
         if (k === 'defense') slide(side); else if (k === 'pass') pass(side);
@@ -361,12 +433,12 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   if (!match && finishing === 'no') return <Redirect href="/" />;
 
   const m = match;
-  const minute = moment ? moment.minute : 90;
-  const score = m ? liveScore(m, minute) : { us: 0, them: 0 };
+  const minute = between ? clock : moment ? moment.minute : 90;
+  const score = m ? liveScore(m, between ? clock + 1 : minute) : { us: 0, them: 0 };
   const homeName = m?.kind === 'league' ? career?.contract?.clubName : m?.kind === 'mahalle' ? mahalleName : undefined;
   const homeCode = homeName ? crestCode(homeName) : t('club.home.code');
   const awayCode = m?.opponentName ? crestCode(m.opponentName) : t('club.away.code');
-  const shooting = moment?.kind === 'shot' || moment?.kind === 'freekick';
+  const shooting = playKind === 'shot' || playKind === 'freekick' || playKind === 'penalty';
   const hint = !live ? '' : phase === 'aim' ? (assisted ? t('m3.hint.assisted') : aimed ? t('m3.hint.charge') : t('m3.hint.aim'))
     : phase === 'pass' ? t('m3.hint.pass') : phase === 'defend' ? t('m3.hint.defend') : '';
 
@@ -375,6 +447,26 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       <View ref={host} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
         {Platform.OS !== 'web' && <NativeSceneView onBridge={setBridge} onFail={onFail} />}
       </View>
+
+      {/* The live match between moments: commentary, or a pick screen. The HUD's top row stays above it. */}
+      {m && finishing === 'no' && (between || pickMode) && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingTop: insets.top + 72, paddingBottom: insets.bottom + 20, paddingHorizontal: 16, backgroundColor: 'rgba(13,13,13,.95)' }}>
+          {between ? (
+            <Commentary
+              key={`${between.from}-${between.to}`} match={m} from={between.from} to={between.to}
+              next={m.plan.moments[m.i] ?? null} feed={feed} paused={sheetOpen}
+              onLine={addLine} onClock={setClock} onArrive={arrive}
+            />
+          ) : pickMode === 'halftime' ? (
+            <Halftime us={score.us} them={score.them} onPick={halftime} />
+          ) : moment ? (
+            <Decision
+              key={m.i} moment={moment} mate={NAME[moment.openSide ?? 'left']}
+              first={!useHints.getState().seen.liveDecide} onPick={decide}
+            />
+          ) : null}
+        </View>
+      )}
 
       {/* HUD: the canvas under it still gets the taps that aim */}
       <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 20, paddingHorizontal: 16 }}>
@@ -397,8 +489,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
         </View>
 
         {m && (
-          <View pointerEvents="none" accessibilityLabel={t('match.momentA11y', { i: Math.min(m.i + 1, m.plan.moments.length), n: m.plan.moments.length })} style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+          <View pointerEvents="none" accessibilityLabel={t('match.momentA11y', { i: plays(m.plan.moments.slice(0, m.i + 1)), n: plays(m.plan.moments) })} style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
             {m.plan.moments.map((mo, i) => {
+              if (mo.kind === 'halftime') return null;
               const d = dots[i];
               const now = i === m.i && !d;
               return (
@@ -413,12 +506,6 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
 
         {banner && <Banner key={banner.id} text={banner.text} def={banner.def} />}
         {coach && live && <Coach key={coach.id} text={coach.text} />}
-
-        {ticker && (
-          <View accessibilityLiveRegion="polite" style={{ marginTop: 10, padding: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(13,13,13,.82)' }}>
-            <T w={600} size={15}>{ticker}</T>
-          </View>
-        )}
 
         <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           {big && <BigText key={big.id} pop={big} />}
@@ -441,17 +528,17 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
               <T w={700} size={24} color={colors.ink} style={{ fontStyle: 'italic' }}>{t('m3.shoot')}</T>
             </RingButton>
           )}
-          {live && ready && (moment.kind === 'defense' || moment.kind === 'pass') && (
+          {live && ready && (playKind === 'defense' || playKind === 'pass') && (
             <View style={{ flexDirection: 'row', gap: 28 }}>
               {(['left', 'right'] as const).map(side => (
                 <RingButton
                   key={side} ref={side === 'left' ? leftRing : rightRing} mode="tap" size={116} dark
-                  enabled={phase === (moment.kind === 'defense' ? 'defend' : 'pass')}
-                  label={moment.kind === 'defense' ? t(side === 'left' ? 'm3.leftA11y' : 'm3.rightA11y') : t('m3.passA11y', { name: NAME[side] })}
-                  onFire={() => (moment.kind === 'defense' ? slide(side) : pass(side))}
+                  enabled={phase === (playKind === 'defense' ? 'defend' : 'pass')}
+                  label={playKind === 'defense' ? t(side === 'left' ? 'm3.leftA11y' : 'm3.rightA11y') : t('m3.passA11y', { name: NAME[side] })}
+                  onFire={() => (playKind === 'defense' ? slide(side) : pass(side))}
                 >
-                  {moment.kind === 'defense' && <Icon name={side === 'left' ? 'back' : 'chev'} size={26} color={colors.g100} />}
-                  <T w={700} size={18}>{moment.kind === 'defense' ? t(side === 'left' ? 'm3.left' : 'm3.right') : NAME[side].toLocaleUpperCase('tr')}</T>
+                  {playKind === 'defense' && <Icon name={side === 'left' ? 'back' : 'chev'} size={26} color={colors.g100} />}
+                  <T w={700} size={18}>{playKind === 'defense' ? t(side === 'left' ? 'm3.left' : 'm3.right') : NAME[side].toLocaleUpperCase('tr')}</T>
                 </RingButton>
               ))}
             </View>
@@ -467,12 +554,11 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       {demo && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(13,13,13,.96)' }}>
           <HowTo
-            drill={demo} name={t(`howto.${demo}.title` as Key)}
+            drill={demo.howto} name={t(`howto.${demo.howto}.title` as Key)}
             onDone={() => {
-              markHint(`howto_${demo}`);
+              markHint(`howto_${demo.howto}`);
               setDemo(null);
-              scene.current?.setPaused(false);
-              begin();
+              startScene(demo.kind);
             }}
           />
         </View>
@@ -488,6 +574,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     </View>
   );
 }
+
+/** Moments the player plays (the half-time call is not one). */
+const plays = (moments: readonly Moment[]) => moments.filter(mo => mo.kind !== 'halftime').length;
 
 function Loading({ progress }: { progress: number }) {
   return (

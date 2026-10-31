@@ -1,6 +1,6 @@
 // Spends energy and issues a match ticket (seed + setup). The client plays the
 // match with this setup; match-finish replays the recorded inputs to score it.
-import { ENGINE_VERSION, planMatch, type MatchSetup } from '../../../packages/engine/src/index.ts';
+import { ENGINE_VERSION, planMatch, ROLES, type EngineVersion, type MatchSetup, type Role } from '../../../packages/engine/src/index.ts';
 import {
   dailyDrill,
   istanbulDay,
@@ -21,14 +21,16 @@ Deno.serve(handle(async (req) => {
   const kind = ['mahalle', 'league', 'trial'].includes(body.kind as string) ? body.kind as 'mahalle' | 'league' | 'trial' : 'energy';
   const mahalleMatch = kind === 'mahalle';
   const fixture = kind !== 'energy';
+  // Builds from before the live match do not send `engine` and keep playing engine 3.
+  const engineVersion: EngineVersion = body.engine === ENGINE_VERSION ? ENGINE_VERSION : 3;
   const config = await loadEconomyConfig();
   const now = Date.now();
 
   const [{ data: wallet, error: walletError }, { data: player, error: playerError }, { data: stats, error: statsError }] =
     await Promise.all([
       admin.from('wallets').select('energy, energy_updated_at, version').eq('player_id', playerId).single(),
-      admin.from('players').select('level').eq('id', playerId).single(),
-      admin.from('player_stats').select('shooting, passing').eq('player_id', playerId).single(),
+      admin.from('players').select('level, character').eq('id', playerId).single(),
+      admin.from('player_stats').select('shooting, passing, pace').eq('player_id', playerId).single(),
     ]);
   if (walletError || playerError || statsError) throw walletError ?? playerError ?? statsError;
 
@@ -106,14 +108,18 @@ Deno.serve(handle(async (req) => {
     const tier = config.career.tiers[offer.tier]!;
     opponent = { name: offer.club_name, goalkeeping: tier.oppGoalkeeping, attack: tier.oppAttack };
   }
+  // Engine 4 also reads the pace and the position (character creation; bitirici when unset).
+  const position = (player.character as { position?: string } | null)?.position;
+  const role: Role = ROLES.includes(position as Role) ? position as Role : 'bitirici';
   const setup: MatchSetup = {
-    engineVersion: ENGINE_VERSION,
+    engineVersion,
     seed: randomSeed(),
     chances: config.matchChances,
     shooting,
     passing: stats.passing,
     opponentGoalkeeping: opponent.goalkeeping,
     opponentAttack: opponent.attack,
+    ...(engineVersion === 4 ? { pace: stats.pace, role } : {}),
   };
   planMatch(setup); // throws on a bad setup before energy is spent
   const expiresAt = now + config.ticketTtlSeconds * 1000;
@@ -124,7 +130,7 @@ Deno.serve(handle(async (req) => {
     p_expected_version: wallet.version,
     p_energy: spent.energy,
     p_energy_updated_at: new Date(spent.updatedAt).toISOString(),
-    p_engine_version: ENGINE_VERSION,
+    p_engine_version: engineVersion,
     p_seed: setup.seed,
     p_chances: setup.chances,
     p_shooting: setup.shooting,
@@ -144,6 +150,11 @@ Deno.serve(handle(async (req) => {
   if (error?.message === 'no_contract') throw new HttpError(403, 'no_contract');
   if (error?.message === 'not_found') throw new HttpError(404, 'not_found');
   if (error) throw error;
+  if (engineVersion === 4) {
+    // Stored next to the ticket; if this fails the client never gets the ticket, as with any lost reply.
+    const { error: extraError } = await admin.from('matches').update({ setup_extra: { pace: setup.pace, role: setup.role } }).eq('id', matchId);
+    if (extraError) throw extraError;
+  }
 
   return json({ matchId, setup, expiresAt, energy: spent, ...(fixture ? { opponentName: opponent.name } : {}) });
 }));

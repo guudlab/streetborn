@@ -19,7 +19,8 @@ export type SceneResult =
   | { kind: 'lost'; by: 'us'; marked: boolean };
 
 export interface SceneMoment {
-  kind: 'shot' | 'freekick' | 'pass' | 'defense';
+  /** A penalty is a shot from the spot with nobody but the keeper. */
+  kind: 'shot' | 'freekick' | 'pass' | 'defense' | 'penalty';
   attackSide?: 'left' | 'right';
   openSide?: 'left' | 'right';
   /** Defense only: what happens if the player never slides. */

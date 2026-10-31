@@ -29,8 +29,13 @@ export {
   DEFENSE_MOMENTS,
   type TimingGrade,
 } from './v3.ts';
+export { HALFTIME_MINUTE, SLICES } from './v4.ts';
 export {
   EngineInputError,
+  ROLES,
+  type Role,
+  type Tactic,
+  type MatchEvent,
   type EngineVersion,
   type MatchSetup,
   type MatchPlan,

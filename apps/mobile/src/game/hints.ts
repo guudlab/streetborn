@@ -10,7 +10,7 @@ import type { HowToKind } from './rules.ts';
 export const HINTS_KEY = 'streetborn.hints.v1';
 
 /** `howto_*`: a demo card was shown once (a mini game in talim.tsx, a match moment in Match3D). */
-export type HintId = 'spotTrain' | 'lifeTab' | 'shopTab' | 'jobTrain' | `howto_${HowToKind}`;
+export type HintId = 'spotTrain' | 'lifeTab' | 'shopTab' | 'jobTrain' | 'liveDecide' | `howto_${HowToKind}`;
 
 interface HintsState {
   loaded: boolean;
