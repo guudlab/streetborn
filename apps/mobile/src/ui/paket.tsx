@@ -228,8 +228,8 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   // Kept in a ref so a new callback from the screen never restarts the opening.
   const done = useRef(onDone);
   done.current = onDone;
-  const cueOff = () => { buzz('medium'); sfx('lane_whoosh'); };
-  const cueLand = () => { buzz('success'); sfx('card_pop'); setBurst(true); };
+  const cueOff = () => { buzz('medium'); sfx('pack_burst'); };
+  const cueLand = () => { buzz('success'); sfx('pack_land'); setBurst(true); };
   const cueDone = () => done.current();
   const wobble = useSharedValue(0);
   const press = useSharedValue(0);
@@ -251,7 +251,7 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     if (reduced) {
       tear.value = 1; fly.value = 1; rise.value = 1; settle.value = 1;
       buzz('success');
-      sfx('badge_shine');
+      sfx('pack_land');
       done.current();
       return;
     }
@@ -269,11 +269,10 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
       withTiming(0, { duration: 800 }),
     ));
 
-    // Haptic ticks follow the pull; the big moments are cued by the animations themselves (below).
+    // The tear sound snaps as the seal comes free; the burst and the landing are cued by the animations themselves.
     const cues: [number, () => void][] = [
-      [AT.tear, () => { buzz('light'); sfx('sling_pull', 0.7); }],
+      [AT.tear, () => { buzz('light'); sfx('pack_tear'); }],
       [AT.tear + 370, () => buzz('light')],
-      [AT.rise, () => sfx('badge_shine')],
     ];
     const ids = cues.map(([ms, fn]) => setTimeout(fn, ms));
     return () => ids.forEach(clearTimeout);
