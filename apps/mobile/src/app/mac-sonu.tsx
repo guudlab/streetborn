@@ -1,6 +1,6 @@
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, ScrollView, View } from 'react-native';
+import { Animated, Easing, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setMusic, sfx } from '../audio/audio.ts';
@@ -11,7 +11,7 @@ import { colors } from '../theme.ts';
 import { startLink } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Cta, Ghost, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
-import { Pop, PressableScale } from '../ui/motion.tsx';
+import { Pop, PressableScale, useReduceMotion } from '../ui/motion.tsx';
 import { closeSheet, openSheet } from '../ui/overlay.tsx';
 import { achName, injuryName, timeLeft } from '../ui/kariyer.tsx';
 import { Amount, Bubble, Ico } from '../ui/sade.tsx';
@@ -29,6 +29,25 @@ export default function MacSonu() {
   const insets = useSafeAreaInsets();
   const r = useGame(s => s.post);
   const [step, setStep] = useState(0); // 1 rating, 2 coins, 3 xp, 4 level up, 5 trust
+  const still = useReduceMotion();
+  const balance = useGame(s => s.coins);
+  const coinRow = useRef<any>(null);
+  const [from, setFrom] = useState<{ x: number; y: number } | null>(null);
+  const [pill, setPill] = useState(false);
+  const [landedN, setLandedN] = useState(0);
+
+  // Coins fly from the coin row to a wallet pill at the top right; with Reduce Motion the pill just appears.
+  useEffect(() => {
+    if (step !== 2 || !r || r.coins <= 0) return;
+    if (still) { setPill(true); const id = setTimeout(() => setPill(false), 1800); return () => clearTimeout(id); }
+    const id = setTimeout(() => coinRow.current?.measureInWindow((x: number, y: number, w: number, h: number) => { if (w > 0) setFrom({ x: x + 15, y: y + h / 2 }); }), 400);
+    return () => clearTimeout(id);
+  }, [step, r, still]);
+  // One light tap per coin that lands; the pill's balance ticks up with each one.
+  const coinLanded = (n: number) => {
+    buzz('light'); setPill(true); setLandedN(n);
+    if (n === FLY_COINS) { sfx('coin'); setTimeout(() => { setPill(false); setFrom(null); }, 1400); }
+  };
 
   useEffect(() => {
     if (!r) return;
@@ -50,6 +69,8 @@ export default function MacSonu() {
   const coins = useCountUp(0, r?.coins ?? 0, 700, step >= 2);
   if (!r) return <Redirect href="/" />;
 
+  // The store balance already holds this match's reward; the pill starts below it and adds one share per landed coin.
+  const shown = still ? balance : Math.max(0, balance - r.coins) + Math.round((r.coins * landedN) / FLY_COINS);
   const lines = r.log.map(l => LINE[l.outcome]);
   const teamDelta = r.result === 'W' ? [delta(0.3), 'plus'] : r.result === 'L' ? [delta(-0.3), 'minus'] : ['0', ''];
   const quote = r.rating >= 70 ? t('post.quote.high') : r.rating >= 60 ? t('post.quote.mid') : t('post.quote.low');
@@ -75,6 +96,7 @@ export default function MacSonu() {
   );
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 18 }}>
       <View style={{ alignItems: 'center', gap: 6 }}>
         <Pop delay={150}>
@@ -98,7 +120,7 @@ export default function MacSonu() {
           </View>
         </PressableScale>
         <View style={{ flex: 1, gap: 10 }}>
-          <Gain show={step >= 2}>
+          <Gain show={step >= 2} rowRef={coinRow}>
             <Ico name="coin" size={30} />
             <T w={700} size={22} color={colors.l500}>+{num(coins)}</T>
           </Gain>
@@ -146,6 +168,51 @@ export default function MacSonu() {
           : <Cta onPress={() => router.replace('/')}>{t('common.continue')}</Cta>}
       </View>
     </ScrollView>
+    {from && !still && <CoinFly from={from} top={insets.top + 28} onLanded={coinLanded} />}
+    {pill && (
+      <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 8, right: 16 }}>
+        <Pop style={{ height: 40, paddingHorizontal: 12, borderRadius: 20, backgroundColor: colors.s2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ico name="coin" size={24} /><T w={700} size={15} accessibilityLabel={`${balance}`}>{num(shown)}</T>
+        </Pop>
+      </View>
+    )}
+    </View>
+  );
+}
+
+const FLY_COINS = 5;
+
+/** Five small coins arc from the coin row to the wallet corner, one after another; `onLanded` fires when the last arrives. */
+function CoinFly({ from, top, onLanded }: { from: { x: number; y: number }; top: number; onLanded: (n: number) => void }) {
+  const { width } = useWindowDimensions();
+  const vals = useRef(Array.from({ length: FLY_COINS }, () => new Animated.Value(0))).current;
+  useEffect(() => {
+    // Each coin gives its own light tap as it lands in the wallet corner.
+    let landed = 0;
+    vals.forEach((v, i) => Animated.timing(v, { toValue: 1, duration: 650, delay: i * 90, easing: Easing.in(Easing.quad), useNativeDriver: true })
+      .start(({ finished }) => {
+        if (!finished) return;
+        onLanded(++landed);
+      }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const toX = width - 16 - 30 - from.x, toY = top + 20 - from.y;
+  return (
+    <>
+      {vals.map((v, i) => (
+        <Animated.View key={i} pointerEvents="none" style={{
+          position: 'absolute', left: from.x - 9 + (i - 2) * 6, top: from.y - 9,
+          opacity: v.interpolate({ inputRange: [0, 0.1, 0.9, 1], outputRange: [0, 1, 1, 0] }),
+          transform: [
+            { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, toX] }) },
+            { translateY: v.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, -30, toY] }) },
+            { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+          ],
+        }}>
+          <Ico name="coin" size={18} />
+        </Animated.View>
+      ))}
+    </>
   );
 }
 
@@ -189,11 +256,11 @@ function Row({ v, c, label, muted }: { v: string; c: string; label: string; mute
   );
 }
 
-function Gain({ show, children }: { show: boolean; children: React.ReactNode }) {
+function Gain({ show, children, rowRef }: { show: boolean; children: React.ReactNode; rowRef?: React.Ref<View> }) {
   const a = useRef(new Animated.Value(0)).current;
   useEffect(() => { if (show) Animated.timing(a, { toValue: 1, duration: 350, useNativeDriver: true }).start(); }, [show, a]);
   return (
-    <Animated.View style={{
+    <Animated.View ref={rowRef as never} style={{
       flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36,
       opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
     }}>
