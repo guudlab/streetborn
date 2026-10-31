@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supabase-js@2';
 import { DEFAULT_CONFIG, type EconomyConfig } from '../../../packages/economy/src/index.ts';
 import { HttpError } from './http.ts';
 
@@ -9,13 +9,18 @@ export const admin: SupabaseClient = createClient(
   { auth: { persistSession: false } },
 );
 
-/** Resolves the calling player from the request's JWT. */
-export async function requirePlayer(req: Request): Promise<string> {
+/** Resolves the calling auth user from the request's JWT. */
+export async function requireUser(req: Request): Promise<User> {
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) throw new HttpError(401, 'unauthorized');
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) throw new HttpError(401, 'unauthorized');
-  return data.user.id;
+  return data.user;
+}
+
+/** Resolves the calling player from the request's JWT. */
+export async function requirePlayer(req: Request): Promise<string> {
+  return (await requireUser(req)).id;
 }
 
 /** DEFAULT_CONFIG with the live overrides from the `config` table applied. */

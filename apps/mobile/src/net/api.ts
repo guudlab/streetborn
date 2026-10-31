@@ -293,6 +293,20 @@ export const equipItem = (itemId: string, on: boolean) => call<{ ok: true }>('sh
 /** Buys a pair of krampon at its config price (coin). */
 export const buyBoots = (itemId: string) => call<{ price: number; balance: number; usesLeft: number }>('shop', { action: 'boots', itemId });
 
+/** Web only: opens a Dodo Payments checkout for a gem pack; the gems arrive with Dodo's webhook. */
+export const startGemCheckout = (pack: string) => call<{ purchaseId: string; url: string }>('dodo-checkout', { pack });
+
+export type GemPurchaseStatus = 'pending' | 'paid' | 'reversed';
+
+/** The player's own purchase (RLS: own rows only); null when it is not theirs or not there. */
+export async function loadGemPurchase(id: string): Promise<{ status: GemPurchaseStatus; gem: number } | null> {
+  await ensureSession();
+  const supabase = await client();
+  const { data, error } = await supabase.from('gem_purchases').select('status, gem').eq('id', id).maybeSingle();
+  if (error) throw new ApiError(error.message);
+  return data ? { status: data.status as GemPurchaseStatus, gem: data.gem } : null;
+}
+
 export interface OwnedItem { id: string; equipped: boolean; /** Boots only: talim left. */ usesLeft?: number | null }
 export interface CatalogItem { id: string; kind: string; priceGem: number | null; priceCoin: number | null }
 export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[] }

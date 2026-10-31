@@ -2,7 +2,7 @@ import type { Lang } from '../i18n/index.ts';
 
 // The privacy policy shown at /gizlilik (in the app and at the public web URL the store
 // listings link to). Keep it true to what the code collects: when ads (AdMob), purchases
-// (RevenueCat) or analytics are added, this text changes in the same pull request.
+// (RevenueCat, Dodo Payments on the web) or analytics are added, this text changes in the same pull request.
 
 /** Where players write about their data. */
 export const PRIVACY_CONTACT: string | null = 'support@streetborn.app';
@@ -11,7 +11,7 @@ export type Policy = { updated: string; intro: string; sections: { title: string
 
 export const PRIVACY: Record<Lang, Policy> = {
   tr: {
-    updated: 'Son güncelleme: 29 Ekim 2026',
+    updated: 'Son güncelleme: 31 Ekim 2026',
     intro: 'StreetBorn bir mobil futbol kariyer oyunu. Bu metin, oyunu oynarken hangi verilerin tutulduğunu, ne için kullanıldığını ve nasıl silebileceğini anlatır.',
     sections: [
       {
@@ -40,7 +40,8 @@ export const PRIVACY: Record<Lang, Policy> = {
         title: 'Verilerin nerede',
         body: [
           'Oyun sunucusu ve veritabanı Supabase altyapısında çalışır. Web sürümü Cloudflare üzerinden sunulur. Bu hizmetler verileri yalnızca oyunu çalıştırmak için işler.',
-          'Uygulamaya reklam ya da uygulama içi satın alma eklendiğinde bu metin, kullanılan hizmetlerle birlikte güncellenecek.',
+          'Web sürümünde elmas satın alırsan ödeme, satıcı kaydı (Merchant of Record) olarak Dodo Payments tarafından alınır. Makbuz için e-posta adresin Dodo Payments\'e iletilir. Kart bilgilerin ve fatura adresin Dodo Payments\'te kalır; biz yalnızca hangi paketi aldığını, ödeme numarasını ve ödemenin durumunu tutarız.',
+          'Uygulamaya reklam ya da mağaza içi satın alma eklendiğinde bu metin, kullanılan hizmetlerle birlikte güncellenecek.',
         ],
       },
       {
@@ -58,7 +59,7 @@ export const PRIVACY: Record<Lang, Policy> = {
     ],
   },
   en: {
-    updated: 'Last updated: 29 October 2026',
+    updated: 'Last updated: 31 October 2026',
     intro: 'StreetBorn is a mobile football career game. This page explains what data the game keeps while you play, what it is for, and how to delete it.',
     sections: [
       {
@@ -87,7 +88,8 @@ export const PRIVACY: Record<Lang, Policy> = {
         title: 'Where your data is',
         body: [
           'The game server and database run on Supabase. The web version is served by Cloudflare. These services process data only to run the game.',
-          'When ads or in-app purchases are added, this page will be updated with the services they use.',
+          'If you buy gems on the web version, Dodo Payments takes the payment as Merchant of Record. Your email address is passed to Dodo Payments for the receipt. Your card details and billing address stay with Dodo Payments; we only keep which pack you bought, the payment ID and its status.',
+          'When ads or in-app purchases are added to the app, this page will be updated with the services they use.',
         ],
       },
       {

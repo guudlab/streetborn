@@ -74,6 +74,25 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: supabase/scripts/ci-run.sh "Configure auth" supabase/scripts/configure-auth.sh
+      - name: Set payment secrets
+        # Dodo Payments (web gem packs). Optional: without these the dodo-checkout
+        # function answers payments_off. Secrets: DODO_PAYMENTS_API_KEY,
+        # DODO_PAYMENTS_WEBHOOK_KEY. Variables: DODO_PAYMENTS_ENV (test_mode or
+        # live_mode, default test_mode), DODO_GEM_PRODUCTS (gem_80=pdt_...,...).
+        env:
+          DODO_PAYMENTS_API_KEY: ${{ secrets.DODO_PAYMENTS_API_KEY }}
+          DODO_PAYMENTS_WEBHOOK_KEY: ${{ secrets.DODO_PAYMENTS_WEBHOOK_KEY }}
+          DODO_PAYMENTS_ENV: ${{ vars.DODO_PAYMENTS_ENV }}
+          DODO_GEM_PRODUCTS: ${{ vars.DODO_GEM_PRODUCTS }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          args=()
+          for name in DODO_PAYMENTS_API_KEY DODO_PAYMENTS_WEBHOOK_KEY DODO_GEM_PRODUCTS SITE_URL; do
+            if [ -n "${!name}" ]; then args+=("$name=${!name}"); fi
+          done
+          if [ -z "$DODO_PAYMENTS_API_KEY" ]; then echo "::notice title=Dodo::DODO_PAYMENTS_API_KEY is not set; web gem packs stay off."; fi
+          args+=("DODO_PAYMENTS_ENV=${DODO_PAYMENTS_ENV:-test_mode}")
+          supabase/scripts/ci-run.sh "Set payment secrets" supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" "${args[@]}"
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
       - name: Deploy functions

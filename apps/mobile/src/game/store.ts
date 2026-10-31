@@ -11,8 +11,8 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount,
-  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Boots, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount, loadGemPurchase, startGemCheckout,
+  type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Boots, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem, type GemPurchaseStatus,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
 import { offline } from '../net/config.ts';
@@ -220,6 +220,10 @@ interface GameState {
   refreshShop(): Promise<void>;
   buyItem(id: string): Promise<'ok' | 'no_gem' | 'no_coin' | 'owned' | 'error'>;
   equip(id: string, on: boolean): Promise<void>;
+  /** Web only: the Dodo checkout URL for a gem pack, or why it can't open. */
+  gemCheckout(pack: string): Promise<{ url: string } | { error: 'link_account' | 'payments_off' | 'limit' | 'error' }>;
+  /** After Dodo sends the player back: the purchase's state; a paid one reloads the wallet. */
+  checkGemPurchase(id: string): Promise<{ status: GemPurchaseStatus; gem: number } | null>;
   setAssisted(v: boolean): void;
 }
 
@@ -995,6 +999,26 @@ export const useGame = create<GameState>()((set, get) => ({
       console.warn('buy failed', e);
       return 'error';
     }
+  },
+
+  async gemCheckout(pack) {
+    if (get().mode !== 'online') return { error: 'error' };
+    try {
+      return { url: (await startGemCheckout(pack)).url };
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'link_account' || e.code === 'payments_off' || e.code === 'limit')) return { error: e.code };
+      console.warn('gem checkout failed', e);
+      return { error: 'error' };
+    }
+  },
+
+  async checkGemPurchase(id) {
+    const p = await loadGemPurchase(id).catch(() => null);
+    if (p?.status === 'paid') {
+      const profile = await loadProfile().catch(() => null);
+      if (profile) set({ coins: profile.coin, gems: profile.gem });
+    }
+    return p;
   },
 
   async equip(id, on) {
