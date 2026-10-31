@@ -40,6 +40,15 @@ function redirectTo(): string {
   return Platform.OS === 'web' ? `${window.location.origin}/hesap` : Linking.createURL('hesap');
 }
 
+/**
+ * Where a link in an email sends the player: the web build's /hesap, or on a phone
+ * the app itself (streetborn://hesap), so tapping it in Mail opens the app instead
+ * of the web build. An address Supabase does not allow (Expo Go) falls back to the site.
+ */
+function emailRedirectTo(): string {
+  return Platform.OS === 'web' ? `${INVITE_BASE}/hesap` : Linking.createURL('hesap');
+}
+
 const fail = (e: { code?: string; message: string } | null) => { if (e) throw new ApiError(e.code ?? e.message); };
 
 /**
@@ -57,16 +66,48 @@ async function openProvider(url: string): Promise<'ok' | 'cancel'> {
   return 'ok';
 }
 
-/** Reads the provider's answer from the redirect URL (code, tokens or error) and stores the session. */
-export async function finishRedirect(url: string): Promise<void> {
+// A link from an email that opens the app (streetborn://hesap#access_token=…) reaches the
+// router, which drops the part after #. app/+native-intent.tsx keeps the whole URL here
+// and sends the player to /hesap, which reads it once.
+let heldRedirect: string | null = null;
+
+/** True for an auth answer addressed to /hesap (not /hesap-sil): tokens, a code or an error. */
+export function isAuthRedirect(url: string): boolean {
+  return /(:\/\/|\/)hesap(?=[/?#]|$)/.test(url) && /[#?&](access_token|code|error|error_code)=/.test(url);
+}
+
+export function holdRedirect(url: string): void { heldRedirect = url; }
+
+export function takeRedirect(): string | null {
+  const url = heldRedirect;
+  heldRedirect = null;
+  return url;
+}
+
+// On Android the auth session and the router can both get the same redirect; it is read once.
+const finishing = new Map<string, Promise<string | null>>();
+
+/**
+ * Reads the provider's answer from the redirect URL (code, tokens or error) and stores
+ * the session. Returns the redirect's type when Supabase sends one: `magiclink` for an
+ * email sign-in link, `email_change` for an email being linked.
+ */
+export function finishRedirect(url: string): Promise<string | null> {
+  let p = finishing.get(url);
+  if (!p) { p = readRedirect(url); finishing.set(url, p); }
+  return p;
+}
+
+async function readRedirect(url: string): Promise<string | null> {
   const params = new URLSearchParams([url.split('#')[1], url.split('?')[1]?.split('#')[0]].filter(Boolean).join('&'));
   const error = params.get('error_code') ?? params.get('error');
   if (error) throw new ApiError(error);
   const supabase = await client();
+  const type = params.get('type');
   const code = params.get('code');
-  if (code) return fail((await supabase.auth.exchangeCodeForSession(code)).error);
+  if (code) { fail((await supabase.auth.exchangeCodeForSession(code)).error); return type; }
   const access = params.get('access_token'), refresh = params.get('refresh_token');
-  if (access && refresh) return fail((await supabase.auth.setSession({ access_token: access, refresh_token: refresh })).error);
+  if (access && refresh) { fail((await supabase.auth.setSession({ access_token: access, refresh_token: refresh })).error); return type; }
   throw new ApiError('no_session');
 }
 
@@ -89,17 +130,18 @@ export async function signInProvider(provider: Provider): Promise<'ok' | 'cancel
 /** Adds an email to the current player; it counts once the player opens the confirmation link. */
 export async function linkEmail(email: string): Promise<void> {
   const supabase = await client();
-  fail((await supabase.auth.updateUser({ email }, { emailRedirectTo: `${INVITE_BASE}/hesap` })).error);
+  fail((await supabase.auth.updateUser({ email }, { emailRedirectTo: emailRedirectTo() })).error);
 }
 
 /**
  * Sends a sign-in email to an existing account: a code to type in, and a link that
- * signs in on the web (/hesap). Supabase's default email has only the link; the
- * code needs the custom template, which needs a custom SMTP server.
+ * signs in where it was asked for (the app or the web build). Supabase's default email
+ * has only the link; the code needs the custom template, which hosted Supabase allows
+ * only with a custom SMTP server (supabase/scripts/configure-auth.sh sets both).
  */
 export async function sendEmailCode(email: string): Promise<void> {
   const supabase = await client();
-  fail((await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${INVITE_BASE}/hesap` } })).error);
+  fail((await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: emailRedirectTo() } })).error);
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<void> {
