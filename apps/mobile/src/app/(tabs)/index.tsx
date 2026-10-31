@@ -17,7 +17,7 @@ import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T, useNow } from '../../ui/kit.tsx';
-import { JobsChip, useJobs } from '../../ui/hint.tsx';
+import { JobsPips, useJobs } from '../../ui/hint.tsx';
 import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { ProfileButton, SoundButton } from '../../ui/settings.tsx';
@@ -127,7 +127,7 @@ export default function Hub() {
 
         {/* A waiting phone message takes Burak abi's place; answered, his line comes back. */}
         <View pointerEvents={phone ? 'box-none' : 'none'} style={{ position: 'absolute', left: 16, right: 76, top: 14 }}>
-          {phone ? <PhoneRow p={phone} /> : <Bubble text={line} size={36} />}
+          {phone ? <PhoneRow p={phone} /> : <><Bubble text={line} size={36} /><JobsPips /></>}
         </View>
         <View style={{ position: 'absolute', right: 16, top: 14, gap: 10 }}><ProfileButton /><SoundButton /></View>
         <PressableScale
@@ -140,7 +140,6 @@ export default function Hub() {
       </View>
 
       <View style={{ paddingHorizontal: 16, gap: 10 }}>
-        <JobsChip />
         <FormStrip />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {g.mahalle && (
