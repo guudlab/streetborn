@@ -67,6 +67,12 @@ jobs:
         continue-on-error: true
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+          # Optional: an SMTP server, so sign-in emails carry a code (see the script).
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_FROM: ${{ vars.SMTP_FROM }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: supabase/scripts/ci-run.sh "Configure auth" supabase/scripts/configure-auth.sh
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
