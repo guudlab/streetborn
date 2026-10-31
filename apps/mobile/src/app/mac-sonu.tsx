@@ -1,6 +1,6 @@
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Animated, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setMusic, sfx } from '../audio/audio.ts';
@@ -12,6 +12,7 @@ import { startLink } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import { buzz, Cta, Ghost, H3, Ring, T, Track, useCountUp, wait } from '../ui/kit.tsx';
 import { Pop, PressableScale, useReduceMotion } from '../ui/motion.tsx';
+import { CurrencyFly, WalletPill } from '../ui/fly.tsx';
 import { closeSheet, openSheet } from '../ui/overlay.tsx';
 import { achName, injuryName, timeLeft } from '../ui/kariyer.tsx';
 import { MatchStrip } from '../ui/live/MatchStrip.tsx';
@@ -28,6 +29,7 @@ const LINE = {
 
 export default function MacSonu() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const r = useGame(s => s.post);
   const [step, setStep] = useState(0); // 1 rating, 2 coins, 3 xp, 4 level up, 5 trust
   const still = useReduceMotion();
@@ -171,53 +173,13 @@ export default function MacSonu() {
           : <Cta onPress={() => router.replace('/')}>{t('common.continue')}</Cta>}
       </View>
     </ScrollView>
-    {from && !still && <CoinFly from={from} top={insets.top + 28} onLanded={coinLanded} />}
-    {pill && (
-      <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 8, right: 16 }}>
-        <Pop style={{ height: 40, paddingHorizontal: 12, borderRadius: 20, backgroundColor: colors.s2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Ico name="coin" size={24} /><T w={700} size={15} accessibilityLabel={`${balance}`}>{num(shown)}</T>
-        </Pop>
-      </View>
-    )}
+    {from && !still && <CurrencyFly icon="coin" from={from} to={{ x: width - 46, y: insets.top + 48 }} count={FLY_COINS} onLanded={coinLanded} />}
+    {pill && <WalletPill icon="coin" value={num(shown)} label={`${balance}`} top={insets.top + 8} />}
     </View>
   );
 }
 
 const FLY_COINS = 5;
-
-/** Five small coins arc from the coin row to the wallet corner, one after another; `onLanded` fires when the last arrives. */
-function CoinFly({ from, top, onLanded }: { from: { x: number; y: number }; top: number; onLanded: (n: number) => void }) {
-  const { width } = useWindowDimensions();
-  const vals = useRef(Array.from({ length: FLY_COINS }, () => new Animated.Value(0))).current;
-  useEffect(() => {
-    // Each coin gives its own light tap as it lands in the wallet corner.
-    let landed = 0;
-    vals.forEach((v, i) => Animated.timing(v, { toValue: 1, duration: 650, delay: i * 90, easing: Easing.in(Easing.quad), useNativeDriver: true })
-      .start(({ finished }) => {
-        if (!finished) return;
-        onLanded(++landed);
-      }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const toX = width - 16 - 30 - from.x, toY = top + 20 - from.y;
-  return (
-    <>
-      {vals.map((v, i) => (
-        <Animated.View key={i} pointerEvents="none" style={{
-          position: 'absolute', left: from.x - 9 + (i - 2) * 6, top: from.y - 9,
-          opacity: v.interpolate({ inputRange: [0, 0.1, 0.9, 1], outputRange: [0, 1, 1, 0] }),
-          transform: [
-            { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, toX] }) },
-            { translateY: v.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, -30, toY] }) },
-            { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
-          ],
-        }}>
-          <Ico name="coin" size={18} />
-        </Animated.View>
-      ))}
-    </>
-  );
-}
 
 /** New trophies and a possible injury from this match. */
 function KariyerLines({ k }: { k: NonNullable<PostMatch['kariyer']> }) {

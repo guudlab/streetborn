@@ -1,6 +1,6 @@
 import { DEFAULT_CONFIG, type BootsItem } from '@streetborn/economy';
-import { useEffect } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sfx } from '../../audio/audio.ts';
@@ -13,6 +13,8 @@ import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
 import { Amount, bootIcon, Ico, Tile } from '../../ui/sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
 import { HintBubble } from '../../ui/hint.tsx';
+import { CurrencyFly, WalletPill, type Point } from '../../ui/fly.tsx';
+import { useReduceMotion } from '../../ui/motion.tsx';
 import { iapAvailable } from '../../net/iap';
 import { t, type Key } from '../../i18n/index.ts';
 
@@ -216,18 +218,12 @@ function BootsSection() {
 // Pack ids and gem counts match DEFAULT_CONFIG.shop.gemPacks; the server pays from the config.
 const GEM_PACKS = [['gem_80', 80, 'shop.price.gem1', 40], ['gem_450', 450, 'shop.price.gem2', 48], ['gem_1000', 1000, 'shop.price.gem3', 56]] as const;
 
-/** iOS/Android with RevenueCat: the store's own sheet confirms and charges; the server pays the gems. */
-async function buyGemPack(pack: string, n: number, price: string) {
-  const s = useGame.getState();
-  if (!iapAvailable || s.mode !== 'online') return buy(t('shop.gemPack', { n }), price, 'gem_sparkle');
-  openSheet(<><H3>{t('shop.waiting')}</H3><Spinner /><SheetText>{t('shop.waitingStore')}</SheetText></>);
-  const r = await s.buyGemPack(pack);
-  closeSheet();
-  if (r === 'ok') { sfx('gem_sparkle'); buzz('success'); toast(t('shop.iap.paid', { n }), 'success'); }
-  else if (r === 'late') toast(t('shop.iap.late'));
-  else if (r === 'pending') toast(t('shop.iap.pending'));
-  else if (r === 'error') toast(t('shop.buyFailed'), 'error');
-}
+type Box = { x: number; y: number; w: number; h: number };
+type Host = ComponentRef<typeof View>;
+const measure = (v: Host) => new Promise<Box | null>(res => v.measureInWindow((x, y, w, h) => res(w > 0 ? { x, y, w, h } : null)));
+
+/** More gems fly for a bigger pack. */
+const flyCount = (gain: number) => (gain >= 1000 ? 9 : gain >= 450 ? 7 : 5);
 
 export default function Dukkan() {
   const insets = useSafeAreaInsets();
@@ -238,10 +234,55 @@ export default function Dukkan() {
   const jerseyPrice = catalog.find(i => i.id === JERSEY)?.priceGem ?? 120;
   const jersey = owned.find(i => i.id === JERSEY);
   const gemPrices = useGame(st => st.gemPrices);
+  const { width } = useWindowDimensions();
+  const still = useReduceMotion();
+  const root = useRef<Host>(null);
+  const packRow = useRef<Host>(null);
+  const packRefs = useRef<Record<string, Host | null>>({});
+  // Paid gems fly from the pack into a wallet pill, like the coins after a match. Until the
+  // last one lands the wallet shows the old balance plus one share per landed gem.
+  const [held, setHeld] = useState<number | null>(null);
+  const [fly, setFly] = useState<{ id: number; from: Point; gain: number; count: number; message: string } | null>(null);
+  const [landed, setLanded] = useState(0);
+  const shownGems = held === null ? gems : held + (fly ? Math.round((fly.gain * landed) / fly.count) : 0);
+
+  const flyGems = async (gain: number, before: number, source: Host | null | undefined, message: string) => {
+    const [a, b] = !still && gain > 0 && source && root.current ? await Promise.all([measure(source), measure(root.current)]) : [null, null];
+    if (!a || !b) { setHeld(null); sfx('gem_sparkle'); buzz('success'); toast(message, 'success'); return; }
+    setHeld(before); setLanded(0);
+    setFly({ id: Date.now(), from: { x: a.x - b.x + a.w / 2, y: a.y - b.y + a.h / 2 }, gain, count: flyCount(gain), message });
+  };
+  // One light tap per gem that lands; the sparkle, the success tap and the toast come with the last.
+  const gemLanded = (n: number, count: number, message: string) => {
+    buzz('light'); setLanded(n);
+    if (n < count) return;
+    sfx('gem_sparkle'); buzz('success'); toast(message, 'success');
+    setTimeout(() => { setFly(null); setHeld(null); setLanded(0); }, 1400);
+  };
+
+  /** iOS/Android/web with RevenueCat: the store's own sheet confirms and charges; the server pays the gems. */
+  const buyGemPack = async (pack: string, n: number, price: string) => {
+    const s = useGame.getState();
+    if (!iapAvailable || s.mode !== 'online') return buy(t('shop.gemPack', { n }), price, 'gem_sparkle');
+    const before = s.gems;
+    setHeld(before);
+    openSheet(<><H3>{t('shop.waiting')}</H3><Spinner /><SheetText>{t('shop.waitingStore')}</SheetText></>);
+    const r = await s.buyGemPack(pack);
+    closeSheet();
+    if (r === 'ok') return void flyGems(useGame.getState().gems - before, before, packRefs.current[pack], t('shop.iap.paid', { n }));
+    setHeld(null);
+    if (r === 'late') toast(t('shop.iap.late'));
+    else if (r === 'pending') toast(t('shop.iap.pending'));
+    else if (r === 'error') toast(t('shop.buyFailed'), 'error');
+  };
+
   // Store prices, and gems of a purchase the app did not collect last time (closed mid-purchase).
   useEffect(() => {
     if (!online) return;
-    void useGame.getState().refreshGemPacks().then(paid => { if (paid > 0) { sfx('gem_sparkle'); toast(t('shop.iap.paidLater', { n: paid }), 'success'); } });
+    void useGame.getState().refreshGemPacks().then(paid => {
+      if (paid > 0) void flyGems(paid, useGame.getState().gems - paid, packRow.current, t('shop.iap.paidLater', { n: paid }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
 
   const jerseyAction = () => {
@@ -251,12 +292,13 @@ export default function Dukkan() {
   };
 
   return (
+    <View ref={root} collapsable={false} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
         <H1>{t('tab.shop')}</H1>
         <View style={{ height: 40, paddingLeft: 6, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Amount icon="coin" size={24}>{coins.toLocaleString('tr-TR')}</Amount>
-          <Amount icon="gem" size={26}>{gems}</Amount>
+          <Amount icon="gem" size={26}>{shownGems}</Amount>
         </View>
       </View>
       <HintBubble id="shopTab" text={t('hint.shopTab')} />
@@ -290,14 +332,16 @@ export default function Dukkan() {
       </View>
       <EnergyTiles />
 
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View ref={packRow} collapsable={false} style={{ flexDirection: 'row', gap: 10 }}>
         {GEM_PACKS.map(([pack, n, pk, size]) => (
-          <Tile key={pack} label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
+          <View key={pack} ref={el => { packRefs.current[pack] = el; }} collapsable={false} style={{ flex: 1 }}>
+          <Tile label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
             <T w={700} size={18}>{n}</T>
             <T w={600} size={12} color={colors.g200}>{gemPrices[pack] ?? t(pk)}</T>
             {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={700} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
           </Tile>
+          </View>
         ))}
       </View>
 
@@ -316,5 +360,11 @@ export default function Dukkan() {
           : <Amount icon="gem" size={20}>{jerseyPrice}</Amount>}
       </Tile>
     </ScrollView>
+    {fly && (
+      <CurrencyFly key={fly.id} icon="gem" from={fly.from} to={{ x: width - 46, y: insets.top + 28 }} count={fly.count} size={20}
+        onLanded={n => gemLanded(n, fly.count, fly.message)} />
+    )}
+    {fly && landed > 0 && <WalletPill icon="gem" value={String(shownGems)} label={`${gems}`} top={insets.top + 8} />}
+    </View>
   );
 }
