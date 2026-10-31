@@ -115,6 +115,9 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(p) => <TabBar {...p} />}
+      // Detaching inactive screens is driven by an interpolated Animated value that can stay stuck on
+      // native: the tab you switched to then shows only black until you leave and come back.
+      detachInactiveScreens={false}
       // 'shift' slides the screens in the direction of the tab that was tapped (a fade with Reduce Motion).
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.ink },
         animation: still ? 'fade' : 'shift', transitionSpec: { animation: 'timing', config: { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) } },
