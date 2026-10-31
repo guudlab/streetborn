@@ -3,8 +3,10 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
+import { DEFAULT_CONFIG } from '@streetborn/economy';
+import { mmss } from '../../game/format.ts';
 import { leagueToday, multiplierLabel } from '../../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../../game/character.ts';
 import { ovr } from '../../game/rules.ts';
@@ -14,7 +16,7 @@ import { Emblem } from '../../ui/emblem.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Hud } from '../../ui/hud.tsx';
-import { Caps, Cta, T } from '../../ui/kit.tsx';
+import { Caps, Cta, T, useNow } from '../../ui/kit.tsx';
 import { JobsChip, useJobs } from '../../ui/hint.tsx';
 import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
@@ -165,14 +167,35 @@ export default function Hub() {
         </View>
 
         <Cta off={empty || injured} busy={starting} onPress={() => void play()} accessibilityLabel={label}>
+          {empty && !injured ? <EnergyCountdown /> : <>
           <Ico name="ball" size={28} dim={dim} />
-          <T w={700} size={17} color={dim ? colors.g200 : colors.ink}>{label}</T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
+          <T w={700} size={17} color={dim ? colors.g200 : colors.ink}>{label}</T></>}
+          {!(empty && !injured) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
             <Icon name="bolt" size={16} color={dim ? colors.g200 : colors.ink} />
             <T w={700} size={14} color={dim ? colors.g200 : colors.ink}>1</T>
-          </View>
+          </View>}
         </Cta>
       </View>
+    </View>
+  );
+}
+
+/** Energy is 0: time to the next point as a filling ring and mm:ss, instead of a grey "wait" label. Own component so only it ticks every second. */
+function EnergyCountdown() {
+  const now = useNow();
+  const updatedAt = useGame(s => s.energyUpdatedAt);
+  const total = DEFAULT_CONFIG.energyRegenSeconds * 1000;
+  const left = Math.max(0, updatedAt + total - now);
+  const size = 30, stroke = 4, r = (size - stroke) / 2, c = 2 * Math.PI * r, p = 1 - left / total;
+  return (
+    <View accessible accessibilityLabel={`${t('hub.waitEnergy')} ${mmss(left)}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <Svg width={size} height={size}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.s3} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.l600} strokeWidth={stroke} fill="none" strokeLinecap="round"
+          strokeDasharray={`${c * p} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      </Svg>
+      <T w={700} size={18} color={colors.g100} style={{ fontVariant: ['tabular-nums'] }}>{mmss(left)}</T>
+      <Icon name="bolt" size={16} color={colors.l600} />
     </View>
   );
 }
