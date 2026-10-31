@@ -10,7 +10,7 @@ import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audi
 import { crestCode } from '../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_MODEL, JERSEYS, jerseyTint, STARTERS, type Hero } from '../game/character.ts';
 import { markHint, useHints } from '../game/hints.ts';
-import { myLine } from '../game/live.ts';
+import { myLine, sideMate } from '../game/live.ts';
 import type { HowToKind } from '../game/rules.ts';
 import { liveScore, useGame } from '../game/store.ts';
 import { colors } from '../theme.ts';
@@ -64,8 +64,11 @@ const matesOf = (hero: Hero) => STARTERS.filter(h => h !== hero).slice(0, 2);
 /** Every file the 3D match loads, so the hub can fetch them before kick-off. */
 export const matchModels = (hero: Hero) => [HERO_MODEL[hero], ...matesOf(hero).map(h => HERO_MODEL[h]), ...Object.values(MODELS)];
 
-/** Can stands on the left, Mert on the right, as in the 2D match. */
-const NAME: Record<Side, string> = { left: 'Can', right: 'Mert' };
+/** The teammate on one side of the current pass moment, named as the commentary named him. */
+function mateName(side: Side): string {
+  const m = useGame.getState().match;
+  return sideMate(m?.names ?? [], m?.plan.moments[m.i], side);
+}
 
 type Dot = 'good' | 'bad' | 'meh';
 type Tone = 'lime' | 'white' | 'red' | 'muted';
@@ -78,13 +81,15 @@ const BANNER: Record<Moment['kind'], Key> = {
 };
 
 /** The feed line after the player's own moment: lime when it went well. */
-function mineLine(o: ChanceOutcome | null, mo: Moment, mate: string): FeedLine {
+function mineLine(o: ChanceOutcome | null, mo: Moment, mate: string, shown: Shown | null): FeedLine {
   const good = !!o && (o.outcome === 'goal' || o.outcome === 'assist' || o.outcome === 'stopped');
   const conceded = mo.kind === 'defense' && (!o || o.outcome === 'conceded');
-  return feedLine(mo.minute, myLine(o, mo, mate), good ? 'me' : conceded ? 'them' : 'info', good ? 'star' : conceded ? 'ball' : 'x');
+  return feedLine(mo.minute, myLine(o, mo, mate, shown ?? undefined), good ? 'me' : conceded ? 'them' : 'info', good ? 'star' : conceded ? 'ball' : 'x');
 }
 
 interface Pop { text: string; tone: Tone; id: number }
+/** What the scene showed for the player's shot. */
+type Shown = 'goal' | 'save' | 'post' | 'miss';
 
 export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const insets = useSafeAreaInsets();
@@ -103,6 +108,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const acted = useRef(-1);
   const lastTiming = useRef(0);
   const lastSide = useRef<Side | null>(null);
+  const lastShown = useRef<Shown | null>(null);
   const leaving = useRef(false);
   // The whistle went (or the player simulated the rest): no more moments or inputs.
   const ended = useRef(false);
@@ -175,7 +181,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     }
     sc.setPaused(false);
     setPlayKind(kind);
-    acted.current = -1; lastSide.current = null; lastTiming.current = 0;
+    acted.current = -1; lastSide.current = null; lastTiming.current = 0; lastShown.current = null;
     setAimed(false); setNudge(false);
     setBanner({ text: t(BANNER[mo.kind], { minute: mo.minute }), def: kind === 'defense', id: Date.now() });
     const shots = m.plan.moments.slice(0, m.i).filter(x => x.kind === 'shot').length;
@@ -187,7 +193,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     else if (useGame.getState().assisted) say('match.coach.assisted');
     else say(shots === 0 ? 'm3.coach.first' : shots % 3 === 0 ? 'm3.coach.shot' : 'm3.coach.angle');
     sc.start({
-      kind, attackSide: mo.attackSide, openSide: mo.openSide,
+      kind, attackSide: mo.attackSide, openSide: mo.openSide, spot: mo.spot,
       skip: kind === 'defense' ? skippedDefense(m.setup, m.i) : undefined,
     });
   }, [say]);
@@ -210,7 +216,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     if (ended.current) return;
     const m = useGame.getState().match!;
     const mo = m.plan.moments[m.i]!;
-    if (mo.kind !== 'halftime') addLine(mineLine(m.outcomes[m.i] ?? null, mo, NAME[lastSide.current ?? mo.openSide ?? 'left']));
+    if (mo.kind !== 'halftime') addLine(mineLine(m.outcomes[m.i] ?? null, mo, mateName(lastSide.current ?? mo.openSide ?? 'left'), lastShown.current));
     const n = useGame.getState().advance();
     setPlayKind(null);
     scene.current?.setPaused(true);
@@ -253,12 +259,13 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       say(Math.abs(lastTiming.current - TIMING_TARGET) <= TIMED_WINDOW ? 'm3.coach.stoppedTimed' : 'm3.coach.stoppedLucky');
     } else if (r.kind === 'lost') {
       pop('m3.big.lost', 'red'); mark(i, 'bad');
-      if (r.marked) say('m3.coach.passMarked', { name: NAME[lastSide.current ?? 'left'] });
+      if (r.marked) say('m3.coach.passMarked', { name: mateName(lastSide.current ?? 'left') });
       else say('m3.coach.passLost');
     } else if (r.by === 'mate') {
       pop('m3.big.assist', 'lime'); mark(i, 'good'); duckMusic(2000);
-      say('m3.coach.assist', { name: NAME[lastSide.current ?? 'left'] });
+      say('m3.coach.assist', { name: mateName(lastSide.current ?? 'left') });
     } else if (r.by === 'us') {
+      lastShown.current = r.kind;
       mark(i, r.kind === 'goal' ? 'good' : 'bad');
       if (r.kind === 'goal') { pop('m3.big.goal', 'lime'); duckMusic(2400); say(r.perfect ? 'm3.coach.goalPerfect' : 'm3.coach.goal'); }
       else if (r.kind === 'save') { pop('m3.big.save', 'white'); say(r.central ? 'm3.coach.saveCentral' : 'm3.coach.saveTiming'); }
@@ -461,7 +468,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
             <Halftime us={score.us} them={score.them} onPick={halftime} />
           ) : moment ? (
             <Decision
-              key={m.i} moment={moment} mate={NAME[moment.openSide ?? 'left']}
+              key={m.i} moment={moment} mate={sideMate(m.names, moment, moment.openSide ?? 'left')}
               first={!useHints.getState().seen.liveDecide} onPick={decide}
             />
           ) : null}
@@ -534,11 +541,11 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
                 <RingButton
                   key={side} ref={side === 'left' ? leftRing : rightRing} mode="tap" size={116} dark
                   enabled={phase === (playKind === 'defense' ? 'defend' : 'pass')}
-                  label={playKind === 'defense' ? t(side === 'left' ? 'm3.leftA11y' : 'm3.rightA11y') : t('m3.passA11y', { name: NAME[side] })}
+                  label={playKind === 'defense' ? t(side === 'left' ? 'm3.leftA11y' : 'm3.rightA11y') : t('m3.passA11y', { name: sideMate(m?.names ?? [], moment, side) })}
                   onFire={() => (playKind === 'defense' ? slide(side) : pass(side))}
                 >
                   {playKind === 'defense' && <Icon name={side === 'left' ? 'back' : 'chev'} size={26} color={colors.g100} />}
-                  <T w={700} size={18}>{playKind === 'defense' ? t(side === 'left' ? 'm3.left' : 'm3.right') : NAME[side].toLocaleUpperCase('tr')}</T>
+                  <T w={700} size={18}>{playKind === 'defense' ? t(side === 'left' ? 'm3.left' : 'm3.right') : sideMate(m?.names ?? [], moment, side).toLocaleUpperCase('tr')}</T>
                 </RingButton>
               ))}
             </View>

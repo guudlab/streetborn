@@ -66,7 +66,13 @@ describe('engine 5 (attack chain)', () => {
         if (m.kind === 'halftime') continue;
         const lead = events!.filter((e) => e.minute < m.minute && e.minute >= m.minute - 2);
         expect(lead.length).toBeGreaterThanOrEqual(2);
-        if (m.kind === 'defense') { expect(lead.every((e) => e.team === 'them')).toBe(true); continue; }
+        if (m.kind === 'defense') {
+          expect(lead.every((e) => e.team === 'them')).toBe(true);
+          // The radar shows him on the side the 3D forward takes: 'left' is the top touchline.
+          const run = lead.find((e) => e.kind === 'attack')!;
+          expect(run.y! < 50).toBe(m.attackSide === 'left');
+          continue;
+        }
         expect(lead.some((e) => e.me)).toBe(true);
         if (m.kind === 'freekick') expect(lead.some((e) => e.kind === 'foul' && e.team === 'us')).toBe(true);
         if (m.kind === 'penalty') expect(lead.some((e) => e.kind === 'penalty' && e.team === 'us')).toBe(true);
@@ -77,6 +83,8 @@ describe('engine 5 (attack chain)', () => {
         }
         if (m.kind === 'pass' || m.kind === 'decision') expect(new Set([m.mate, ...m.mates!]).size).toBe(3);
         if (m.kind !== 'pass') expect(m.spot).toBeDefined();
+        // The step that hands the ball over happens in the lane of the shot.
+        if (m.kind === 'shot' && m.spot !== 'center') expect(lead.find((e) => e.me)!.y! < 50).toBe(m.spot === 'left');
       }
     }
   });

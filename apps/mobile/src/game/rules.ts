@@ -1,3 +1,4 @@
+import type { Moment } from '@streetborn/engine';
 import { xpNeed } from '@streetborn/economy';
 import { t } from '../i18n/index.ts';
 
@@ -41,3 +42,10 @@ export const MOMENT_TITLE = {
   shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick'), defense: t('moment.defense'),
   penalty: t('moment.penalty'), decision: t('moment.decision'), halftime: t('moment.halftime'),
 } as const;
+
+/** The title of a moment; engine 5 shots and free kicks also say where they are taken from. */
+export function momentTitle(m: Moment): string {
+  if (m.spot && m.kind === 'shot') return t(`moment.shot.${m.spot}`);
+  if (m.spot && m.kind === 'freekick') return t(`moment.freekick.${m.spot}`);
+  return MOMENT_TITLE[m.kind];
+}

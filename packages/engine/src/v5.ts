@@ -148,11 +148,12 @@ export function runV5(setup: MatchSetup, inputs: readonly ChanceInput[]): RunV5 
 
     if (mine.includes(slice)) {
       if (defense.has(slice)) {
+        // The forward comes down the side he will take on the player: `attackSide` is seen from
+        // the player (the 3D defense camera), so on the radar 'left' is the top touchline.
         const attackSide = pickSide(rng);
-        const lane: Spot = attackSide;
         ev(m0, 'them', s.counter ? 'counter' : 'win', rng.int(4), rng.int(4), 40 + rng.int(15), 30 + rng.int(40));
         s.counter = false;
-        ev(m0 + 1, 'them', 'attack', rng.int(4), rng.int(4), 62 + rng.int(10), LANE_Y[lane]);
+        ev(m0 + 1, 'them', 'attack', rng.int(4), rng.int(4), 62 + rng.int(10), 100 - LANE_Y[attackSide]);
         const { chance, o } = push({ kind: 'defense', minute: m0 + 2, attackSide });
         const d = o?.kind === 'defense' ? o.outcome : skippedDefenseV3(setup, chance);
         if (d === 'conceded') { s.them++; swing(-1); }
