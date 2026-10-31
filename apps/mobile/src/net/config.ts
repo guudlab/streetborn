@@ -27,4 +27,4 @@ export const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID
  * pays Test Store purchases only while REVENUECAT_ALLOW_TEST_STORE is on, so remove
  * the key (and the flag) before a store release.
  */
-export const REVENUECAT_TEST_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_KEY ?? '';
+export const REVENUECAT_TEST_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_KEY ?? 'test_iekILSwbavmgrzKnTJvZfjaYOQE';

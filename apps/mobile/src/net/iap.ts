@@ -6,8 +6,8 @@
 // Keys (net/config.ts): the App Store / Play Store SDK keys on iOS/Android, or the
 // Test Store key (test_…) everywhere, which simulates purchases without store
 // accounts; the server pays Test Store purchases only while REVENUECAT_ALLOW_TEST_STORE
-// is on. Products come from the current offering's packages (the only way on the
-// web) and, on iOS/Android, from the store directly when no offering lists them.
+// is on. Products come from the offerings' packages, current first (the only way on
+// the web) and, on iOS/Android, from the store directly when no offering lists them.
 // The SDK loads on first use, so the web build does not carry it from the start.
 import { Platform } from 'react-native';
 import type { PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
@@ -43,9 +43,14 @@ async function ready(playerId: string) {
 async function load(ids: string[], playerId: string) {
   const Purchases = await ready(playerId);
   const { PRODUCT_CATEGORY } = await sdk();
+  // The current offering first, then any other offering that lists a pack.
   const offerings = await Purchases.getOfferings().catch(() => null);
-  for (const p of offerings?.current?.availablePackages ?? []) {
-    if (ids.includes(p.product.identifier)) packages.set(p.product.identifier, p);
+  const all = [offerings?.current, ...Object.values(offerings?.all ?? {})];
+  for (const o of all) {
+    for (const p of o?.availablePackages ?? []) {
+      const id = p.product.identifier;
+      if (ids.includes(id) && !packages.has(id)) packages.set(id, p);
+    }
   }
   const missing = ids.filter(id => !packages.has(id) && !products.has(id));
   if (NATIVE && missing.length > 0) {
