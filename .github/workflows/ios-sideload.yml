@@ -28,6 +28,22 @@ jobs:
       - name: Generate the native iOS project (not committed)
         working-directory: apps/mobile
         run: npx expo prebuild -p ios
+      - name: Let the RevenueCat Test Store run in this test build
+        # RevenueCat closes a Release build that is configured with a Test Store key
+        # (test_…), so that a test key never reaches the App Store. This IPA is only
+        # sideloaded for testing, so its RevenueCat pods are compiled with DEBUG, which
+        # is how RevenueCat tells a test build apart. App Store builds never run this.
+        working-directory: apps/mobile/ios
+        run: |
+          ruby -i -pe 'if $_ =~ /^\s*post_install do \|installer\|/ then $_ += <<~RUBY
+                installer.pods_project.targets.each do |t|
+                  next unless %w[RevenueCat PurchasesHybridCommon].include?(t.name)
+                  t.build_configurations.each { |c| c.build_settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = "$(inherited) DEBUG" }
+                end
+              RUBY
+            end' Podfile
+          grep -q 'PurchasesHybridCommon].include' Podfile || { echo "::error::Podfile has no post_install block to patch"; exit 1; }
+          pod install
       - name: Build Release without code signing
         working-directory: apps/mobile/ios
         run: |
