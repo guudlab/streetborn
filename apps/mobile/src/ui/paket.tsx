@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, View } from 'react-native';
 import Animated, {
-  Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
+  Easing, runOnJS, type SharedValue, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -11,8 +11,8 @@ import { colors } from '../theme.ts';
 import { buzz } from './kit.tsx';
 
 // The first-badge pack of the sign-in screen (design G). A sealed Meshy pack waits; tapped,
-// its top seal is gripped and dragged off sideways the way a real pack opens, a thin light
-// shows through the opening cut, a soft white glow follows when it comes free and then
+// its top seal peels back from the left along a ragged tear, the torn flap folding over the part
+// still stuck down, a soft white glow follows when it comes free and then
 // rays slowly pour out, the badge card rises out of the pack and the pack drops away.
 
 export const PACK_W = 214;
@@ -58,28 +58,48 @@ function Sheen({ width, height, delay = 0, every = 3400, reduced }: { width: num
 const BADGE_IMG = require('../../assets/meshy/rozet-cirak.webp');
 /** The sealed Meshy pack (GP1) in one piece, so no cut shows before the tap. */
 const PACK_IMG = require('../../assets/meshy/paket-tam.webp');
-/** The same art cut straight under its top seal into two pieces (assets/meshy/paket-ust|govde.webp). */
-const TOP_IMG = require('../../assets/meshy/paket-ust.webp');
-const BODY_IMG = require('../../assets/meshy/paket-govde.webp');
-const SRC = PACK_W / 427; // the pack art is 427 px wide
-/** The seal and the body meet along a torn, irregular line around y = 80 of the art (see scratch cut4). */
-const TOP_H = 94 * SRC;
-const BODY_TOP = 66 * SRC;
-const BODY_H = 654 * SRC;
-/** Where the strip is cut; the light and the sparks come out of this line. */
+/**
+ * The peel is a flipbook drawn from the same art (scripts/pack-peel.py): each frame shows the top of the
+ * pack with the seal torn up to that point along a ragged line, the torn flap lifted over the part
+ * still stuck down, with its shadow. The art is 427 px wide; frames cover art rows -26 to 112.
+ */
+const PEEL = [
+  require('../../assets/meshy/soyulma/f00.webp'),
+  require('../../assets/meshy/soyulma/f01.webp'),
+  require('../../assets/meshy/soyulma/f02.webp'),
+  require('../../assets/meshy/soyulma/f03.webp'),
+  require('../../assets/meshy/soyulma/f04.webp'),
+  require('../../assets/meshy/soyulma/f05.webp'),
+  require('../../assets/meshy/soyulma/f06.webp'),
+  require('../../assets/meshy/soyulma/f07.webp'),
+  require('../../assets/meshy/soyulma/f08.webp'),
+  require('../../assets/meshy/soyulma/f09.webp'),
+  require('../../assets/meshy/soyulma/f10.webp'),
+  require('../../assets/meshy/soyulma/f11.webp'),
+  require('../../assets/meshy/soyulma/f12.webp'),
+  require('../../assets/meshy/soyulma/f13.webp'),
+  require('../../assets/meshy/soyulma/f14.webp'),
+  require('../../assets/meshy/soyulma/f15.webp'),
+  require('../../assets/meshy/soyulma/f16.webp'),
+  require('../../assets/meshy/soyulma/f17.webp'),
+  require('../../assets/meshy/soyulma/f18.webp'),
+  require('../../assets/meshy/soyulma/f19.webp'),
+];
+const OPEN_TOP_IMG = require('../../assets/meshy/soyulma/acik.webp');
+const FLAP_IMG = require('../../assets/meshy/soyulma/serit.webp');
+const LOWER_IMG = require('../../assets/meshy/soyulma/alt.webp');
+const SRC = PACK_W / 427;
+const PEEL_TOP = -26 * SRC;
+const PEEL_W = 700 * SRC;
+const PEEL_H = 138 * SRC;
+const LOWER_TOP = 109 * SRC; // 3 art px under the frames so no seam shows
+const LOWER_H = (720 - 109) * SRC;
+/** The torn flap's final pose in the last frame, where the fly-off starts. */
+const FLAP_X = 427 * 0.55 * SRC;
+const FLAP_Y = -10 * SRC;
+const FLAP_H = 90 * SRC;
+/** Where the seal tears off; the light and the sparks come out of this line. */
 const CUT_Y = 80 * SRC;
-/** A ragged vertical rim for the flap's torn leading edge. */
-const TEAR_EDGE = (() => {
-  const steps = [0, 0.14, 0.27, 0.41, 0.52, 0.66, 0.78, 0.9, 1];
-  const jag = [3, 1.2, 4, 2, 3.6, 1, 3.2, 1.6, 2.8];
-  const right = steps.map((k, i) => `${(5 - jag[i] + 2).toFixed(1)} ${(k * TOP_H).toFixed(1)}`);
-  return `M 5 0 L ${right.join(' L ')} L 5 ${TOP_H.toFixed(1)} Z`;
-})();
-/** The peeled-back flap slides over the part still stuck down by this share of the peeled length. */
-const FOLD = 0.55;
-/** How far the flap lifts off the pack while it is pulled. */
-const PULL_Y = 6;
-
 const FAN_H = 170;
 const FAN_W = PACK_W + 140;
 /** Light rays fanning up from the cut: [angle in degrees from vertical, half-width in degrees]. */
@@ -96,6 +116,19 @@ const CARD_IN = 0.76;
 /** Card centre offsets from its final place: hidden in the pack, then risen out of it. */
 const CARD_HIDDEN_Y = CUT_Y + 14 + PACK_H * CARD_IN / 2 - PACK_H / 2;
 const CARD_RISEN_Y = CUT_Y + 90 - PACK_H * CARD_IN / 2 - PACK_H / 2;
+
+/** One frame of the peel; shown while `tear` is on it. */
+function PeelFrame({ i, tear, fly }: { i: number; tear: SharedValue<number>; fly: SharedValue<number> }) {
+  const anim = useAnimatedStyle(() => {
+    const at = Math.round(tear.value * (PEEL.length - 1));
+    return { opacity: tear.value > 0 && fly.value === 0 && at === i ? 1 : 0 };
+  });
+  return (
+    <Animated.View style={[{ position: 'absolute', left: 0, top: PEEL_TOP, width: PEEL_W, height: PEEL_H }, anim]}>
+      <Image source={PEEL[i]} style={{ width: PEEL_W, height: PEEL_H }} contentFit="fill" />
+    </Animated.View>
+  );
+}
 
 /** A foil fragment that flies out of the cut when the strip comes free. */
 function Bit({ dx, dy, rot, size, delay, color, run }: { dx: number; dy: number; rot: number; size: number; delay: number; color: string; run: boolean }) {
@@ -211,7 +244,6 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
   const press = useSharedValue(0);
   const tear = useSharedValue(0);
   const fly = useSharedValue(0);
-  const peek = useSharedValue(0);
   const bloom = useSharedValue(0);
   const rays = useSharedValue(0);
   const rise = useSharedValue(0);
@@ -242,10 +274,8 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
       withTiming(0.72, { duration: 420, easing: Easing.inOut(Easing.quad) }),
       withTiming(1, { duration: AT.off - AT.tear - 1040, easing: Easing.in(Easing.quad) }, (fin) => { if (fin) runOnJS(cueOff)(); }),
     ));
-    // A thin white light shows through the cut as it opens...
-    peek.value = withDelay(AT.tear + 120, withTiming(1, { duration: AT.off - AT.tear - 120, easing: Easing.in(Easing.quad) }));
     fly.value = withDelay(AT.off, withTiming(1, { duration: 440, easing: Easing.in(Easing.quad) }));
-    // ...then a soft white glow when the strip comes free, and the rays pour out slowly.
+    // A soft white glow when the seal comes free, then the rays pour out slowly.
     bloom.value = withDelay(AT.off - 40, withSequence(withTiming(1, { duration: 260, easing: Easing.out(Easing.quad) }), withTiming(0.55, { duration: 600 })));
     rays.value = withDelay(AT.rays, withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }));
     rise.value = withDelay(AT.rise, withTiming(1, { duration: 650, easing: Easing.bezier(0.2, 1.15, 0.4, 1) }));
@@ -265,7 +295,7 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     ];
     const ids = cues.map(([ms, fn]) => setTimeout(fn, ms));
     return () => ids.forEach(clearTimeout);
-  }, [stage, reduced, wobble, press, tear, peek, fly, bloom, rays, rise, settle, flash]);
+  }, [stage, reduced, wobble, press, tear, fly, bloom, rays, rise, settle, flash]);
 
   const pack = useAnimatedStyle(() => ({
     opacity: 1 - settle.value,
@@ -280,39 +310,19 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
     opacity: 1 - settle.value,
     transform: [{ translateY: -10 * wobble.value }],
   }));
-  // The seal is peeled back from its left end: the peeled flap lifts and slides over the part
-  // still stuck down, more of it comes away as the pull goes on, then it comes free and flies on.
-  const strip = useAnimatedStyle(() => {
+  // Once torn all the way the flap flies off from where the last peel frame left it.
+  const flyStyle = useAnimatedStyle(() => {
     const f = fly.value;
     return {
-      opacity: f > 0.55 ? 1 - (f - 0.55) / 0.45 : 1,
-      transformOrigin: `${PACK_W}px ${TOP_H}px`,
-      transform: [{ translateX: f * PACK_W * 1.1 }, { translateY: -f * 36 }, { rotate: `${f * 12}deg` }],
+      opacity: f === 0 ? 0 : f > 0.55 ? 1 - (f - 0.55) / 0.45 : 1,
+      transformOrigin: `${PACK_W}px ${FLAP_H}px`,
+      transform: [{ translateX: FLAP_X + f * PACK_W * 1.1 }, { translateY: FLAP_Y - f * 36 }, { rotate: `${f * 12}deg` }],
     };
   });
-  const stuck = useAnimatedStyle(() => {
-    const x = tear.value * PACK_W;
-    return { left: x, width: PACK_W - x };
-  });
-  const stuckImg = useAnimatedStyle(() => ({ left: -tear.value * PACK_W }));
-  const flap = useAnimatedStyle(() => {
-    const p = tear.value;
-    return {
-      width: p * PACK_W,
-      transform: [
-        { translateX: p * PACK_W * FOLD },
-        { translateY: -PULL_Y * Math.min(1, p * 5) },
-        { rotate: `${-2 * Math.min(1, p * 5)}deg` },
-      ],
-    };
-  });
-  // The one-piece pack shows until the pull starts; the two cut pieces line up with it exactly.
+  // The one-piece pack shows until the peel starts; the flipbook and the lower body line up with it.
   const sealed = useAnimatedStyle(() => ({ opacity: tear.value > 0 || fly.value > 0 ? 0 : 1 }));
   const cut = useAnimatedStyle(() => ({ opacity: tear.value > 0 || fly.value > 0 ? 1 : 0 }));
-  const peekStyle = useAnimatedStyle(() => ({
-    opacity: 1 - 0.6 * fly.value,
-    width: Math.max(0, Math.min(PACK_W - 24, tear.value * PACK_W * FOLD + fly.value * PACK_W - 12)),
-  }));
+  const opened = useAnimatedStyle(() => ({ opacity: fly.value > 0 ? 1 : 0 }));
   const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value, transform: [{ scale: 0.6 + 0.4 * bloom.value }] }));
   const fan = useAnimatedStyle(() => ({
     opacity: rays.value * 0.9,
@@ -367,41 +377,19 @@ export function PackOpening({ stage, onDone }: { stage: PackStage; onDone: () =>
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: PACK_H }, sealed]}>
           <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="fill" />
         </Animated.View>
-        <Animated.View style={[{ position: 'absolute', left: 0, top: BODY_TOP, width: PACK_W, height: BODY_H }, cut]}>
-          <Image source={BODY_IMG} style={{ width: PACK_W, height: BODY_H }} contentFit="fill" />
+        <Animated.View style={[{ position: 'absolute', left: 0, top: LOWER_TOP, width: PACK_W, height: LOWER_H }, cut]}>
+          <Image source={LOWER_IMG} style={{ width: PACK_W, height: LOWER_H }} contentFit="fill" />
+        </Animated.View>
+        {PEEL.map((_, i) => <PeelFrame key={i} i={i} tear={tear} fly={fly} />)}
+        <Animated.View style={[{ position: 'absolute', left: 0, top: PEEL_TOP, width: PEEL_W, height: PEEL_H }, opened]}>
+          <Image source={OPEN_TOP_IMG} style={{ width: PEEL_W, height: PEEL_H }} contentFit="fill" />
         </Animated.View>
         <Glint x={PACK_W - 60} y={90} size={26} delay={0} reduced={reduced} />
         <Glint x={26} y={PACK_H - 86} size={18} delay={900} reduced={reduced} />
         <Glint x={PACK_W - 40} y={PACK_H - 120} size={14} delay={1600} reduced={reduced} />
-        {/* The light that shows through the opening as the seal slides off it; the strip's own edge hides its end. */}
-        <Animated.View style={[{ position: 'absolute', left: 12, top: CUT_Y - 13, height: 22, overflow: 'hidden' }, peekStyle]}>
-          <Svg width={PACK_W - 12} height={22}>
-            <Defs>
-              <LinearGradient id="packPeek" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
-                <Stop offset="0.62" stopColor="#FFFFFF" stopOpacity={0.65} />
-                <Stop offset="1" stopColor="#F4FFD0" stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <Rect x={0} y={0} width={PACK_W - 12} height={22} fill="url(#packPeek)" />
-          </Svg>
-        </Animated.View>
         {BITS.map((b, i) => <Bit key={i} {...b} delay={b.delay + AT.off} run={stage === 'tear' && !reduced} />)}
-        <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: TOP_H }, strip, cut]}>
-          {/* The part not torn yet is the untouched pack, so the tear line only shows where it has torn. */}
-          <Animated.View style={[{ position: 'absolute', top: 0, height: TOP_H, overflow: 'hidden' }, stuck]}>
-            <Animated.View style={[{ position: 'absolute', top: 0, width: PACK_W, height: PACK_H }, stuckImg]}>
-              <Image source={PACK_IMG} style={{ width: PACK_W, height: PACK_H }} contentFit="fill" />
-            </Animated.View>
-          </Animated.View>
-          {/* The peeled flap, on top of it, with a soft shadow where it lifts. */}
-          <Animated.View style={[{ position: 'absolute', left: 0, top: 0, height: TOP_H, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.55, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } }, flap]}>
-            <Image source={TOP_IMG} style={{ width: PACK_W, height: TOP_H }} contentFit="fill" />
-            {/* Its leading edge is torn too: a ragged pale rim where the foil gave way. */}
-            <Svg width={5} height={TOP_H} style={{ position: 'absolute', right: 0, top: 0 }}>
-              <Path d={TEAR_EDGE} fill="#ECF0E2" fillOpacity={0.9} />
-            </Svg>
-          </Animated.View>
+        <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PACK_W, height: FLAP_H }, flyStyle]}>
+          <Image source={FLAP_IMG} style={{ width: PACK_W, height: FLAP_H }} contentFit="fill" />
         </Animated.View>
       </Animated.View>
 
