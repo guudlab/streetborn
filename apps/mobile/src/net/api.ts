@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { DrillInputs, DrillName, Tier } from '@streetborn/economy';
-import type { ChanceInput, MatchResult, MatchSetup } from '@streetborn/engine';
+import { ENGINE_VERSION, type ChanceInput, type MatchResult, type MatchSetup } from '@streetborn/engine';
 
 import type { Character } from '../game/character.ts';
 import { SESSION_KEY } from './config.ts';
@@ -110,7 +110,8 @@ async function call<T>(name: string, body?: unknown): Promise<T> {
 }
 
 export type MatchKind = 'energy' | 'mahalle' | 'league' | 'trial';
-export const startMatch = (kind: MatchKind = 'energy', offerId?: string) => call<Ticket>('match-start', { kind, offerId });
+/** `engine` is the newest engine this build plays; older builds leave it out and get engine 3. */
+export const startMatch = (kind: MatchKind = 'energy', offerId?: string) => call<Ticket>('match-start', { kind, offerId, engine: ENGINE_VERSION });
 export const finishMatch = (matchId: string, inputs: ChanceInput[], durationMs: number) =>
   call<FinishResponse>('match-finish', { matchId, inputs, durationMs });
 

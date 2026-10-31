@@ -7,7 +7,9 @@ import {
   type ChanceInput,
   type EngineVersion,
   type MatchSetup,
+  type Role,
   type Side,
+  type Tactic,
 } from '../../../packages/engine/src/index.ts';
 import {
   computeRating,
@@ -29,7 +31,7 @@ Deno.serve(handle(async (req) => {
 
   const { data: match, error: matchError } = await admin
     .from('matches')
-    .select('id, player_id, kind, engine_version, seed, chances, shooting, passing, opponent_goalkeeping, opponent_attack, issued_at, expires_at, status')
+    .select('id, player_id, kind, engine_version, seed, chances, shooting, passing, opponent_goalkeeping, opponent_attack, setup_extra, issued_at, expires_at, status')
     .eq('id', body.matchId)
     .maybeSingle();
   if (matchError) throw matchError;
@@ -37,6 +39,7 @@ Deno.serve(handle(async (req) => {
   if (!ENGINE_VERSIONS.includes(match.engine_version)) throw new HttpError(409, 'old_ticket');
 
   // Each match replays with the engine it was issued with.
+  const extra = match.setup_extra as { pace?: number; role?: Role } | null;
   const setup: MatchSetup = {
     ...(match.engine_version === 2 ? {} : { engineVersion: match.engine_version as EngineVersion }),
     seed: Number(match.seed),
@@ -45,6 +48,7 @@ Deno.serve(handle(async (req) => {
     passing: match.passing,
     opponentGoalkeeping: match.opponent_goalkeeping,
     opponentAttack: match.opponent_attack,
+    ...(match.engine_version === 4 ? { pace: extra?.pace, role: extra?.role } : {}),
   };
   let sim;
   try {
@@ -160,6 +164,7 @@ function parseBody(body: unknown): { matchId: string; inputs: ChanceInput[]; dur
     const i = raw as Record<string, unknown>;
     const chance = i?.chance as number;
     const timing = i?.timing as number;
+    if (typeof i?.tactic === 'string') return { chance, tactic: i.tactic as Tactic };
     if (typeof i?.defense === 'string') return { chance, defense: i.defense as Side, timing };
     if (typeof i?.pass === 'string') {
       return i.timing === undefined ? { chance, pass: i.pass as Side } : { chance, pass: i.pass as Side, timing };

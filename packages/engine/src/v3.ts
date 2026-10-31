@@ -30,7 +30,7 @@ const OPPONENT_CONVERT_BASE = 20;
 const BEATEN_CONVERT_BASE = 40;
 const STOP_READ_TIMED = 70;
 const STOP_READ_ONLY = 35;
-const STOP_WRONG = 10;
+export const STOP_WRONG = 10;
 
 const SAVE_BASE = 70;
 const SPREAD_PER_MISSING_STAT = 2;
@@ -39,9 +39,9 @@ const PERFECT_KEEPER_MALUS = 20;
 /** Assisted shots behave like a release this far from the target: never perfect. */
 const ASSISTED_TIMING_ERROR = 100;
 
-const PASS_OPEN_BASE = 65;
-const PASS_TIMING_BONUS = 15;
-const PASS_WRONG = 10;
+export const PASS_OPEN_BASE = 65;
+export const PASS_TIMING_BONUS = 15;
+export const PASS_WRONG = 10;
 
 export type TimingGrade = 'perfect' | 'timed' | 'off';
 
@@ -102,6 +102,7 @@ export function playV3(setup: MatchSetup, plan: MatchPlan, input: ChanceInput): 
       : PASS_WRONG;
     return { kind: 'pass', outcome: rng.int(100) < chance ? 'assist' : 'lost' };
   }
+  if (!('shot' in input)) throw new EngineInputError(`chance ${input.chance} expects a shot`);
 
   const freekick = moment.kind === 'freekick';
   // Free kicks reward passing technique too (curl over the wall); keepers get the wall.
@@ -115,7 +116,7 @@ export function skippedDefenseV3(setup: MatchSetup, chance: number): DefenseOutc
   return beaten(createRng(deriveSeed(setup.seed, chance)), setup, STOP_WRONG);
 }
 
-function resolveSkillShot(rng: ReturnType<typeof createRng>, shot: ShotInput, shooting: number, goalkeeping: number) {
+export function resolveSkillShot(rng: ReturnType<typeof createRng>, shot: ShotInput, shooting: number, goalkeeping: number) {
   const error = shot.assisted ? ASSISTED_TIMING_ERROR : Math.abs(shot.power - TIMING_TARGET);
   const perfect = error <= PERFECT_WINDOW;
   const spread = (100 - shooting) * SPREAD_PER_MISSING_STAT + Math.trunc(error / TIMING_SPREAD_DIV);
@@ -140,7 +141,7 @@ function resolveDefense(rng: ReturnType<typeof createRng>, setup: MatchSetup, mo
   return beaten(rng, setup, stop);
 }
 
-function beaten(rng: ReturnType<typeof createRng>, setup: MatchSetup, stopChance: number): DefenseOutcome {
+export function beaten(rng: ReturnType<typeof createRng>, setup: MatchSetup, stopChance: number): DefenseOutcome {
   if (rng.int(100) < stopChance) return 'stopped';
   const convert = clamp(BEATEN_CONVERT_BASE + Math.trunc(setup.opponentAttack / 4), 20, 85);
   return rng.int(100) < convert ? 'conceded' : 'survived';

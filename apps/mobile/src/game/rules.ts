@@ -37,4 +37,7 @@ export function levelProgress(level: number, xp: number) {
 }
 
 export const OPP = t('club.kartaltepe');
-export const MOMENT_TITLE = { shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick'), defense: t('moment.defense') } as const;
+export const MOMENT_TITLE = {
+  shot: t('moment.shot'), pass: t('moment.pass'), freekick: t('moment.freekick'), defense: t('moment.defense'),
+  penalty: t('moment.penalty'), decision: t('moment.decision'), halftime: t('moment.halftime'),
+} as const;
