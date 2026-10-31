@@ -22,13 +22,30 @@ export function eventsBetween(plan: MatchPlan, from: number, to: number): MatchE
 
 /** Lines per event: how many variants each one has (see live.* in i18n). */
 const VARIANTS: Record<MatchEvent['team'], Record<MatchEvent['kind'], number>> = {
-  us: { goal: 3, save: 2, miss: 2, post: 1, corner: 2, card: 1, offside: 1 },
-  them: { goal: 3, save: 2, miss: 2, post: 1, corner: 1, card: 1, offside: 1 },
+  us: { goal: 3, save: 2, miss: 2, post: 1, corner: 2, card: 1, offside: 1, win: 3, counter: 1, attack: 3, foul: 2, penalty: 1, run: 1, space: 1, lost: 2 },
+  them: { goal: 3, save: 2, miss: 2, post: 1, corner: 1, card: 1, offside: 1, win: 2, counter: 1, attack: 2, foul: 1, penalty: 1, run: 1, space: 1, lost: 2 },
 };
+/** Engine 5: the step that hands the ball to the player. */
+const ME_VARIANTS: Partial<Record<MatchEvent['kind'], number>> = { win: 1, attack: 2, foul: 1, penalty: 1 };
+/** "Rakip kontradan attı" only fits after a counter. */
+const THEIR_COUNTER_GOAL = 1;
 
-export function eventLine(e: MatchEvent, names: readonly string[]): string {
-  const key = `live.${e.team}.${e.kind}.${e.v % VARIANTS[e.team][e.kind]}` as Key;
-  return t(key, { name: names[e.who % names.length] ?? DEFAULT_MATES[0] });
+/** The lane an engine 5 event happens in, seen from the attacking team (we attack toward x = 100, y = 0 is our left). */
+export function laneOf(e: MatchEvent): 'left' | 'center' | 'right' {
+  const y = e.team === 'us' ? e.y ?? 50 : 100 - (e.y ?? 50);
+  return y < 35 ? 'left' : y > 65 ? 'right' : 'center';
+}
+
+/** `opener` is the event that started this attack (engine 5), so a goal reads like the attack that led to it. */
+export function eventLine(e: MatchEvent, names: readonly string[], opener?: MatchEvent): string {
+  const vars = { name: names[e.who % names.length] ?? DEFAULT_MATES[0], lane: t(`live.lane.${laneOf(e)}`) };
+  const meVariants = e.me ? ME_VARIANTS[e.kind] : undefined;
+  if (meVariants) return t(`live.me.${e.kind}.${e.v % meVariants}` as Key, vars);
+  if (e.set === 'penalty') return t(`live.${e.team}.penalty.${e.kind === 'goal' ? 'goal' : e.kind === 'save' ? 'save' : 'miss'}`, vars);
+  if (e.set === 'freekick' && e.kind === 'goal') return t(`live.${e.team}.freekick.goal`, vars);
+  let v = e.v % VARIANTS[e.team][e.kind];
+  if (e.team === 'them' && e.kind === 'goal' && v === THEIR_COUNTER_GOAL && e.x !== undefined && opener?.kind !== 'counter') v = 0;
+  return t(`live.${e.team}.${e.kind}.${v}` as Key, vars);
 }
 
 /** Mahalle matches: Burak abi has a word after every goal. */

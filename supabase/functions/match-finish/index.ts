@@ -48,7 +48,7 @@ Deno.serve(handle(async (req) => {
     passing: match.passing,
     opponentGoalkeeping: match.opponent_goalkeeping,
     opponentAttack: match.opponent_attack,
-    ...(match.engine_version === 4 ? { pace: setupExtra?.pace, role: setupExtra?.role } : {}),
+    ...(match.engine_version >= 4 ? { pace: setupExtra?.pace, role: setupExtra?.role } : {}),
   };
   let sim;
   try {

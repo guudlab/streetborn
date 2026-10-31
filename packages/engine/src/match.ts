@@ -2,35 +2,36 @@ import { EngineInputError, type ChanceInput, type ChanceOutcome, type DefenseOut
 import { assertInputV2, planV2, playV2 } from './v2.ts';
 import { assertInputV3, momentCountV3, planV3, playV3, skippedDefenseV3 } from './v3.ts';
 import { assertInputV4, assertSetupV4, playMomentV4, runV4 } from './v4.ts';
+import { runV5 } from './v5.ts';
 
 /**
  * The version new matches are played with. Bump when a change alters the
  * outcome of an existing seed + inputs, and keep the old path for replays.
  */
-export const ENGINE_VERSION: EngineVersion = 4;
+export const ENGINE_VERSION: EngineVersion = 5;
 /** Versions this build can still replay. */
-export const ENGINE_VERSIONS: readonly EngineVersion[] = [2, 3, 4];
+export const ENGINE_VERSIONS: readonly EngineVersion[] = [2, 3, 4, 5];
 
 const versionOf = (setup: MatchSetup): EngineVersion => setup.engineVersion ?? 2;
 
 /**
  * Number of moments in a match: the chances, plus the defense moments from engine 3 on.
- * Engine 4 fixes the count at kick-off (it includes the half-time call).
+ * Engines 4 and 5 fix the count at kick-off (it includes the half-time call).
  */
 export function momentCount(setup: MatchSetup): number {
   const v = versionOf(setup);
-  return v === 4 ? planMatch(setup).moments.length : v === 3 ? momentCountV3(setup.chances) : setup.chances;
+  return v >= 4 ? planMatch(setup).moments.length : v === 3 ? momentCountV3(setup.chances) : setup.chances;
 }
 
 /**
  * The moments and opponent goals of a match. Same seed, same plan, on every device.
- * Engine 4 plays the match on with the inputs so far: what comes after a moment depends
+ * Engines 4 and 5 play the match on with the inputs so far: what comes after a moment depends
  * on how it went, what comes before it never changes.
  */
 export function planMatch(setup: MatchSetup, inputs: readonly ChanceInput[] = []): MatchPlan {
   assertSetup(setup);
   const v = versionOf(setup);
-  return v === 4 ? runV4(setup, inputs).plan : v === 3 ? planV3(setup) : planV2(setup);
+  return v === 5 ? runV5(setup, inputs).plan : v === 4 ? runV4(setup, inputs).plan : v === 3 ? planV3(setup) : planV2(setup);
 }
 
 /**
@@ -44,8 +45,8 @@ export function simulateMatch(setup: MatchSetup, inputs: readonly ChanceInput[])
   const v = versionOf(setup);
   let plan: MatchPlan;
   let outcomes: (ChanceOutcome | null)[];
-  if (v === 4) {
-    ({ plan, outcomes } = runV4(setup, inputs));
+  if (v >= 4) {
+    ({ plan, outcomes } = v === 5 ? runV5(setup, inputs) : runV4(setup, inputs));
     const stray = inputs.find((i) => i.chance >= plan.moments.length);
     if (stray) throw new EngineInputError(`chance ${stray.chance} is out of range`);
   } else {
@@ -99,7 +100,8 @@ export function skippedDefense(setup: MatchSetup, chance: number): DefenseOutcom
 /** Resolves one moment. Exposed so the client can show each outcome as it is played. */
 export function playChance(setup: MatchSetup, plan: MatchPlan, input: ChanceInput): ChanceOutcome {
   const v = versionOf(setup);
-  if (v === 4) {
+  if (v >= 4) {
+    // Engine 5 resolves the player's moments exactly as engine 4.
     const moment = plan.moments[input.chance];
     if (!moment) throw new EngineInputError(`chance ${input.chance} is out of range`);
     assertInputV4(moment, input);
@@ -118,7 +120,7 @@ function assertSetup(setup: MatchSetup): void {
   if (!Number.isInteger(setup.chances) || setup.chances < 1 || setup.chances > 12) {
     throw new EngineInputError('chances must be 1..12');
   }
-  if (versionOf(setup) === 4) assertSetupV4(setup);
+  if (versionOf(setup) >= 4) assertSetupV4(setup);
   for (const skill of [setup.shooting, setup.passing, setup.opponentGoalkeeping, setup.opponentAttack]) {
     if (!Number.isInteger(skill) || skill < 1 || skill > 100) {
       throw new EngineInputError('skills must be integers 1..100');

@@ -703,8 +703,8 @@ export const useGame = create<GameState>()((set, get) => ({
     const outcomes = m.outcomes.slice();
     outcomes[input.chance] = outcome;
     const inputs = [...m.inputs, input];
-    // Engine 4: the rest of the match follows from how this moment went.
-    const plan = m.setup.engineVersion === 4 ? planMatch(m.setup, inputs) : m.plan;
+    // Engines 4 and 5: the rest of the match follows from how this moment went.
+    const plan = (m.setup.engineVersion ?? 2) >= 4 ? planMatch(m.setup, inputs) : m.plan;
     set({ match: { ...m, inputs, outcomes, plan } });
     return outcome;
   },

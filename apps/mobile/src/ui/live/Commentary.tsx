@@ -35,7 +35,11 @@ export const feedLine = (minute: number, text: string, tone: FeedLine['tone'], i
 
 const EVENT_ICON: Record<MatchEvent['kind'], FeedLine['icon']> = {
   goal: 'ball', save: 'shield', miss: 'x', post: 'x', corner: 'chev', card: 'card', offside: 'whistle',
+  win: 'chev', counter: 'bolt', attack: 'chev', foul: 'whistle', penalty: 'whistle', run: 'chev', space: 'chev', lost: 'x',
 };
+/** Steps of an attack, not finishes: they move the ball but not the momentum bar of engine 4. */
+const STEP: ReadonlySet<MatchEvent['kind']> = new Set(['card', 'offside', 'win', 'counter', 'attack', 'foul', 'penalty', 'run', 'space', 'lost']);
+const CENTER = { x: 0.5, y: 0.5 };
 
 export interface CommentaryProps {
   match: LiveMatch;
@@ -61,7 +65,9 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   speedRef.current = speed;
-  const [ball, setBall] = useState({ x: 0.5, y: 0.5 });
+  const [ball, setBall] = useState(CENTER);
+  const [owner, setOwner] = useState<'us' | 'them' | null>(null);
+  const [clock, setClock] = useState(from);
 
   const events = useMemo(() => eventsBetween(match.plan, from, to), [match.plan, from, to]);
   const handlers = useRef({ onLine, onClock, onArrive });
@@ -77,20 +83,39 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
         if (cancelled) return;
       }
     };
+    // Engine 5 events say where the ball is; after a goal it goes back to the centre spot.
+    const chained = match.plan.events?.some(e => e.x !== undefined) ?? false;
+    const opener: Partial<Record<'us' | 'them', MatchEvent>> = {};
+    let afterGoal = false;
     void (async () => {
       const end = Math.min(to, 91);
       for (let minute = from + 1; minute < end; minute++) {
         if (cancelled) return;
         const here = events.filter(e => e.minute === minute);
         handlers.current.onClock(minute);
-        const attack = here.find(e => e.kind !== 'card' && e.kind !== 'offside');
-        setBall(attack
-          ? { x: attack.team === 'us' ? 0.86 : 0.14, y: 0.3 + Math.random() * 0.4 }
-          : { x: 0.35 + Math.random() * 0.3, y: 0.25 + Math.random() * 0.5 });
+        setClock(minute);
+        if (!chained) {
+          // Engine 4 plans carry no positions: the ball wanders, and goes to the goal of an attack.
+          const attack = here.find(e => !STEP.has(e.kind));
+          setBall(attack
+            ? { x: attack.team === 'us' ? 0.86 : 0.14, y: 0.3 + Math.random() * 0.4 }
+            : { x: 0.35 + Math.random() * 0.3, y: 0.25 + Math.random() * 0.5 });
+        } else if (afterGoal) {
+          setBall(CENTER);
+          setOwner(null);
+          afterGoal = false;
+        }
         for (const e of here) {
-          const attacking = e.kind !== 'card' && e.kind !== 'offside' ? e.team : undefined;
-          handlers.current.onLine(feedLine(minute, eventLine(e, match.names), e.kind === 'goal' ? e.team : 'info', EVENT_ICON[e.kind], attacking));
+          if (chained && e.x !== undefined && e.kind !== 'card') {
+            setBall({ x: e.x / 100, y: (e.y ?? 50) / 100 });
+            setOwner(e.team);
+          }
+          if (e.kind === 'win' || e.kind === 'counter') opener[e.team] = e;
+          const attacking = !STEP.has(e.kind) ? e.team : undefined;
+          const tone = e.kind === 'goal' ? e.team : e.me ? 'me' : 'info';
+          handlers.current.onLine(feedLine(minute, eventLine(e, match.names, opener[e.team]), tone, EVENT_ICON[e.kind], attacking));
           if (e.kind === 'goal') {
+            afterGoal = true;
             sfx(e.team === 'us' ? 'crowd_cheer' : 'crowd_groan', 0.8);
             if (!skip.current) buzz(e.team === 'us' ? 'success' : 'light');
             const burak = match.kind === 'mahalle' ? burakLine(e, match.names) : null;
@@ -114,18 +139,20 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
     // One run per stretch of the match.
   }, [from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Who had the attacks of the last quarter of an hour: positive when we press.
+  // Engine 5 knows who is pressing; engine 4 counts the attacks of the last quarter of an hour.
   const momentum = useMemo(() => {
+    const engine = match.plan.momentum;
+    if (engine) return (engine[Math.min(engine.length - 1, Math.max(0, Math.trunc((clock - 1) / 5)))] ?? 0) * 2;
     const now = feed.at(-1)?.minute ?? 0;
     return feed.filter(l => l.team && l.minute > now - 15).reduce((n, l) => n + (l.team === 'us' ? 1 : -1), 0);
-  }, [feed]);
+  }, [feed, clock, match.plan.momentum]);
 
   const pick = (s: 1 | 3) => { speedPref = s; setSpeed(s); buzz('select'); };
   const recent = feed.slice(-6);
 
   return (
     <View style={{ flex: 1, gap: 14 }}>
-      <Radar ball={ball} reduce={reduce} duration={MINUTE_MS / speed} />
+      <Radar ball={ball} owner={owner} reduce={reduce} duration={MINUTE_MS / speed} />
       <Momentum value={momentum} />
       <View accessibilityLiveRegion="polite" style={{ flex: 1, gap: 10, overflow: 'hidden' }}>
         {recent.map((l, i) => <Line key={l.id} line={l} old={i < recent.length - 1} />)}
@@ -199,8 +226,10 @@ const THEM = US.map(([x, y]) => [1 - x, y] as const);
 export const ME = 3;
 
 /** The small top-down pitch. Players lean toward the ball; Reduce Motion moves them without gliding. */
-export function Radar({ ball, reduce, duration, highlight, height = 168 }: {
+export function Radar({ ball, owner = null, reduce, duration, highlight, height = 168 }: {
   ball: { x: number; y: number }; reduce: boolean; duration: number; height?: number;
+  /** The team on the ball stands out; the other one fades a little. */
+  owner?: 'us' | 'them' | null;
   /** Decision moments: which of our players glows (the free teammate) and whether the path to goal is open. */
   highlight?: { mate: 'top' | 'bottom' | null; lane: boolean };
 }) {
@@ -219,11 +248,12 @@ export function Radar({ ball, reduce, duration, highlight, height = 168 }: {
 
   const pad = 10, iw = Math.max(0, w - pad * 2), ih = height - pad * 2;
   const shift = Animated.multiply(Animated.add(bx, -0.5), iw * 0.3);
-  const dot = (x: number, y: number, size: number, color: string, glow = false, key?: string) => (
+  const dot = (x: number, y: number, size: number, color: string, glow = false, key?: string, faded = false) => (
     <Animated.View
       key={key}
       style={{
         position: 'absolute', left: pad + x * iw - size / 2, top: pad + y * ih - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color,
+        opacity: faded ? 0.5 : 1,
         transform: [{ translateX: shift }],
         ...(glow ? { shadowColor: colors.l600, shadowOpacity: 0.9, shadowRadius: 8, borderWidth: 3, borderColor: 'rgba(207,253,92,.3)' } : null),
       }}
@@ -244,11 +274,11 @@ export function Radar({ ball, reduce, duration, highlight, height = 168 }: {
       {w > 0 && THEM.map(([x, y], i) => {
         // Decision moments: defenders close down the free teammate or the path to goal.
         const yy = highlight ? (highlight.lane ? (i % 2 ? 0.2 : 0.8) : y) : y;
-        return dot(x, yy, 9, '#6A7894', false, `t${i}`);
+        return dot(x, yy, 9, '#6A7894', false, `t${i}`, owner === 'us');
       })}
       {w > 0 && US.map(([x, y], i) => {
         const free = highlight?.mate && ((highlight.mate === 'top' && i === 4) || (highlight.mate === 'bottom' && i === 5));
-        return dot(x, y, i === ME ? 14 : free ? 12 : 9, i === ME || free ? colors.l600 : colors.l700, i === ME || !!free, `u${i}`);
+        return dot(x, y, i === ME ? 14 : free ? 12 : 9, i === ME || free ? colors.l600 : colors.l700, i === ME || !!free, `u${i}`, owner === 'them' && i !== ME);
       })}
       {w > 0 && (
         <Animated.View

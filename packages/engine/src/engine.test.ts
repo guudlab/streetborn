@@ -352,7 +352,7 @@ describe('engine 3 (skill)', () => {
     expect(() => simulateMatch(v3, [{ chance: 0, defense: 'left', timing: 500 }])).toThrow(EngineInputError);
     expect(() => simulateMatch(v3, [{ chance: plan.moments.length, shot }])).toThrow(EngineInputError);
     if (passAt >= 0) expect(() => simulateMatch(v3, [{ chance: passAt, pass: 'left' }])).toThrow(EngineInputError);
-    expect(() => planMatch({ ...v3, engineVersion: 5 as 3 })).toThrow(EngineInputError);
+    expect(() => planMatch({ ...v3, engineVersion: 6 as 3 })).toThrow(EngineInputError);
   });
 });
 
