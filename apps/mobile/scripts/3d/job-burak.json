@@ -1,5 +1,5 @@
-{ "rig": "rig-stripped.glb", "mesh": "orig-burak.glb", "keep": ["walk"], "out": "out-burak.glb",
+{ "rig": "rig-stripped.glb", "mesh": "orig-burak.glb", "keep": ["walk"], "out": "out/burak.glb",
   "clips": [
     { "name": "idle", "existing": "idle" },
-    { "name": "wave", "wave": true, "base": "idle", "duration": 3.2 }
+    { "name": "wave", "clavicle": 0.45, "out": 0.35, "wave": true, "base": "idle", "duration": 3.2 }
   ] }

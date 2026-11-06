@@ -62,7 +62,10 @@ function wave(base, c) {
     // the upper arm sways a little with the wave, the forearm does the big swing
     const swing = ease((t - 0.7) / 0.5) * ease((dur - t - 0.2) / 0.5);
     const ph = t * Math.PI * 2 * 1.9;
-    aimBone(b[P + 'Arm'], b[P + 'ForeArm'], new THREE.Vector3(side * (0.5 + 0.06 * Math.sin(ph + 1) * swing), -0.4 + 0.03 * Math.sin(ph) * swing, 0.5), e);
+    // lift the collarbone with the arm so the shoulder follows it instead of the arm pulling out of the sleeve
+    rotateWorld(b[P + 'Shoulder'], new THREE.Vector3(0, 0, 1), side * (c.clavicle ?? 0.3) * e);
+    root.updateMatrixWorld(true);
+    aimBone(b[P + 'Arm'], b[P + 'ForeArm'], new THREE.Vector3(side * ((c.out ?? 0.5) + 0.06 * Math.sin(ph + 1) * swing), -0.4 + 0.03 * Math.sin(ph) * swing, 0.5), e);
     const sw = Math.sin(ph) * 0.75 * swing;
     aimBone(b[P + 'ForeArm'], b[P + 'Hand'], new THREE.Vector3(side * (0.15 + sw), 1, 0.2), fore);
     root.updateMatrixWorld(true);
