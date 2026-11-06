@@ -20,3 +20,6 @@ Run from a scratch folder with `three@0.170`, `@gltf-transform/core|extensions|f
   poses each one with the arms down and instances it on the terraces; `scene.js` uses skinned
   copies for the fans by the fences. Shirts stay lime: the shaders recolour them.
 - Rivals `rival2-4.glb` (Meshy R1-R3): step 2 above, nothing else. Lime kit, the scene tints it graphite.
+
+Burak's wave is re-baked from the file already in the app: copy `assets/models/burak.glb`, strip its
+textures into a rig copy, and run `job-burak.json` (`"existing"` reuses a clip of the rig as is).
