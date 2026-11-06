@@ -18,7 +18,8 @@ const dst = rigInfo(dstG.scene);
 const clips = [];
 for (const c of job.clips) {
   let clip;
-  if (c.wave) clip = wave(clips.find((k) => k.name === c.base), c);
+  if (c.existing) { clip = dstG.animations.find((k) => k.name === c.existing).clone(); }
+  else if (c.wave) clip = wave(clips.find((k) => k.name === c.base), c);
   else {
     const srcG = await load(c.src);
     const src = rigInfo(srcG.scene);
@@ -47,17 +48,23 @@ function wave(base, c) {
     const t = i / fps; times.push(t);
     names.forEach((n, k) => b[n].quaternion.copy(rest[k]));
     mixer.setTime(t % base.duration); root.updateMatrixWorld(true);
-    // raise in 0.35 s, wave, lower in the last 0.45 s
-    const up = Math.min(1, t / 0.35) * Math.min(1, Math.max(0, (dur - t) / 0.45));
-    const e = up * up * (3 - 2 * up);
+    // Raise slowly (0.9 s, easing in and out), wave, lower in the last 0.8 s. The upper arm
+    // leads and the forearm follows a little later, so the arm lifts instead of snapping up.
+    const ease = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * x * (x * (x * 6 - 15) + 10); };
+    const up = ease(t / 0.9) * ease((dur - t) / 0.8);
+    const fore = ease((t - 0.25) / 0.8) * ease((dur - t) / 0.7);
+    const e = up;
     // face the player while greeting: neck and head back to the bind pose
     for (const n of ['Spine02', 'neck', 'Head']) b[n].quaternion.slerp(rest[names.indexOf(n)], e * 0.85);
     root.updateMatrixWorld(true);
     const side = c.side === 'left' ? 1 : -1;
     const P = c.side === 'left' ? 'Left' : 'Right';
-    aimBone(b[P + 'Arm'], b[P + 'ForeArm'], new THREE.Vector3(side * 0.5, -0.4, 0.5), e);
-    const sw = Math.sin(t * Math.PI * 2 * 1.7) * 0.4;
-    aimBone(b[P + 'ForeArm'], b[P + 'Hand'], new THREE.Vector3(side * (0.15 + sw), 1, 0.2), e);
+    // the upper arm sways a little with the wave, the forearm does the big swing
+    const swing = ease((t - 0.7) / 0.5) * ease((dur - t - 0.2) / 0.5);
+    const ph = t * Math.PI * 2 * 1.9;
+    aimBone(b[P + 'Arm'], b[P + 'ForeArm'], new THREE.Vector3(side * (0.5 + 0.06 * Math.sin(ph + 1) * swing), -0.4 + 0.03 * Math.sin(ph) * swing, 0.5), e);
+    const sw = Math.sin(ph) * 0.75 * swing;
+    aimBone(b[P + 'ForeArm'], b[P + 'Hand'], new THREE.Vector3(side * (0.15 + sw), 1, 0.2), fore);
     root.updateMatrixWorld(true);
     // head tilts a little toward the camera
     rotateWorld(b.Head, new THREE.Vector3(0, 0, 1), side * -0.08 * e);
