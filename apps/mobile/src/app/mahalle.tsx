@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect } from 'react';
 import { Platform, Share, View } from 'react-native';
 
@@ -6,10 +7,9 @@ import { INVITE_BASE } from '../net/config.ts';
 import { colors } from '../theme.ts';
 import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { Cta, Ghost, H3, T } from '../ui/kit.tsx';
+import { buzz, Cta, Ghost, H3, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Amount, Ico } from '../ui/sade.tsx';
-import { openPlayerMenu } from '../ui/player-menu.tsx';
 import { LigCard } from '../ui/mahalle-lig.tsx';
 import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
@@ -86,7 +86,7 @@ export default function Mahalle() {
             const captain = m.playerId === mahalle.captainId;
             return (
               <PressableScale
-                key={m.playerId} disabled={m.playerId === me} onPress={() => openPlayerMenu(m.playerId, m.nick)}
+                key={m.playerId} disabled={m.playerId === me} onPress={() => router.push({ pathname: '/oyuncu', params: { id: m.playerId } })}
                 accessibilityRole="button" accessibilityLabel={`${nick}, ${t('mahalle.home.level', { n: m.level })}${captain ? `, ${t('mahalle.home.captain')}` : ''}`}
                 style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 16, backgroundColor: colors.s2 }}
               >
@@ -119,6 +119,15 @@ export default function Mahalle() {
           <Icon name="share" size={22} color={colors.l600} />
         </PressableScale>
       )}
+
+      <PressableScale
+        accessibilityRole="button" accessibilityLabel={t('player.search')} onPress={() => { buzz(); router.push('/oyuncu-ara'); }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, borderRadius: 16, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
+      >
+        <Ico name="oyuncu" size={32} />
+        <T w={600} size={16} style={{ flex: 1 }}>{t('player.search')}</T>
+        <Icon name="chev" size={18} color={colors.g300} />
+      </PressableScale>
 
       <PressableScale accessibilityRole="button" onPress={confirmLeave} hitSlop={8} style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center' }}>
         <T w={600} size={14} color={colors.g300}>{t('mahalle.home.leave')}</T>

@@ -15,11 +15,42 @@ import { admin, loadEconomyConfig, requirePlayer } from '../_shared/supabase.ts'
 import { currentDuel, loadState, settleDuels, unlockAchievements } from '../_shared/kariyer.ts';
 import { phoneToday } from '../_shared/telefon.ts';
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const KOD = /^[A-Za-z0-9]{6}$/;
+
 Deno.serve(handle(async (req) => {
   const playerId = await requirePlayer(req);
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const config = await loadEconomyConfig();
   const now = Date.now();
+
+  // Other players' profiles and search. The SQL functions return only the public fields.
+  if (body.action === 'profil') {
+    const id = typeof body.id === 'string' && UUID.test(body.id) ? body.id : null;
+    const kod = typeof body.kod === 'string' && KOD.test(body.kod.trim()) ? body.kod.trim() : null;
+    if (!id && !kod) throw new HttpError(400, 'bad_player');
+    const { data, error } = await admin.rpc('oyuncu_profil', { p_from: playerId, p_id: id, p_kod: kod });
+    if (error?.message === 'too_many') throw new HttpError(429, 'too_many');
+    if (error) throw error;
+    if (!data) throw new HttpError(404, 'not_found');
+    return json({ ok: true, player: data });
+  }
+
+  if (body.action === 'ara') {
+    const q = typeof body.q === 'string' ? body.q.trim().slice(0, 24) : '';
+    const { data, error } = await admin.rpc('oyuncu_ara', { p_from: playerId, p_q: q });
+    if (error?.message === 'short') throw new HttpError(400, 'short');
+    if (error?.message === 'too_many') throw new HttpError(429, 'too_many');
+    if (error) throw error;
+    return json({ ok: true, players: data ?? [] });
+  }
+
+  if (body.action === 'aranabilir') {
+    if (typeof body.value !== 'boolean') throw new HttpError(400, 'bad_value');
+    const { data, error } = await admin.rpc('oyuncu_aranabilir', { p_player: playerId, p_value: body.value });
+    if (error) throw error;
+    return json({ ok: true, value: data === true });
+  }
 
   if (body.action === 'sec') {
     if (!CHOICES.includes(body.choice as Choice)) throw new HttpError(400, 'bad_choice');
