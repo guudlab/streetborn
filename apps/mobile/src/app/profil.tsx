@@ -26,12 +26,12 @@ import { t, type Key } from '../i18n/index.ts';
 // newest trophies and the dream picked at the start. Sound, account, sign-out and deletion
 // live on /ayarlar behind the gear, so this screen stays about the player.
 
-const SKILLS: { key: StatKey; icon: IconAsset }[] = [
+export const SKILLS: { key: StatKey; icon: IconAsset }[] = [
   { key: 'sut', icon: 'sut' }, { key: 'pas', icon: 'pas' }, { key: 'hiz', icon: 'hiz' }, { key: 'fizik', icon: 'fizik' },
 ];
 const BADGE_DRILLS: DrillKey[] = ['sut', 'pas', 'hiz', 'fizik', 'omuz'];
 /** Stats are shown against this ceiling on the bars. */
-const STAT_MAX = 99;
+export const STAT_MAX = 99;
 
 export default function Profil() {
   const g = useGame();
@@ -104,8 +104,9 @@ export default function Profil() {
   );
 }
 
-function PlayerCard({ name, ch, power, level, xp }: { name: string; ch: typeof DEFAULT_CHARACTER; power: number; level: number; xp: number }) {
-  const xpLeft = Math.max(0, xpNeed(level + 1) - xp);
+/** The player card. Without xp (someone else's card) the progress row is left out. */
+export function PlayerCard({ name, ch, power, level, xp }: { name: string; ch: typeof DEFAULT_CHARACTER; power: number; level: number; xp?: number }) {
+  const xpLeft = xp === undefined ? 0 : Math.max(0, xpNeed(level + 1) - xp);
   const role = t(`char.pos.${ch.position}.role` as Key);
   const trait = t(`char.trait.${ch.trait}` as Key);
   return (
@@ -140,15 +141,15 @@ function PlayerCard({ name, ch, power, level, xp }: { name: string; ch: typeof D
         <T w={600} size={28} numberOfLines={1}>{name}</T>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <T w={600} size={14}>{t('profile.level', { n: level })}</T>
-          <T w={500} size={13} color={colors.g200}>{t('profile.xpShort', { n: num(xpLeft) })}</T>
+          {xp !== undefined && <T w={500} size={13} color={colors.g200}>{t('profile.xpShort', { n: num(xpLeft) })}</T>}
         </View>
-        <Track value={levelProgress(level, xp)} />
+        {xp !== undefined && <Track value={levelProgress(level, xp)} />}
       </View>
     </View>
   );
 }
 
-function PlaceRow({ label, name, icon, onPress }: { label: string; name: string; icon: React.ReactNode; onPress?: () => void }) {
+export function PlaceRow({ label, name, icon, onPress }: { label: string; name: string; icon: React.ReactNode; onPress?: () => void }) {
   return (
     <PressableScale
       accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${label}, ${name}`} disabled={!onPress}
@@ -165,7 +166,7 @@ function PlaceRow({ label, name, icon, onPress }: { label: string; name: string;
   );
 }
 
-function Count({ label, value }: { label: string; value: number }) {
+export function Count({ label, value }: { label: string; value: number }) {
   return (
     <View style={{ flex: 1, alignItems: 'center' }} accessible accessibilityLabel={`${label} ${value}`}>
       <T w={600} size={28} style={{ lineHeight: 32, fontVariant: ['tabular-nums'] }}>{num(value)}</T>
@@ -175,7 +176,7 @@ function Count({ label, value }: { label: string; value: number }) {
 }
 
 /** The last five match ratings, newest on the right; 8,0 and above lit. */
-function LastRatings({ ratings }: { ratings: number[] }) {
+export function LastRatings({ ratings }: { ratings: number[] }) {
   const shown = ratings.slice(0, 5).reverse();
   return (
     <View
