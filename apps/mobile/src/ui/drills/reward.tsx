@@ -122,7 +122,7 @@ export function BadgeCard({ level, title, sub, medal, delay = 0, style }: {
     <Pop delay={delay} from={0.3} style={style}>
       <View
         accessible accessibilityLabel={`${title}, ${sub}`}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 14, height: 88, paddingHorizontal: 16, borderRadius: 22, overflow: 'hidden', backgroundColor: colors.s1, borderWidth: 1.5, borderColor: metal }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 88, paddingHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.s1, borderWidth: 1.5, borderColor: metal }}
       >
         <View style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: metal, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,.06)' }}>
           {medal}

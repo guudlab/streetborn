@@ -120,7 +120,7 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
   const needsTrial = trial && offer.status === 'open';
   const highlight = offer.kind === 'better' || offer.kind === 'promote';
   return (
-    <View style={{ borderRadius: 24, backgroundColor: highlight ? 'rgba(63,77,24,.38)' : colors.s1, borderWidth: 1.5, borderColor: highlight ? colors.l600 : colors.line, padding: 14, gap: 12, opacity: failed ? 0.55 : 1 }}>
+    <View style={{ borderRadius: 20, backgroundColor: highlight ? 'rgba(63,77,24,.38)' : colors.s1, borderWidth: 1.5, borderColor: highlight ? colors.l600 : colors.line, padding: 16, gap: 12, opacity: failed ? 0.55 : 1 }}>
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
         <Ico name="kulup" size={56} />
         <View style={{ flex: 1, gap: 2 }}>
@@ -129,7 +129,7 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
         </View>
         <View style={{ alignItems: 'flex-end', gap: 2 }}>
           <Amount icon="coin" size={22} textSize={16}>{num(offer.salaryWeekly)}</Amount>
-          <T w={600} size={11} color={colors.g300}>{t('career.perWeek')}</T>
+          <T w={600} size={12} color={colors.g300}>{t('career.perWeek')}</T>
         </View>
       </View>
       {/* A trial offer shows its trial in the facts below. */}
@@ -155,18 +155,18 @@ function Fact({ icon, value, label, lime }: { icon: IconAsset; value: string; la
   return (
     <View
       accessible accessibilityLabel={`${label} ${value}`}
-      style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 16, backgroundColor: lime ? colors.l900 : colors.s2 }}
+      style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 12, paddingHorizontal: 4, borderRadius: 16, backgroundColor: lime ? colors.l900 : colors.s2 }}
     >
       <Ico name={icon} size={30} />
       <T w={600} size={16} color={lime ? colors.l500 : colors.g100} numberOfLines={1}>{value}</T>
-      <T w={600} size={11} color={colors.g300} numberOfLines={1}>{label}</T>
+      <T w={600} size={12} color={colors.g300} numberOfLines={1}>{label}</T>
     </View>
   );
 }
 
 function Tag({ children, lime }: { children: string; lime?: boolean }) {
   return (
-    <View style={{ alignSelf: 'flex-start', height: 28, paddingHorizontal: 10, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
+    <View style={{ alignSelf: 'flex-start', height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
       <T w={600} size={12} color={lime ? colors.l500 : colors.g100}>{children}</T>
     </View>
   );
@@ -181,7 +181,7 @@ function Contract() {
 
   return (
     <>
-      <View style={{ padding: 14, borderRadius: 24, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 14 }}>
+      <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Ico name="kulup" size={56} />
           <View style={{ flex: 1, gap: 2 }}>
@@ -196,7 +196,7 @@ function Contract() {
         <PressableScale
           accessibilityRole="button" accessibilityLabel={`${t('career.trust')} ${career.trust}`}
           onPress={() => openSheet(<><H3>{t('career.trust')}</H3><SheetText>{t('career.trustHint')}</SheetText><Cta onPress={closeSheet}>{t('common.ok')}</Cta></>)}
-          style={{ gap: 6 }}
+          style={{ gap: 8 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Icon name="whistle" size={18} color={colors.g200} />
@@ -211,7 +211,7 @@ function Contract() {
       {table && (
         <View style={{ gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Ico name="cup" size={24} /><Caps>{t('league.table')}</Caps></View>
-          <View style={{ borderRadius: 18, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
+          <View style={{ borderRadius: 16, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
             <Row head pos="#" name={t('league.team')} p={t('league.p')} gd={t('league.gd')} pts={t('league.pts')} />
             {rows.map((r, i) => (
               <Row key={r.key} pos={String(i + 1)} name={r.name} p={String(r.played)} gd={String(r.goalsFor - r.goalsAgainst)} pts={String(r.points)} me={r.index === 0} />
@@ -264,15 +264,15 @@ function Road() {
     { icon: 'mahalle' as const, label: t('career.road.mahalle'), have: p.mahalleMatches, need: DEFAULT_CONFIG.offerMinMahalleMatches },
   ];
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 16 }}>
       <Ico name="kulup" size={110} style={{ alignSelf: 'center' }} dim />
       <Bubble text={t('career.road.short')} />
-      <View style={{ gap: 10 }}>
+      <View style={{ gap: 12 }}>
         {items.map(it => (
           <View key={it.label} accessible accessibilityLabel={`${it.label} ${Math.min(it.have, it.need)} / ${it.need}`}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, backgroundColor: colors.s2 }}>
             <Ico name={it.icon} size={40} />
-            <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ flex: 1, gap: 8 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <T w={600} size={14}>{it.label}</T>
                 <T w={600} size={14} color={it.have >= it.need ? colors.l500 : colors.g100}>{Math.min(it.have, it.need)} / {it.need}</T>

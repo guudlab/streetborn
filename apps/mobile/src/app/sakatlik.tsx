@@ -64,7 +64,7 @@ export default function Sakatlik() {
       }
     >
       <View style={{ alignItems: 'center', gap: 8, paddingTop: 16 }}>
-        <View style={{ width: 96, height: 96, borderRadius: 30, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 96, height: 96, borderRadius: 28, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="plus" size={48} color={colors.bad} />
         </View>
         <T w={600} size={24} accessibilityRole="header">{injuryName(injury.kind)}</T>

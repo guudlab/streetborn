@@ -8,7 +8,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { DRILLS, ovr, type DrillKey, type StatKey } from '../../game/rules.ts';
 import { markHint } from '../../game/hints.ts';
 import { SERVER_STAT, useGame, type TrainResult } from '../../game/store.ts';
-import { colors, TAB_BAR_SPACE } from '../../theme.ts';
+import { colors, radius, TAB_BAR_SPACE } from '../../theme.ts';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { toast } from '../../ui/overlay.tsx';
@@ -103,7 +103,7 @@ export default function Gelisim() {
       </View>
       <Bubble text={g.drillStars[daily] === 3 || g.drillStars.omuz === 3 ? t('daily.ready') : t(`daily.${today}`)} size={36} />
 
-      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {KEYS.map(k => {
           const on = k === sel;
           const flash = last?.statUp && last.key === k;
@@ -111,29 +111,36 @@ export default function Gelisim() {
           return (
             <Tile
               key={k} role="radio" selected={on} onPress={() => pick(k)}
-              style={[{ width: '48%', flexGrow: 1, gap: 8, paddingVertical: 14 }, k === daily && !on && { borderColor: colors.l600 }]}
+              style={{ width: '48%', flexGrow: 1, gap: 4 }}
               label={`${DRILLS[k].stat} ${g.stats[k]}, ${k === daily ? `${t('daily.tag')}, ` : ''}${t('talim.stars', { n: stars })}, ${t('train.progressA11y', { n: g.drillProgress[k] })}`}
             >
-              {k === daily && <View style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={14} color={colors.ink} /></View>}
-              <Ring progress={g.drillProgress[k] / need(k)} size={72}><Ico name={STAT_ICON[k]} size={48} /></Ring>
-              <T w={600} size={26} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
+              {k === daily && <View style={{ position: 'absolute', top: 12, right: 12, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={14} color={colors.ink} /></View>}
+              <Ring progress={g.drillProgress[k] / need(k)} size={64}><Ico name={STAT_ICON[k]} size={40} /></Ring>
+              <T w={600} size={24} color={flash ? colors.l600 : colors.g100} style={{ marginTop: 4 }}>{g.stats[k]}</T>
+              <Caps>{DRILLS[k].stat}</Caps>
             </Tile>
           );
         })}
         <Tile
-          row role="radio" selected={sel === 'omuz'} onPress={() => pick('omuz')} style={{ width: '100%', gap: 12 }}
+          row role="radio" selected={sel === 'omuz'} onPress={() => pick('omuz')} style={{ width: '100%', minHeight: 64, borderRadius: radius.card }}
           label={`${DRILLS.omuz.name}, ${DRILLS.omuz.stat}, ${t('talim.prep')}, ${t('talim.stars', { n: g.drillStars.omuz ?? 0 })}`}
         >
-          <Ico name="calim" size={48} />
+          <Ico name="calim" size={40} />
           <View style={{ flex: 1, gap: 2 }}>
             <T w={600} size={16}>{DRILLS.omuz.name}</T>
-            <T w={600} size={13} color={colors.g200}>{DRILLS.omuz.stat} · {t('talim.prep')}</T>
+            <T w={500} size={13} color={colors.g200}>{DRILLS.omuz.stat} · {t('talim.prep')}</T>
           </View>
           <View style={{ flexDirection: 'row', gap: 4 }}>
             {[0, 1, 2].map(i => <Star key={i} size={16} on={i < (g.drillStars.omuz ?? 0)} />)}
           </View>
         </Tile>
       </View>
+
+      <DrillCard
+        icon={sel === 'omuz' ? 'calim' : STAT_ICON[sel]} name={d.name} stars={g.drillStars[sel] ?? 0}
+        sub={statSel ? t('train.improves', { stat: d.stat }) : t('talim.prep')}
+        progress={statSel ? { n: g.drillProgress[statSel], of: need(statSel), next: t('train.nextPoint', { stat: d.stat, n: g.stats[statSel] + 1 }) } : null}
+      />
 
       <View style={{ flex: 1 }} />
       {g.trainStreak && (
@@ -144,7 +151,7 @@ export default function Gelisim() {
       )}
       {last && <DrillResult r={last} stat={DRILLS[last.key].stat} level={g.level} need={need(last.key)} />}
       {online && g.level >= BOOTS_FROM && <BootsChip />}
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
         <Cta
           style={{ flex: 1 }} disabled={!can} off={!can} busy={busy}
           onPress={() => void startDrill()}
@@ -152,7 +159,7 @@ export default function Gelisim() {
         >
           <T w={600} size={17} color={can ? colors.ink : colors.g200}>{can ? d.name : t('train.noEnergy')}</T>
           {can && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 2, paddingHorizontal: 8 }}>
               {g.trainFree > 0
                 ? <T w={600} size={13} color={colors.ink}>{t('train.freeShort', { n: g.trainFree })}</T>
                 : <><Icon name="bolt" size={15} color={colors.ink} /><T w={600} size={14} color={colors.ink}>1</T></>}
@@ -163,7 +170,7 @@ export default function Gelisim() {
           <PressableScale
             accessibilityRole="button" disabled={busy || g.privateLeft === 0} onPress={() => void privateSession()}
             accessibilityLabel={g.privateLeft === 0 ? t('train.private.limit') : t('train.private.cta', { coach, n: cost, left: g.privateLeft })}
-            style={{ width: 76, height: 56, borderRadius: 28, backgroundColor: colors.s2, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: g.privateLeft === 0 ? 0.4 : 1 }}
+            style={{ width: 80, height: 56, borderRadius: 28, backgroundColor: colors.s2, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: g.privateLeft === 0 ? 0.4 : 1 }}
           >
             <CoachFace size={34} />
             <View style={{ alignItems: 'center' }}>
@@ -174,6 +181,34 @@ export default function Gelisim() {
         )}
       </View>
     </ScrollView>
+  );
+}
+
+/**
+ * The selected drill: which mini game, what it improves, the best stars and how far the next
+ * stat point is. Fills the space above the button with the screen's one focused card.
+ */
+function DrillCard({ icon, name, sub, stars, progress }: {
+  icon: IconAsset; name: string; sub: string; stars: number; progress: { n: number; of: number; next: string } | null;
+}) {
+  return (
+    <View accessible accessibilityLabel={`${name}, ${sub}, ${t('talim.stars', { n: stars })}${progress ? `, ${progress.next}` : ''}`}
+      style={{ borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, padding: 16, gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Ico name={icon} size={48} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T w={600} size={17}>{name}</T>
+          <Caps>{sub}</Caps>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 4 }}>
+          {[0, 1, 2].map(i => <Star key={i} size={16} on={i < stars} />)}
+        </View>
+      </View>
+      {progress && <>
+        <Segments n={Math.min(progress.n, progress.of)} of={progress.of} height={6} gap={4} />
+        <Caps>{progress.next}</Caps>
+      </>}
+    </View>
   );
 }
 

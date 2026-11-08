@@ -83,9 +83,9 @@ function Toggle({ icon, label, on, onPress }: { icon: IconName; label: string; o
   return (
     <PressableScale
       accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on }} onPress={onPress}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2 }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, borderRadius: 16, backgroundColor: colors.s2 }}
     >
-      <Icon name={icon} color={on ? colors.l600 : colors.g400} />
+      <Icon name={icon} color={on ? colors.g200 : colors.g400} />
       <T w={600} size={15} style={{ flex: 1 }}>{label}</T>
       <View style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: on ? colors.l600 : colors.s3, justifyContent: 'center', paddingHorizontal: 3 }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: on ? colors.ink : colors.g100, alignSelf: on ? 'flex-end' : 'flex-start' }} />

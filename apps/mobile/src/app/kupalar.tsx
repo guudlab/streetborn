@@ -6,7 +6,7 @@ import type { AchievementView } from '../net/api.ts';
 import { colors } from '../theme.ts';
 import { achDesc, achIcon, achName, achProgress } from '../ui/kariyer.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { Caps, Cta, H3, T, Track } from '../ui/kit.tsx';
+import { Caps, Cta, H3, Section, T, Track } from '../ui/kit.tsx';
 import { Enter, Skeleton } from '../ui/motion.tsx';
 import { ErrorState } from '../ui/states.tsx';
 import { Shell } from '../ui/mahalle.tsx';
@@ -30,22 +30,22 @@ export default function Kupalar() {
   return (
     <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined} right={list ? <T w={600} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
       {list && (
-        <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
+        <View style={{ alignItems: 'center', gap: 12, paddingVertical: 4 }}>
           <Ico name="cup" size={96} dim={done === 0} />
           <View style={{ width: '70%' }}><Track value={list.length ? done / list.length : 0} /></View>
         </View>
       )}
       {loading && (
         <>
-          <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
+          <View style={{ alignItems: 'center', gap: 12, paddingVertical: 4 }}>
             <Skeleton width={96} height={96} radius={30} />
             <Skeleton width="70%" height={8} radius={4} />
           </View>
           {GROUPS.map(g => (
-            <View key={g} style={{ gap: 10 }}>
-              <Caps>{t(`ach.group.${g}` as Key)}</Caps>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {[0, 1, 2].map(i => <Skeleton key={i} width="31%" height={132} radius={22} />)}
+            <View key={g} style={{ gap: 12 }}>
+              <Section>{t(`ach.group.${g}` as Key)}</Section>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[0, 1, 2].map(i => <Skeleton key={i} width="31%" height={132} radius={20} />)}
               </View>
             </View>
           ))}
@@ -53,9 +53,9 @@ export default function Kupalar() {
       )}
       {!loading && !list && <ErrorState onRetry={refresh} />}
       {list && GROUPS.map(g => (
-        <View key={g} style={{ gap: 10 }}>
-          <Caps>{t(`ach.group.${g}` as Key)}</Caps>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <View key={g} style={{ gap: 12 }}>
+          <Section>{t(`ach.group.${g}` as Key)}</Section>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {list.filter(a => a.group === g).map((a, i) => <Trophy key={a.key} a={a} i={i} />)}
           </View>
         </View>
@@ -82,12 +82,12 @@ function Trophy({ a, i }: { a: AchievementView; i: number }) {
 function open(a: AchievementView) {
   openSheet(
     <>
-      <View style={{ alignItems: 'center', gap: 6 }}>
+      <View style={{ alignItems: 'center', gap: 8 }}>
         <Ico name={achIcon(a.key)} size={96} dim={!a.unlocked} />
         <H3 style={{ textAlign: 'center' }}>{achName(a.key)}</H3>
       </View>
       <SheetText>{achDesc(a.key)}</SheetText>
-      {!a.unlocked && <View style={{ gap: 6 }}><Track value={a.value / a.target} /><T w={600} size={13} color={colors.g200} style={{ textAlign: 'center' }}>{achProgress(a)}</T></View>}
+      {!a.unlocked && <View style={{ gap: 8 }}><Track value={a.value / a.target} /><T w={600} size={13} color={colors.g200} style={{ textAlign: 'center' }}>{achProgress(a)}</T></View>}
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
         <Caps>{t('ach.reward')}</Caps>
         <Amount icon="coin" size={24} textSize={16}>{a.coin}</Amount>

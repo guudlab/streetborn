@@ -142,7 +142,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
   return (
     <>
       <Enter key={step}><Bubble text={title} size={48} /></Enter>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 12, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
         {step === 1 && POSITIONS.map((p, i) => (
           <Enter key={p} i={i + 1}>
             <Tile row role="radio" selected={c.position === p} label={`${t(`char.pos.${p}`)}, ${t(`char.pos.${p}.role`)}`} onPress={() => onChange({ ...c, position: p })} style={{ minHeight: 88 }}>
@@ -152,7 +152,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
           </Enter>
         ))}
         {step === 2 && (
-          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {TRAITS.map((k: Trait, i) => (
               <Enter key={k} i={i + 1} style={{ width: '48%', flexGrow: 1 }}>
                 <Tile role="radio" selected={c.trait === k} label={t(`char.trait.${k}`)} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 92 }}>
@@ -215,7 +215,7 @@ function Look({ c, onChange }: { c: Character; onChange: (c: Character) => void 
         ))}
       </View>
 
-      <View accessibilityRole="radiogroup" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
+      <View accessibilityRole="radiogroup" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
         {STARTERS.map(h => <Mini key={h} hero={h} selected={c.hero === h} onPress={() => pickHero(h)} label={name(h)} />)}
       </View>
     </View>

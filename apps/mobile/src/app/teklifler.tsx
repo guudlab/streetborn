@@ -70,7 +70,7 @@ function LocalOffers() {
               </View>
               <Amount icon="coin" size={22} textSize={16}>{o.weekly}</Amount>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <T w={600} size={13} color={colors.g200}>★ {o.role}</T>
               {o.req && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="lock" size={14} color={colors.g200} /><T w={600} size={12} color={colors.g200} numberOfLines={1}>{o.req}</T></View>}
             </View>

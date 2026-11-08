@@ -39,7 +39,7 @@ const fxList = (fx: PhoneFx): Fx[] => [
 function Said({ text, mine }: { text: string; mine?: boolean }) {
   return (
     <View style={{
-      alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '86%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18,
+      alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '86%', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16,
       borderBottomLeftRadius: mine ? 18 : 6, borderBottomRightRadius: mine ? 6 : 18, backgroundColor: mine ? colors.l900 : colors.s3,
     }}>
       <T w={mine ? 600 : 500} size={15} color={mine ? colors.l500 : colors.g100} style={{ lineHeight: 20 }}>{text}</T>
@@ -132,7 +132,7 @@ function PhoneSheet() {
         </>
       ) : (
         <>
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: 12 }}>
             {([0, 1] as const).map(i => (
               <Answer
                 key={i} text={label(i)} fx={fxList(fxOf(i))} short={short(i)}

@@ -65,7 +65,7 @@ function Stat({ value, label, wide }: { value: string; label: string; wide?: boo
   return (
     <View style={{ flex: wide ? 2 : 1, alignItems: 'center', gap: 2, paddingHorizontal: 4 }}>
       <T w={600} size={wide ? 15 : 22} numberOfLines={1}>{value}</T>
-      <T w={500} size={11} color={colors.g200} numberOfLines={1}>{label}</T>
+      <T w={500} size={12} color={colors.g200} numberOfLines={1}>{label}</T>
     </View>
   );
 }

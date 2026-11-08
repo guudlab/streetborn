@@ -65,8 +65,8 @@ export function TodayCard() {
   const respect = mine ? (mine.respect >= 0 ? `+${mine.respect}` : `−${Math.abs(mine.respect)}`) : '';
 
   return (
-    <View style={{ gap: 10 }}>
-      <View style={{ padding: 16, borderRadius: 24, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 14 }}>
+    <View style={{ gap: 12 }}>
+      <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 16 }}>
         <View style={{ alignItems: 'center', gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {rival && <Emblem shape={rival.emblem} color={rival.color} name={rival.name} size={28} />}
@@ -82,12 +82,12 @@ export function TodayCard() {
         </View>
 
         {list.length > 0 && (
-          <View style={{ gap: 6 }}>
+          <View style={{ gap: 8 }}>
             {list.map((c, i) => (
-              <View key={c.playerId} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.s2 }}>
+              <View key={c.playerId} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.s2 }}>
                 <T w={600} size={13} color={colors.g300} style={{ width: 14 }}>{i + 1}</T>
                 <T w={600} size={15} numberOfLines={1} style={{ flex: 1 }}>{blocked.includes(c.playerId) ? t('report.blockedName') : (c.nick ?? t('mahalle.home.newPlayer'))}</T>
-                <View accessible accessibilityLabel={t('mahalle.today.line', { g: c.goals, a: c.assists })} style={{ flexDirection: 'row', gap: 10 }}>
+                <View accessible accessibilityLabel={t('mahalle.today.line', { g: c.goals, a: c.assists })} style={{ flexDirection: 'row', gap: 8 }}>
                   <Amount icon="ball" size={18} textSize={14}>{c.goals}</Amount>
                   <Amount icon="pas" size={18} textSize={14}>{c.assists}</Amount>
                 </View>
@@ -124,7 +124,7 @@ export function TodayCard() {
       </View>
 
       {last && (
-        <View style={{ padding: 14, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 10 }}>
+        <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Caps>{t('mahalle.last.short')}</Caps>
             <T w={600} size={15} numberOfLines={1} style={{ flex: 1 }}>{t(`mahalle.last.${last.result}`, { us: last.ourGoals, them: last.theirGoals, name: last.opponent.name })}</T>
@@ -150,7 +150,7 @@ export function TodayCard() {
 /** Marks a bot mahalle of the league (filled in while there are not enough real ones). */
 export function BotTag() {
   return (
-    <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: colors.s3 }}>
+    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: colors.s3 }}>
       <T w={500} size={12} color={colors.g200}>{t('lig.bot')}</T>
     </View>
   );
