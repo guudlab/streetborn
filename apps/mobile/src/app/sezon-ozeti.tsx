@@ -42,10 +42,10 @@ export default function SezonOzeti() {
       </View>
 
       {me && (
-        <View style={{ flexDirection: 'row', borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, paddingVertical: 14 }}>
-          <Stat value={`${me.points}`} label="P" />
-          <Stat value={t('season.record', { w: me.won, d: me.drawn, l: me.lost })} label={`${me.played}`} wide />
-          <Stat value={`${me.goalsFor} / ${me.goalsAgainst}`} label={t('season.goals')} wide />
+        <View style={{ flexDirection: 'row', borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, paddingVertical: 16 }}>
+          <Stat value={`${me.points}`} label={t('season.points')} />
+          <Stat value={`${me.won} – ${me.drawn} – ${me.lost}`} label={t('season.recordLabel')} />
+          <Stat value={`${me.goalsFor} – ${me.goalsAgainst}`} label={t('season.goalsLabel')} />
         </View>
       )}
 
@@ -61,10 +61,10 @@ export default function SezonOzeti() {
   );
 }
 
-function Stat({ value, label, wide }: { value: string; label: string; wide?: boolean }) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <View style={{ flex: wide ? 2 : 1, alignItems: 'center', gap: 2, paddingHorizontal: 4 }}>
-      <T w={600} size={wide ? 15 : 22} numberOfLines={1}>{value}</T>
+    <View style={{ flex: 1, alignItems: 'center', gap: 2, paddingHorizontal: 4 }} accessible accessibilityLabel={`${label} ${value}`}>
+      <T w={600} size={24} numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>{value}</T>
       <T w={500} size={12} color={colors.g200} numberOfLines={1}>{label}</T>
     </View>
   );

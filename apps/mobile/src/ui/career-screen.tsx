@@ -239,9 +239,9 @@ function TrustBar({ trust }: { trust: number }) {
         <Track value={trust / 100} color={trust >= cfg.trustPromoteMin ? colors.l500 : trust < cfg.trustRenewMin ? colors.bad : colors.l600} />
         {marks.map(([at]) => <View key={at} style={{ position: 'absolute', left: `${at}%`, top: -3, width: 2, height: 14, marginLeft: -1, borderRadius: 1, backgroundColor: colors.g100 }} />)}
       </View>
-      <View style={{ height: 16 }}>
+      <View style={{ height: 18 }}>
         {marks.map(([at, label]) => (
-          <T key={at} w={600} size={11} color={trust >= at ? colors.l500 : colors.g300} style={{ position: 'absolute', left: `${at}%`, width: 80, marginLeft: -40, textAlign: 'center' }}>{label}</T>
+          <T key={at} w={600} size={12} color={trust >= at ? colors.l500 : colors.g300} style={{ position: 'absolute', left: `${at}%`, width: 80, marginLeft: -40, textAlign: 'center' }}>{label}</T>
         ))}
       </View>
     </View>
