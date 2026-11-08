@@ -59,7 +59,7 @@ export default function Rakip() {
 
       <Bubble text={line} />
 
-      <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, padding: 16, gap: 10 }}>
+      <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, padding: 16, gap: 12 }}>
         <Caps>{t('duel.reward')}</Caps>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
           <Amount icon="coin" size={30} textSize={20} color={colors.l500}>+{d.winCoin}</Amount>
@@ -84,11 +84,11 @@ function RakipSkeleton() {
     <Shell title={t('duel.title')}>
       <Skeleton width={120} height={14} radius={7} style={{ alignSelf: 'center' }} />
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 44 }}>
-        <Skeleton width={88} height={128} radius={26} />
-        <Skeleton width={88} height={128} radius={26} />
+        <Skeleton width={88} height={128} radius={28} />
+        <Skeleton width={88} height={128} radius={28} />
       </View>
       <Skeleton height={194} radius={20} />
-      <Skeleton height={56} radius={18} />
+      <Skeleton height={56} radius={28} />
       <Skeleton height={120} radius={20} />
     </Shell>
   );
@@ -96,9 +96,9 @@ function RakipSkeleton() {
 
 function Face({ letter, label, sub, me }: { letter: string; label: string; sub: string; me?: boolean }) {
   return (
-    <View style={{ alignItems: 'center', gap: 6, width: 112 }} accessible accessibilityLabel={`${label}, ${sub}`}>
+    <View style={{ alignItems: 'center', gap: 8, width: 112 }} accessible accessibilityLabel={`${label}, ${sub}`}>
       <View style={{
-        width: 88, height: 88, borderRadius: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 2,
+        width: 88, height: 88, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 2,
         backgroundColor: me ? colors.l900 : colors.awayCrest, borderColor: me ? colors.l600 : colors.line,
       }}>
         <T w={600} size={34} color={me ? colors.l500 : colors.awayCrestText}>{letter}</T>

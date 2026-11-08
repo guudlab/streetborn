@@ -7,11 +7,11 @@ import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../game/c
 import { num } from '../game/format.ts';
 import { DRILLS, levelProgress, ovr, type DrillKey, type StatKey } from '../game/rules.ts';
 import { SERVER_DRILL, useGame } from '../game/store.ts';
-import { colors } from '../theme.ts';
+import { colors, radius } from '../theme.ts';
 import { openLinkSheet } from '../ui/account.tsx';
 import { Emblem } from '../ui/emblem.tsx';
 import { Icon } from '../ui/Icon.tsx';
-import { buzz, Caps, Cta, Danger, Ghost, H3, T, Track } from '../ui/kit.tsx';
+import { buzz, Caps, Cta, Danger, Ghost, H3, Section, T, Track } from '../ui/kit.tsx';
 import { Badge } from '../ui/drills/common.tsx';
 import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
@@ -49,12 +49,12 @@ export default function Profil() {
   return (
     <Shell title={t('profile.title')} onRefresh={online ? refresh : undefined}>
       {/* Who */}
-      <View style={{ borderRadius: 24, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
+      <View style={{ borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
         <Model3D
           model={HERO_MODEL[ch.hero]} fallback={HERO_IMAGE[ch.hero][ch.jersey]} clip="idle" tint={jerseyTint(ch.jersey)}
           style={{ height: 210 }} label={t('hub.heroLabel', { name: g.name })}
         />
-        <View style={{ padding: 16, gap: 10 }}>
+        <View style={{ padding: 16, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <T w={600} size={24} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{g.name}</T>
             <View style={{ alignItems: 'flex-end' }}>
@@ -62,7 +62,7 @@ export default function Profil() {
               <Caps>{t('profile.ovr')}</Caps>
             </View>
           </View>
-          <View style={{ gap: 6 }}>
+          <View style={{ gap: 8 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <T w={600} size={14}>{t('profile.level', { n: g.level })}</T>
               <T w={500} size={13} color={colors.g200}>{t('profile.xpLeft', { n: num(xpLeft) })}</T>
@@ -73,14 +73,14 @@ export default function Profil() {
       </View>
 
       {/* Skills */}
-      <View style={{ gap: 10 }}>
-        <Caps>{t('profile.skills')}</Caps>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={{ gap: 12 }}>
+        <Section>{t('profile.skills')}</Section>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           {SKILLS.map(s => (
             <Tile key={s.key} style={{ flex: 1, paddingVertical: 12, gap: 4 }} label={`${t(`profile.skill.${s.key}` as Key)} ${g.stats[s.key]}`}>
               <Ico name={s.icon} size={44} />
               <T w={600} size={20}>{g.stats[s.key]}</T>
-              <T w={500} size={11} color={colors.g200}>{t(`profile.skill.${s.key}` as Key)}</T>
+              <T w={500} size={12} color={colors.g200}>{t(`profile.skill.${s.key}` as Key)}</T>
             </Tile>
           ))}
         </View>
@@ -88,18 +88,18 @@ export default function Profil() {
       </View>
 
       {/* Career numbers, club and mahalle */}
-      <View style={{ gap: 10 }}>
-        <Caps>{t('profile.stats')}</Caps>
+      <View style={{ gap: 12 }}>
+        <Section>{t('profile.stats')}</Section>
         {totals && (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             <Count label={t('profile.matches')} value={totals.matches} />
             <Count label={t('profile.goals')} value={totals.goals} />
             <Count label={t('profile.assists')} value={totals.assists} />
           </View>
         )}
         {loading && (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {[0, 1, 2].map(i => <Skeleton key={i} width="auto" height={72} radius={18} style={{ flex: 1 }} />)}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[0, 1, 2].map(i => <Skeleton key={i} width="auto" height={72} radius={radius.card} style={{ flex: 1 }} />)}
           </View>
         )}
         <Tile row label={t('profile.club')} onPress={() => router.push('/teklifler')} style={{ minHeight: 64 }}>
@@ -118,7 +118,7 @@ export default function Profil() {
           </View>
           {g.mahalle && <Icon name="chev" size={18} color={colors.g300} />}
         </Tile>
-        {loading && <Skeleton height={64} radius={22} />}
+        {loading && <Skeleton height={64} radius={radius.lg} />}
         {trophies && (
           <Tile row label={t('profile.trophies')} onPress={() => router.push('/kupalar')} style={{ minHeight: 64 }}>
             <Ico name="cup" size={44} />
@@ -132,18 +132,18 @@ export default function Profil() {
       </View>
 
       {/* Sound */}
-      <View style={{ gap: 10 }}>
-        <Caps>{t('profile.sound')}</Caps>
+      <View style={{ gap: 12 }}>
+        <Section>{t('profile.sound')}</Section>
         <SoundToggles />
       </View>
 
       {/* Account */}
-      <View style={{ gap: 10 }}>
-        <Caps>{t('profile.account')}</Caps>
+      <View style={{ gap: 12 }}>
+        <Section>{t('profile.account')}</Section>
         {online ? <AccountCard /> : <T size={14} color={colors.g200}>{t('profile.offline')}</T>}
         <Tile row label={t('privacy.title')} onPress={() => router.push('/gizlilik')} style={{ minHeight: 64 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="shield" size={22} color={colors.l500} />
+          <View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="shield" size={20} color={colors.g200} />
           </View>
           <T w={600} size={16} style={{ flex: 1 }}>{t('privacy.title')}</T>
           <Icon name="chev" size={18} color={colors.g300} />
@@ -154,7 +154,7 @@ export default function Profil() {
       {online && (
         <PressableScale
           accessibilityRole="button" hitSlop={8} onPress={() => { buzz(); router.push('/hesap-sil'); }}
-          style={{ alignSelf: 'center', minHeight: 44, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          style={{ alignSelf: 'center', minHeight: 44, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}
         >
           <Icon name="trash" size={16} color={colors.bad} />
           <T w={600} size={14} color={colors.bad}>{t('delete.link')}</T>
@@ -166,7 +166,7 @@ export default function Profil() {
 
 function Count({ label, value }: { label: string; value: number }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 12, borderRadius: 18, backgroundColor: colors.s2 }} accessible accessibilityLabel={`${label} ${value}`}>
+    <View style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 12, borderRadius: radius.card, backgroundColor: colors.s2 }} accessible accessibilityLabel={`${label} ${value}`}>
       <T w={600} size={22}>{num(value)}</T>
       <T w={500} size={12} color={colors.g200}>{label}</T>
     </View>
@@ -256,7 +256,7 @@ function UstaRow() {
   const badges = BADGE_DRILLS.map(k => ({ k, level: drillBadge(SERVER_DRILL[k], records[k], DEFAULT_CONFIG.training) }));
   const label = `${t('badge.title')}: ${badges.map(b => `${DRILLS[b.k].name} ${b.level ? t(`badge.${b.level}` as Key) : t('badge.none')}`).join(', ')}`;
   return (
-    <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, borderRadius: 18, paddingVertical: 10, paddingHorizontal: 14 }}>
+    <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, paddingVertical: 12, paddingHorizontal: 16 }}>
       <T w={600} size={13} color={colors.g200}>{t('badge.title')}</T>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {badges.map(b => <Badge key={b.k} level={b.level} size={36} drill={b.k} />)}
