@@ -24,6 +24,7 @@ import { Commentary, feedLine, type FeedLine } from '../ui/live/Commentary.tsx';
 import { Decision, Halftime } from '../ui/live/Picks.tsx';
 import { Bubble } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
+import { arrivalLine } from '../ui/yasam.tsx';
 import { t, type Key } from '../i18n/index.ts';
 import { assembleG } from './assemble.ts';
 import type { SceneBridge } from './bridgeTypes.ts';
@@ -300,6 +301,8 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     kickoff: () => {
       const m = useGame.getState().match;
       if (!m) return;
+      const arrival = arrivalLine();
+      if (arrival) addLine(arrival);
       addLine(feedLine(0, t('live.kickoff'), 'info', 'whistle'));
       scene.current?.setPaused(true);
       setBetween({ from: 0, to: m.plan.moments[0]!.minute });

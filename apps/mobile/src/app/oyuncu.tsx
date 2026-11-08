@@ -17,6 +17,7 @@ import { openPlayerMenu } from '../ui/player-menu.tsx';
 import { Ico } from '../ui/sade.tsx';
 import { ErrorState } from '../ui/states.tsx';
 import { Count, LastRatings, PlaceRow, PlayerCard, SKILLS, STAT_MAX } from './profil.tsx';
+import { LifeRow } from '../ui/yasam.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // Another player's profile: the same card as Profil, read only. The server returns just the
@@ -75,6 +76,8 @@ export default function Oyuncu() {
           icon={p.mahalle ? <Emblem shape={p.mahalle.emblem} color={p.mahalle.color} name={p.mahalle.name} size={40} /> : <Ico name="mahalle" size={40} dim />}
         />
       </View>
+
+      {p.life && <LifeRow bought={p.life} />}
 
       <View style={{ gap: 12 }}>
         <Section right={<Caps>{p.me ? t('player.you') : `${t('player.code')} ${p.kod}`}</Caps>}>{t('profile.career')}</Section>

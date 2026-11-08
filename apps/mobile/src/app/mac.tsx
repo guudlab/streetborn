@@ -24,6 +24,7 @@ import { DefenseScene, type DefenseSceneHandle } from '../ui/DefenseScene.tsx';
 import { SkillBar, type SkillBarHandle } from '../ui/SkillBar.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
 import { ShotScene, type Mate, type ShotAnim, type ShotSceneHandle, type Target } from '../ui/ShotScene.tsx';
+import { arrivalLine } from '../ui/yasam.tsx';
 import { t } from '../i18n/index.ts';
 import { Commentary, feedLine, type FeedLine } from '../ui/live/Commentary.tsx';
 import { Decision, Halftime } from '../ui/live/Picks.tsx';
@@ -113,7 +114,8 @@ function Match2D() {
   // The live match: commentary up to the first moment, then between moments; pick screens for decisions and half-time.
   const [between, setBetween] = useState<{ from: number; to: number } | null>(() => (match ? { from: 0, to: match.plan.moments[0]!.minute } : null));
   const [clock, setClock] = useState(0);
-  const [feed, setFeed] = useState<FeedLine[]>(() => [feedLine(0, t('live.kickoff'), 'info', 'whistle')]);
+  // The player's ride, if any, comes in before the whistle (Yaşam showcase).
+  const [feed, setFeed] = useState<FeedLine[]>(() => [arrivalLine(), feedLine(0, t('live.kickoff'), 'info', 'whistle')].filter((l): l is FeedLine => !!l));
   const [pickMode, setPickMode] = useState<'decision' | 'halftime' | null>(null);
   const [playKind, setPlayKind] = useState<PlayKind | null>(null);
   const addLine = (l: FeedLine) => setFeed(f => [...f.slice(-30), l]);

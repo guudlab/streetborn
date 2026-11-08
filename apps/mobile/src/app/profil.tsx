@@ -19,6 +19,7 @@ import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { PressableScale, Skeleton } from '../ui/motion.tsx';
 import { Ico, type IconAsset } from '../ui/sade.tsx';
+import { LIFE_ICON, LifeRow } from '../ui/yasam.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // Profil: the player card. Who the player is (güç like a kit number, role, trait, level),
@@ -41,7 +42,7 @@ export default function Profil() {
   const k = g.kariyer;
   const loading = online && !g.kariyerTried && !k;
 
-  const refresh = useCallback(() => Promise.all([g.refreshAccount(), g.refreshKariyer(), g.refreshTraining()]),
+  const refresh = useCallback(() => Promise.all([g.refreshAccount(), g.refreshKariyer(), g.refreshTraining(), g.refreshShop()]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []);
   useEffect(() => { if (online) void refresh(); }, [online, refresh]);
@@ -73,6 +74,9 @@ export default function Profil() {
           onPress={g.mahalle ? () => router.push('/mahalle') : undefined}
         />
       </View>
+
+      {/* Yaşam showcase: what others see on this profile */}
+      <LifeRow bought={g.owned.filter(o => LIFE_ICON[o.id]).map(o => o.id)} onPress={() => router.push('/yasam')} />
 
       {/* Career */}
       <View style={{ gap: 12 }}>

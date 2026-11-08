@@ -13,6 +13,7 @@ import { Amount, Ico } from '../ui/sade.tsx';
 import { LigCard } from '../ui/mahalle-lig.tsx';
 import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
+import { LifeBadge, lifeTopName } from '../ui/yasam.tsx';
 import { t } from '../i18n/index.ts';
 import { PressableScale } from '../ui/motion.tsx';
 
@@ -84,15 +85,17 @@ export default function Mahalle() {
           {members.map((m) => {
             const nick = blocked.includes(m.playerId) ? t('report.blockedName') : (m.nick ?? t('mahalle.home.newPlayer'));
             const captain = m.playerId === mahalle.captainId;
+            const life = lifeTopName(m.life);
             return (
               <PressableScale
                 key={m.playerId} disabled={m.playerId === me} onPress={() => router.push({ pathname: '/oyuncu', params: { id: m.playerId } })}
-                accessibilityRole="button" accessibilityLabel={`${nick}, ${t('mahalle.home.level', { n: m.level })}${captain ? `, ${t('mahalle.home.captain')}` : ''}`}
+                accessibilityRole="button" accessibilityLabel={`${nick}, ${t('mahalle.home.level', { n: m.level })}${captain ? `, ${t('mahalle.home.captain')}` : ''}${life ? `, ${life}` : ''}`}
                 style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 16, backgroundColor: colors.s2 }}
               >
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: m.playerId === me ? colors.l900 : colors.s3, alignItems: 'center', justifyContent: 'center' }}>
                   <T w={600} size={14} color={m.playerId === me ? colors.l500 : colors.g100}>{(m.nick ?? '?').slice(0, 2).toLocaleUpperCase('tr')}</T>
                   {captain && <View style={{ position: 'absolute', top: -4, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={12} color={colors.ink} /></View>}
+                  <View style={{ position: 'absolute', bottom: -6, right: -14 }}><LifeBadge bought={m.life} size={28} /></View>
                 </View>
                 <T w={600} size={13} numberOfLines={1} style={{ maxWidth: '90%' }}>{nick}</T>
                 <T w={600} size={12} color={colors.g300}>{t('mahalle.home.level', { n: m.level })}</T>
