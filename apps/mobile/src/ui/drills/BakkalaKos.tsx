@@ -95,7 +95,7 @@ export const BakkalaKos = forwardRef<DrillGameHandle, DrillGameProps>(function B
           </Svg>
           {now > last.t - LEAD_MS[tier] && (
             <View pointerEvents="none" style={{ position: 'absolute', left: cx(0) - laneW / 2, width: laneW * 3, top: shopY, height: 46, alignItems: 'center', justifyContent: 'center' }}>
-              <T w={700} size={18} color={colors.l500}>{t('talim.bakkal')}</T>
+              <T w={600} size={18} color={colors.l500}>{t('talim.bakkal')}</T>
             </View>
           )}
 

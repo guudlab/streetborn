@@ -237,7 +237,7 @@ function Momentum({ value }: { value: number }) {
       <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.awayCrest, overflow: 'hidden' }}>
         <View style={{ width: `${pct}%`, height: '100%', backgroundColor: colors.l600 }} />
       </View>
-      <T w={600} size={11} color={colors.g300} style={{ letterSpacing: 0.8 }}>{label.toLocaleUpperCase('tr')}</T>
+      <T w={500} size={12} color={colors.g300}>{label}</T>
     </View>
   );
 }

@@ -46,7 +46,7 @@ export default function Rakip() {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
         <Face letter={name.trim().charAt(0).toLocaleUpperCase('tr')} label={name} sub={t('profile.level', { n: level })} me />
-        <T w={700} size={18} color={colors.g300}>{t('duel.vs')}</T>
+        <T w={600} size={18} color={colors.g300}>{t('duel.vs')}</T>
         <Face letter={rivalName.charAt(0).toLocaleUpperCase('tr')} label={rivalName} sub={t('profile.level', { n: d.rival.level })} />
       </View>
 
@@ -65,7 +65,7 @@ export default function Rakip() {
           <Amount icon="coin" size={30} textSize={20} color={colors.l500}>+{d.winCoin}</Amount>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="star" size={20} color={colors.l600} />
-            <T w={700} size={16}>+{d.winRespect}</T>
+            <T w={600} size={16}>+{d.winRespect}</T>
           </View>
         </View>
         <T size={13} color={colors.g200} style={{ lineHeight: 19 }}>{npc ? t('duel.npcRule') : t('duel.rule', { n: d.minMatches })}</T>
@@ -101,9 +101,9 @@ function Face({ letter, label, sub, me }: { letter: string; label: string; sub: 
         width: 88, height: 88, borderRadius: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 2,
         backgroundColor: me ? colors.l900 : colors.awayCrest, borderColor: me ? colors.l600 : colors.line,
       }}>
-        <T w={700} size={34} color={me ? colors.l500 : colors.awayCrestText}>{letter}</T>
+        <T w={600} size={34} color={me ? colors.l500 : colors.awayCrestText}>{letter}</T>
       </View>
-      <T w={700} size={15} numberOfLines={1}>{label}</T>
+      <T w={600} size={15} numberOfLines={1}>{label}</T>
       <T w={500} size={12} color={colors.g200}>{sub}</T>
     </View>
   );
@@ -113,9 +113,9 @@ function Row({ label, me, them, strong, last }: { label: string; me: number; the
   const size = strong ? 22 : 17;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.line }}>
-      <T w={700} size={size} color={me > them ? colors.l500 : colors.g100} style={{ flex: 1 }}>{num(me)}</T>
+      <T w={600} size={size} color={me > them ? colors.l500 : colors.g100} style={{ flex: 1 }}>{num(me)}</T>
       <Caps>{label}</Caps>
-      <T w={700} size={size} color={them > me ? colors.l500 : colors.g100} style={{ flex: 1, textAlign: 'right' }}>{num(them)}</T>
+      <T w={600} size={size} color={them > me ? colors.l500 : colors.g100} style={{ flex: 1, textAlign: 'right' }}>{num(them)}</T>
     </View>
   );
 }

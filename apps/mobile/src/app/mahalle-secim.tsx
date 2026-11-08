@@ -37,7 +37,7 @@ export default function MahalleSecim() {
           <Tile row selected onPress={() => router.push('/mahalle-kur')} label={`${t('mahalle.pick.create')}. ${t('mahalle.pick.createSub')}`} style={{ minHeight: 92 }}>
             <Ico name="mahalle" size={64} />
             <View style={{ flex: 1 }}>
-              <T w={700} size={19}>{t('mahalle.pick.create')}</T>
+              <T w={600} size={19}>{t('mahalle.pick.create')}</T>
               <T w={500} size={13} color={colors.g200}>{t('mahalle.pick.founder')}</T>
             </View>
           </Tile>
@@ -45,13 +45,13 @@ export default function MahalleSecim() {
         <Enter i={2}>
           <Tile row onPress={() => router.push('/mahalle-kod')} label={`${t('mahalle.pick.code')}. ${t('mahalle.pick.codeSub')}`} style={{ minHeight: 92 }}>
             <Ico name="anahtar" size={64} />
-            <T w={700} size={19} style={{ flex: 1 }}>{t('mahalle.pick.code')}</T>
+            <T w={600} size={19} style={{ flex: 1 }}>{t('mahalle.pick.code')}</T>
           </Tile>
         </Enter>
         <Enter i={3}>
           <Tile row onPress={() => router.push('/mahalle-acik')} label={`${t('mahalle.pick.open')}. ${t('mahalle.pick.openSub')}`} style={{ minHeight: 92 }}>
             <Ico name="mahalleBul" size={64} />
-            <T w={700} size={19} style={{ flex: 1 }}>{t('mahalle.pick.open')}</T>
+            <T w={600} size={19} style={{ flex: 1 }}>{t('mahalle.pick.open')}</T>
           </Tile>
         </Enter>
       </View>

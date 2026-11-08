@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors } from '../theme.ts';
+import { colors, radius } from '../theme.ts';
 import { sfx } from '../audio/audio.ts';
 import { buzz, CoachFace, T, tap } from './kit.tsx';
 import { PressableScale } from './motion.tsx';
@@ -66,7 +66,7 @@ export function Ico({ name, size = 40, dim, style }: { name: IconAsset; size?: n
 
 /** The lime "something new here" dot. */
 export const Dot = ({ style }: { style?: StyleProp<ViewStyle> }) => (
-  <View style={[{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.l600 }, style]} />
+  <View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.l600 }, style]} />
 );
 
 type TileProps = {
@@ -84,11 +84,11 @@ export function Tile({ children, onPress, selected, disabled, label, role = 'but
       accessibilityRole={role} accessibilityLabel={label} accessibilityState={{ selected: !!selected, disabled: !!disabled }}
       disabled={disabled || !onPress} onPress={() => { if (role === 'radio') { buzz('select'); sfx('tap'); } else tap(); onPress?.(); }} to={0.97}
       style={[{
-        borderRadius: 22, borderWidth: 1.5, borderColor: selected ? colors.l600 : colors.line,
+        borderRadius: radius.lg, borderWidth: 1.5, borderColor: selected ? colors.l600 : colors.line,
         backgroundColor: selected ? 'rgba(63,77,24,.38)' : colors.s2,
         ...(row
-          ? { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 72, paddingHorizontal: 14, paddingVertical: 10 }
-          : { alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 6 }),
+          ? { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, paddingHorizontal: 16, paddingVertical: 12 }
+          : { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, paddingHorizontal: 8 }),
       }, style]}
     >
       {children}
@@ -99,10 +99,10 @@ export function Tile({ children, onPress, selected, disabled, label, role = 'but
 /** Burak abi's one line: his face and a speech bubble. Never more than a sentence. */
 export function Bubble({ text, size = 40, style }: { text: string; size?: number; style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, style]}>
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, style]}>
       <CoachFace size={size} />
-      <View style={{ flexShrink: 1, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomLeftRadius: 6, backgroundColor: colors.s2 }}>
-        <T w={600} size={15} style={{ lineHeight: 20 }} accessibilityLiveRegion="polite">{text}</T>
+      <View style={{ flexShrink: 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.card, borderBottomLeftRadius: 4, backgroundColor: colors.s2 }}>
+        <T w={500} size={15} style={{ lineHeight: 20 }} accessibilityLiveRegion="polite">{text}</T>
       </View>
     </View>
   );
@@ -113,7 +113,7 @@ export function Amount({ icon, children, size = 22, color = colors.g100, textSiz
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <Ico name={icon} size={size} />
-      <T w={700} size={textSize} color={color}>{children}</T>
+      <T w={600} size={textSize} color={color}>{children}</T>
     </View>
   );
 }

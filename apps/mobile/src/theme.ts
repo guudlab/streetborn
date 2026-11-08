@@ -69,8 +69,12 @@ export const ease = {
 /** Spacing scale (px). `screen` is the side padding of every screen. */
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, screen: 20 } as const;
 
-/** Corner radii: pills are height / 2; these are the fixed ones. */
-export const radius = { sm: 12, md: 18, card: 22, lg: 24, sheet: 32 } as const;
+/**
+ * Corner radii on the 4px grid: pills are height / 2; these are the fixed ones.
+ * Nested corners follow inner = outer − padding (never below 4): a 20 card with 8 padding holds 12 corners.
+ * sm: chips and small buttons, md: inputs and inner tiles, card: rows and small tiles, lg: cards and tiles, sheet: sheets.
+ */
+export const radius = { sm: 8, md: 12, card: 16, lg: 20, sheet: 32 } as const;
 
 /** Elevation, for things that float above the page (toast, tab bar, sheet). */
 export const shadow = {

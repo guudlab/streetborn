@@ -149,9 +149,9 @@ function openBoots(b: BootsItem) {
       ) : (
         <>
           <Cta disabled={s.mode !== 'online'} off={s.mode !== 'online'} onPress={() => void buyIt()} accessibilityLabel={`${t('shop.bootsBuy')}, ${b.price} coin`}>
-            <T w={700} size={17} color={colors.ink}>{t('shop.bootsBuy')}</T>
+            <T w={600} size={17} color={colors.ink}>{t('shop.bootsBuy')}</T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
-              <Ico name="coin" size={18} /><T w={700} size={14} color={colors.ink}>{b.price.toLocaleString('tr-TR')}</T>
+              <Ico name="coin" size={18} /><T w={600} size={14} color={colors.ink}>{b.price.toLocaleString('tr-TR')}</T>
             </View>
           </Cta>
           {s.mode !== 'online' && <SheetText>{t('shop.bootsOffline')}</SheetText>}
@@ -186,13 +186,13 @@ function BootsSection() {
           return (
             <Tile key={b.id} selected={!!inUse} onPress={() => openBoots(b)} label={t('shop.bootsA11y', { name: bootName(b.id), state })} style={{ flex: 1, minHeight: 168, gap: 6, justifyContent: 'flex-start' }}>
               <Ico name={bootIcon(b.id)} size={60} dim={locked} />
-              <T w={700} size={15} color={locked ? colors.g200 : colors.g100}>{t(`boots.short.${b.id}` as Key)}</T>
+              <T w={600} size={15} color={locked ? colors.g200 : colors.g100}>{t(`boots.short.${b.id}` as Key)}</T>
               {inUse ? (
                 <View style={{ alignSelf: 'stretch', paddingHorizontal: 10, gap: 6 }}>
                   <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.s3, overflow: 'hidden' }}>
                     <View style={{ width: `${(inUse.usesLeft / b.uses) * 100}%`, height: '100%', backgroundColor: colors.l600 }} />
                   </View>
-                  <T w={700} size={12} color={colors.l600} style={{ textAlign: 'center' }}>{t('shop.bootsLeft', { n: inUse.usesLeft, of: b.uses })}</T>
+                  <T w={600} size={12} color={colors.l600} style={{ textAlign: 'center' }}>{t('shop.bootsLeft', { n: inUse.usesLeft, of: b.uses })}</T>
                 </View>
               ) : locked ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -203,7 +203,7 @@ function BootsSection() {
                 <>
                   <T w={500} size={12} color={colors.g200}>{t('shop.bootsUses', { n: b.uses })}</T>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.s3, borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
-                    <Ico name="coin" size={16} /><T w={700} size={13}>{b.price.toLocaleString('tr-TR')}</T>
+                    <Ico name="coin" size={16} /><T w={600} size={13}>{b.price.toLocaleString('tr-TR')}</T>
                   </View>
                 </>
               )}
@@ -305,14 +305,14 @@ export default function Dukkan() {
       <Tile row selected label={`${t('shop.pass')}, ${t('shop.price.pass')}`} onPress={openPass} style={[shadow.lime, { paddingVertical: 14 }]}>
         <Ico name="sezonKart" size={64} />
         <View style={{ flex: 1, gap: 4 }}>
-          <T w={700} size={17}>{t('shop.pass')}</T>
+          <T w={600} size={17}>{t('shop.pass')}</T>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icon name="bolt" size={14} color={colors.l600} /><T w={700} size={13} color={colors.g200}>6</T></View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icon name="bolt" size={14} color={colors.l600} /><T w={600} size={13} color={colors.g200}>6</T></View>
             <Ico name="coin" size={18} />
             <Ico name="milliForma" size={22} />
           </View>
         </View>
-        <T w={700} size={15} color={colors.l500}>{t('shop.price.pass')}</T>
+        <T w={600} size={15} color={colors.l500}>{t('shop.price.pass')}</T>
       </Tile>
 
       <BootsSection />
@@ -328,7 +328,7 @@ export default function Dukkan() {
           </View>
           {left && <T w={600} size={12} color={colors.g200}>{left}</T>}
         </View>
-        <T w={700} size={20}>{energy}/{energyMax}</T>
+        <T w={600} size={20}>{energy}/{energyMax}</T>
       </View>
       <EnergyTiles />
 
@@ -337,9 +337,9 @@ export default function Dukkan() {
           <View key={pack} ref={el => { packRefs.current[pack] = el; }} collapsable={false} style={{ flex: 1 }}>
           <Tile label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
-            <T w={700} size={18}>{n}</T>
+            <T w={600} size={18}>{n}</T>
             <T w={600} size={12} color={colors.g200}>{gemPrices[pack] ?? t(pk)}</T>
-            {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={700} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
+            {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={600} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
           </Tile>
           </View>
         ))}
@@ -349,14 +349,14 @@ export default function Dukkan() {
       <Tile row label={`${t('shop.jersey')}, ${jersey ? (jersey.equipped ? t('shop.equipped') : t('shop.owned')) : `${jerseyPrice} ${t('shop.gems')}`}`} onPress={jerseyAction}>
         <Ico name="milliForma" size={60} />
         <View style={{ flex: 1, gap: 2 }}>
-          <T w={700} size={16} numberOfLines={1}>{t('shop.jersey')}</T>
+          <T w={600} size={16} numberOfLines={1}>{t('shop.jersey')}</T>
           <Pressable accessibilityRole="button" accessibilityLabel={t('shop.releasableTitle')} hitSlop={8} onPress={openJersey}
             style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Icon name="info" size={16} color={colors.g300} />
           </Pressable>
         </View>
         {jersey
-          ? <T w={700} size={14} color={colors.l600}>{jersey.equipped ? t('shop.equipped') : t('shop.equip')}</T>
+          ? <T w={600} size={14} color={colors.l600}>{jersey.equipped ? t('shop.equipped') : t('shop.equip')}</T>
           : <Amount icon="gem" size={20}>{jerseyPrice}</Amount>}
       </Tile>
     </ScrollView>

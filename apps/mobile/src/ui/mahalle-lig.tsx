@@ -68,14 +68,14 @@ export function LigCard() {
                 <T w={mine ? 700 : 600} size={14} numberOfLines={1}>{team.name}</T>
                 {(team.bot || rival) && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    {rival && <T w={700} size={11} color={colors.l600}>{t('lig.today')}</T>}
+                    {rival && <T w={600} size={11} color={colors.l600}>{t('lig.today')}</T>}
                     {team.bot && <BotTag />}
                   </View>
                 )}
               </View>
               <T w={500} size={13} color={colors.g200} style={NUM}>{r.played}</T>
               <T w={500} size={13} color={colors.g200} style={NUM}>{gdText}</T>
-              <T w={700} size={14} color={mine ? colors.l500 : colors.g100} style={NUM}>{r.points}</T>
+              <T w={600} size={14} color={mine ? colors.l500 : colors.g100} style={NUM}>{r.points}</T>
             </View>
           );
         })}

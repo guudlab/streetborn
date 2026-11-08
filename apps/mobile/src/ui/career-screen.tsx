@@ -53,7 +53,7 @@ export function CareerScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, backgroundColor: colors.l900 }}>
           <Ico name="cup" size={44} />
           <View style={{ flex: 1, gap: 2 }}>
-            <T w={700} size={15} color={colors.l500}>{t('career.lastSeason', { place: lastSeason.place ?? 0, tier: tierName(lastSeason.tier) })}</T>
+            <T w={600} size={15} color={colors.l500}>{t('career.lastSeason', { place: lastSeason.place ?? 0, tier: tierName(lastSeason.tier) })}</T>
             {(lastSeason.prize ?? 0) > 0 && <Amount icon="coin" size={18} textSize={14}>+{lastSeason.prize ?? 0}</Amount>}
           </View>
         </View>
@@ -124,7 +124,7 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
         <Ico name="kulup" size={56} />
         <View style={{ flex: 1, gap: 2 }}>
-          <T w={700} size={17} numberOfLines={1}>{offer.clubName}</T>
+          <T w={600} size={17} numberOfLines={1}>{offer.clubName}</T>
           <T w={600} size={12} color={colors.g200}>{tierName(offer.tier)}</T>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 2 }}>
@@ -158,7 +158,7 @@ function Fact({ icon, value, label, lime }: { icon: IconAsset; value: string; la
       style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 16, backgroundColor: lime ? colors.l900 : colors.s2 }}
     >
       <Ico name={icon} size={30} />
-      <T w={700} size={16} color={lime ? colors.l500 : colors.g100} numberOfLines={1}>{value}</T>
+      <T w={600} size={16} color={lime ? colors.l500 : colors.g100} numberOfLines={1}>{value}</T>
       <T w={600} size={11} color={colors.g300} numberOfLines={1}>{label}</T>
     </View>
   );
@@ -167,7 +167,7 @@ function Fact({ icon, value, label, lime }: { icon: IconAsset; value: string; la
 function Tag({ children, lime }: { children: string; lime?: boolean }) {
   return (
     <View style={{ alignSelf: 'flex-start', height: 28, paddingHorizontal: 10, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
-      <T w={700} size={12} color={lime ? colors.l500 : colors.g100}>{children}</T>
+      <T w={600} size={12} color={lime ? colors.l500 : colors.g100}>{children}</T>
     </View>
   );
 }
@@ -186,7 +186,7 @@ function Contract() {
           <Ico name="kulup" size={56} />
           <View style={{ flex: 1, gap: 2 }}>
             <T w={600} size={12} color={colors.g200}>{tierName(contract.tier)}</T>
-            {today && <T w={700} size={15}>{t('league.dayShort', { n: today.round + 1, total: today.rounds })}</T>}
+            {today && <T w={600} size={15}>{t('league.dayShort', { n: today.round + 1, total: today.rounds })}</T>}
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
             <Amount icon="coin" size={22} textSize={16}>{num(contract.salaryWeekly)}</Amount>
@@ -201,7 +201,7 @@ function Contract() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Icon name="whistle" size={18} color={colors.g200} />
             <T w={600} size={14} style={{ flex: 1 }}>{t('career.trust')}</T>
-            <T w={700} size={15} color={career.trust >= 70 ? colors.l500 : career.trust < 40 ? colors.bad : colors.g100}>{career.trust}</T>
+            <T w={600} size={15} color={career.trust >= 70 ? colors.l500 : career.trust < 40 ? colors.bad : colors.g100}>{career.trust}</T>
             <Icon name="info" size={16} color={colors.g300} />
           </View>
           <TrustBar trust={career.trust} />
@@ -250,7 +250,7 @@ function Row({ pos, name, p, gd, pts, me, head }: { pos: string; name: string; p
       <T w={w} size={14} color={c} style={{ flex: 1 }} numberOfLines={1}>{name}</T>
       <T w={w} size={13} color={c} style={{ width: 26, textAlign: 'right' }}>{p}</T>
       <T w={w} size={13} color={c} style={{ width: 34, textAlign: 'right' }}>{gd}</T>
-      <T w={700} size={13} color={c} style={{ width: 30, textAlign: 'right' }}>{pts}</T>
+      <T w={600} size={13} color={c} style={{ width: 30, textAlign: 'right' }}>{pts}</T>
     </View>
   );
 }
@@ -275,7 +275,7 @@ function Road() {
             <View style={{ flex: 1, gap: 6 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <T w={600} size={14}>{it.label}</T>
-                <T w={700} size={14} color={it.have >= it.need ? colors.l500 : colors.g100}>{Math.min(it.have, it.need)} / {it.need}</T>
+                <T w={600} size={14} color={it.have >= it.need ? colors.l500 : colors.g100}>{Math.min(it.have, it.need)} / {it.need}</T>
               </View>
               <Track value={Math.min(1, it.have / it.need)} />
             </View>
@@ -284,7 +284,7 @@ function Road() {
         ))}
       </View>
       <Cta onPress={() => router.navigate('/mahalle')}>
-        <Ico name="mahalle" size={30} /><T w={700} size={17} color={colors.ink}>{t('career.road.toMahalle')}</T>
+        <Ico name="mahalle" size={30} /><T w={600} size={17} color={colors.ink}>{t('career.road.toMahalle')}</T>
       </Cta>
     </View>
   );

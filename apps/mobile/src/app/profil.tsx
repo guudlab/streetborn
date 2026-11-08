@@ -56,9 +56,9 @@ export default function Profil() {
         />
         <View style={{ padding: 16, gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <T w={700} size={24} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{g.name}</T>
+            <T w={600} size={24} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{g.name}</T>
             <View style={{ alignItems: 'flex-end' }}>
-              <T w={700} size={30} style={{ lineHeight: 32, letterSpacing: -0.5 }}>{ovr(g.stats)}</T>
+              <T w={600} size={30} style={{ lineHeight: 32 }}>{ovr(g.stats)}</T>
               <Caps>{t('profile.ovr')}</Caps>
             </View>
           </View>
@@ -79,7 +79,7 @@ export default function Profil() {
           {SKILLS.map(s => (
             <Tile key={s.key} style={{ flex: 1, paddingVertical: 12, gap: 4 }} label={`${t(`profile.skill.${s.key}` as Key)} ${g.stats[s.key]}`}>
               <Ico name={s.icon} size={44} />
-              <T w={700} size={20}>{g.stats[s.key]}</T>
+              <T w={600} size={20}>{g.stats[s.key]}</T>
               <T w={500} size={11} color={colors.g200}>{t(`profile.skill.${s.key}` as Key)}</T>
             </Tile>
           ))}
@@ -106,7 +106,7 @@ export default function Profil() {
           <Ico name="kulup" size={44} />
           <View style={{ flex: 1 }}>
             <Caps>{t('profile.club')}</Caps>
-            <T w={700} size={16} numberOfLines={1}>{contract ? contract.clubName : t('profile.free')}</T>
+            <T w={600} size={16} numberOfLines={1}>{contract ? contract.clubName : t('profile.free')}</T>
           </View>
           <Icon name="chev" size={18} color={colors.g300} />
         </Tile>
@@ -114,7 +114,7 @@ export default function Profil() {
           {g.mahalle ? <Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={44} /> : <Ico name="mahalle" size={44} dim />}
           <View style={{ flex: 1 }}>
             <Caps>{t('profile.mahalle')}</Caps>
-            <T w={700} size={16} numberOfLines={1}>{g.mahalle ? g.mahalle.name : t('profile.noMahalle')}</T>
+            <T w={600} size={16} numberOfLines={1}>{g.mahalle ? g.mahalle.name : t('profile.noMahalle')}</T>
           </View>
           {g.mahalle && <Icon name="chev" size={18} color={colors.g300} />}
         </Tile>
@@ -124,7 +124,7 @@ export default function Profil() {
             <Ico name="cup" size={44} />
             <View style={{ flex: 1 }}>
               <Caps>{t('profile.trophies')}</Caps>
-              <T w={700} size={16}>{t('ach.count', { n: unlockedCount, m: trophies.length })}</T>
+              <T w={600} size={16}>{t('ach.count', { n: unlockedCount, m: trophies.length })}</T>
             </View>
             <Icon name="chev" size={18} color={colors.g300} />
           </Tile>
@@ -167,7 +167,7 @@ export default function Profil() {
 function Count({ label, value }: { label: string; value: number }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 12, borderRadius: 18, backgroundColor: colors.s2 }} accessible accessibilityLabel={`${label} ${value}`}>
-      <T w={700} size={22}>{num(value)}</T>
+      <T w={600} size={22}>{num(value)}</T>
       <T w={500} size={12} color={colors.g200}>{label}</T>
     </View>
   );
@@ -185,7 +185,7 @@ function AccountCard() {
           <Icon name={linked ? 'check' : 'lock'} size={20} color={linked ? colors.l500 : colors.g200} />
         </View>
         <View style={{ flex: 1 }}>
-          <T w={700} size={16}>{linked ? t('profile.linkedTitle') : account.pendingEmail ? t('profile.pendingTitle') : t('profile.guestTitle')}</T>
+          <T w={600} size={16}>{linked ? t('profile.linkedTitle') : account.pendingEmail ? t('profile.pendingTitle') : t('profile.guestTitle')}</T>
           <T size={13} color={colors.g200} numberOfLines={2}>{linked ? names : account.pendingEmail ?? t('profile.guestText')}</T>
         </View>
       </View>

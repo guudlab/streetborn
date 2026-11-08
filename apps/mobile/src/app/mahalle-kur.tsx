@@ -41,7 +41,7 @@ export default function MahalleKur() {
     <Shell title={t('mahalle.create.title')} footer={<Cta off={!ready} disabled={!ready} busy={busy} onPress={submit}>{t('mahalle.create.cta')}</Cta>}>
       <View style={{ alignItems: 'center', gap: 6 }}>
         <Emblem shape={emblem} color={color} name={name} size={104} />
-        <T w={700} size={22} numberOfLines={1}>{name.trim() || t('mahalle.create.namePlaceholder')}</T>
+        <T w={600} size={22} numberOfLines={1}>{name.trim() || t('mahalle.create.namePlaceholder')}</T>
         <Amount icon="oyuncu" size={20} color={colors.g200} textSize={13}>1 / 12</Amount>
       </View>
 
@@ -84,7 +84,7 @@ export default function MahalleKur() {
         {([[false, 'mahalle.create.invite', 'davet'], [true, 'mahalle.create.public', 'mahalleBul']] as const).map(([v, k, icon]) => (
           <Tile key={k} row role="radio" selected={open === v} label={t(k)} onPress={() => setOpen(v)} style={{ flex: 1, minHeight: 60, gap: 8 }}>
             <Ico name={icon} size={36} />
-            <T w={700} size={15}>{t(k)}</T>
+            <T w={600} size={15}>{t(k)}</T>
           </Tile>
         ))}
       </View>

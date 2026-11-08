@@ -57,7 +57,7 @@ export default function MahalleAcik() {
             >
               <Emblem shape={m.emblem} color={m.color} name={m.name} size={48} />
               <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                <T w={700} size={17} numberOfLines={1}>{m.name}</T>
+                <T w={600} size={17} numberOfLines={1}>{m.name}</T>
                 <Amount icon="oyuncu" size={18} textSize={13} color={colors.g200}>{m.memberCount} / 12</Amount>
               </View>
               {joining === m.id ? <ActivityIndicator color={colors.l600} /> : (

@@ -45,7 +45,7 @@ export default function MahalleKod() {
       <Pressable accessibilityRole="none" onPress={() => input.current?.focus()} style={{ flexDirection: 'row', gap: 8 }}>
         {Array.from({ length: LEN }, (_, i) => (
           <View key={i} style={{ flex: 1, height: 60, borderRadius: 14, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: code[i] ? colors.l600 : colors.line, alignItems: 'center', justifyContent: 'center' }}>
-            <T w={700} size={26}>{code[i] ?? ''}</T>
+            <T w={600} size={26}>{code[i] ?? ''}</T>
           </View>
         ))}
         {/* The real input sits invisibly on top of the boxes. Its font stays at 16 px or more:
@@ -62,7 +62,7 @@ export default function MahalleKod() {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 22, backgroundColor: 'rgba(63,77,24,.38)', borderWidth: 1.5, borderColor: colors.l600 }}>
           <Emblem shape={preview.emblem} color={preview.color} name={preview.name} size={56} />
           <View style={{ flex: 1, gap: 4 }}>
-            <T w={700} size={19} numberOfLines={1}>{preview.name}</T>
+            <T w={600} size={19} numberOfLines={1}>{preview.name}</T>
             <View style={{ flexDirection: 'row', gap: 14 }}>
               <Amount icon="oyuncu" size={20} textSize={14} color={colors.g200}>{preview.memberCount} / 12</Amount>
               {preview.captainNick && <T w={600} size={14} color={colors.g200} numberOfLines={1} style={{ flexShrink: 1 }}>★ {preview.captainNick}</T>}

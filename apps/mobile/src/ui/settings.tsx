@@ -49,7 +49,7 @@ function ProfileRow() {
 export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.l900, borderWidth: 1.5, borderColor: colors.l700, alignItems: 'center', justifyContent: 'center' }}>
-      <T w={700} size={size * 0.42} color={colors.l500}>{name.trim().charAt(0).toLocaleUpperCase('tr') || '?'}</T>
+      <T w={600} size={size * 0.42} color={colors.l500}>{name.trim().charAt(0).toLocaleUpperCase('tr') || '?'}</T>
     </View>
   );
 }
