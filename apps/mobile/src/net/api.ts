@@ -118,7 +118,7 @@ export const finishMatch = (matchId: string, inputs: ChanceInput[], durationMs: 
 export type MahalleEmblem = 'shield' | 'circle' | 'diamond';
 export type MahalleColor = 'lime' | 'blue' | 'red' | 'purple' | 'teal' | 'white';
 
-export interface MahalleMember { playerId: string; nick: string | null; level: number; joinedAt: string }
+export interface MahalleMember { playerId: string; nick: string | null; level: number; joinedAt: string; /** Yaşam items bought (ids). */ life?: string[] }
 export interface MahalleInfo {
   id: string; name: string; emblem: MahalleEmblem; color: MahalleColor; code: string; isOpen: boolean;
   captainId: string | null; members: MahalleMember[];
@@ -211,7 +211,7 @@ export const reportPlayer = (to: string, reason: ReportReason) => call<{ ok: tru
 export const blockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'block', to });
 export const unblockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'unblock', to });
 
-/** Another player's public profile (oyuncu Edge Function). Nothing economic is ever in it. */
+/** Another player's public profile (oyuncu Edge Function). No coin, gems or ledger; only the Yaşam items, which are meant to be seen. */
 export interface PlayerProfile {
   id: string; kod: string; nick: string | null; level: number; character: Partial<Character> | null; me: boolean; mate: boolean;
   stats: { sut: number; pas: number; hiz: number; fizik: number };
@@ -221,6 +221,8 @@ export interface PlayerProfile {
   club: string | null;
   mahalle: { id: string; name: string; emblem: MahalleEmblem; color: MahalleColor } | null;
   trophies: string[]; trophyCount: number;
+  /** Yaşam items bought (ids), for the showcase. Missing before the server update. */
+  life?: string[];
 }
 export interface PlayerHit { id: string; kod: string; nick: string | null; level: number; character: Partial<Character> | null; mahalle: string | null }
 
@@ -324,6 +326,10 @@ export async function loadTrainingToday(): Promise<TrainingToday> {
 export const refillEnergy = () => call<{ gem: number; energy: { energy: number; updatedAt: number } }>('shop', { action: 'refill' });
 export const buyItem = (itemId: string) => call<{ currency: 'coin' | 'gem'; price: number; balance: number }>('shop', { action: 'buy', itemId });
 export const equipItem = (itemId: string, on: boolean) => call<{ ok: true }>('shop', { action: 'equip', itemId, on });
+/** Buys a Yaşam item at its config price (coin). */
+export const buyLife = (itemId: string) => call<{ price: number; balance: number }>('shop', { action: 'life', itemId });
+/** Collects the halısaha income waiting since the last collection. */
+export const claimHalisaha = () => call<{ coin: number; days: number; balance: number }>('shop', { action: 'halisaha' });
 /** Buys a pair of krampon at its config price (coin). */
 export const buyBoots = (itemId: string) => call<{ price: number; balance: number; usesLeft: number }>('shop', { action: 'boots', itemId });
 
@@ -332,7 +338,7 @@ export const syncPurchases = () => call<{ paid: number; gem: number }>('iap', {}
 
 export interface OwnedItem { id: string; equipped: boolean; /** Boots only: talim left. */ usesLeft?: number | null }
 export interface CatalogItem { id: string; kind: string; priceGem: number | null; priceCoin: number | null }
-export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[] }
+export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[]; /** Whole days since the halısaha last paid (uncapped). */ halisahaDays?: number }
 
 /** Today's refills and rewarded ads, the caller's items and the price list. */
 export async function loadShopToday(): Promise<ShopToday> {

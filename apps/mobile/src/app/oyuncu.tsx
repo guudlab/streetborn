@@ -65,7 +65,7 @@ export default function Oyuncu() {
   const best = Math.max(...SKILLS.map(s => p.stats[s.key]));
   return (
     <Shell title={t('player.title')} right={menu} onRefresh={load}>
-      <PlayerCard name={name} ch={ch} power={ovr(p.stats)} level={p.level} />
+      <PlayerCard name={name} ch={ch} power={ovr(p.stats)} level={p.level} life={p.life} />
 
       <View style={{ borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
         <PlaceRow label={t('profile.club')} name={p.club ?? t('player.noClub')} icon={<Ico name="kulup" size={40} />} />

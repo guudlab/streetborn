@@ -829,3 +829,73 @@ do $$ begin
   raise notice 'player profile rls: ok';
 end $$;
 reset role;
+
+-- Yaşam: buying with coin, the arsa before the halısaha, the halısaha income, the showcase.
+set role service_role;
+do $$
+declare
+  a constant uuid := '00000000-0000-0000-0000-000000000103';
+  b constant uuid := '00000000-0000-0000-0000-000000000102';
+  r jsonb;
+  coin0 bigint;
+begin
+  update players set level = 10 where id = b;
+  begin perform buy_lifestyle(b, 'arsa', 6000, 15, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'locked' then raise; end if; end;
+  begin perform buy_lifestyle(b, 'forma_sonbahar', 10, 1, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  begin perform buy_lifestyle(b, 'arsa', 0, 1, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  update players set level = 20 where id = b;
+  begin perform buy_lifestyle(b, 'halisaha', 15000, 18, 'arsa'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'needs' then raise; end if; end;
+  coin0 := (select coin from wallets where player_id = b);
+  perform grant_currency(b, 'coin', 21000 - coin0, 'test', 'x', 'test:yasam');
+  begin perform buy_lifestyle(b, 'ev_villa', 40000, 1, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_coin' then raise; end if; end;
+  r := buy_lifestyle(b, 'arsa', 6000, 15, null);
+  if r->>'balance' <> '15000' then raise exception 'arsa price wrong: %', r; end if;
+  begin perform buy_lifestyle(b, 'arsa', 6000, 15, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'owned' then raise; end if; end;
+  r := buy_lifestyle(b, 'halisaha', 15000, 18, 'arsa');
+  if r->>'balance' <> '0' then raise exception 'halisaha price wrong: %', r; end if;
+  if exists (select 1 from inventory where player_id = b and item_id in ('arsa', 'halisaha') and source <> 'coin') then
+    raise exception 'lifestyle source not coin';
+  end if;
+  if (select count(*) from ledger where player_id = b and reason = 'lifestyle') <> 2 then raise exception 'lifestyle ledger wrong'; end if;
+
+  -- Income: nothing on the day it is bought, a day's worth per whole day, capped, once a day.
+  if halisaha_days(b) <> 0 or (claim_halisaha(b, 200, 3)->>'coin')::int <> 0 then raise exception 'halisaha paid on day one'; end if;
+  update inventory set acquired_at = now() - interval '2 days' where player_id = b and item_id = 'halisaha';
+  r := claim_halisaha(b, 200, 3);
+  if r->>'coin' <> '400' or r->>'balance' <> '400' then raise exception 'halisaha two days wrong: %', r; end if;
+  if (claim_halisaha(b, 200, 3)->>'coin')::int <> 0 or halisaha_days(b) <> 0 then raise exception 'halisaha paid twice a day'; end if;
+  begin perform claim_halisaha(a, 200, 3); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_owned' then raise; end if; end;
+  if halisaha_days(a) <> 0 then raise exception 'halisaha days without a halisaha'; end if;
+
+  -- The showcase is public: other players see the ids, never coin.
+  if not (oyuncu_profil(a, b, null)->'life' @> '["arsa", "halisaha"]'::jsonb) or jsonb_array_length(oyuncu_profil(a, b, null)->'life') <> 2 then raise exception 'profile life wrong: %', oyuncu_profil(a, b, null)->'life'; end if;
+  if yasam_ids(a) <> '[]'::jsonb then raise exception 'empty life wrong'; end if;
+
+  -- Days count from the last payout, and a long absence pays only up to the cap.
+  insert into inventory (player_id, item_id, source, acquired_at) values (a, 'halisaha', 'coin', now() - interval '7 days');
+  if halisaha_days(a) <> 7 then raise exception 'halisaha days from purchase wrong: %', halisaha_days(a); end if;
+  perform grant_currency(a, 'coin', 1, 'halisaha', (mahalle_today() - 5)::text, 'test:halisaha-old');
+  if halisaha_days(a) <> 5 then raise exception 'halisaha days from last payout wrong: %', halisaha_days(a); end if;
+  if (claim_halisaha(a, 200, 3)->>'coin')::int <> 600 then raise exception 'halisaha cap wrong'; end if;
+  raise notice 'yasam: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000102';
+do $$ begin
+  if (dukkan_bugun()->>'halisahaDays')::int <> 0 then raise exception 'shop read halisaha days wrong'; end if;
+  begin perform buy_lifestyle('00000000-0000-0000-0000-000000000102', 'bisiklet', 1, 1, null); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform claim_halisaha('00000000-0000-0000-0000-000000000102', 99999, 99); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform yasam_ids('00000000-0000-0000-0000-000000000103'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'yasam rls: ok';
+end $$;
+reset role;

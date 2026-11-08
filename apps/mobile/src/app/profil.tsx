@@ -19,6 +19,7 @@ import { Model3D } from '../ui/Model3D.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { PressableScale, Skeleton } from '../ui/motion.tsx';
 import { Ico, type IconAsset } from '../ui/sade.tsx';
+import { HomeBackdrop, LIFE_ICON, lifeCaption } from '../ui/yasam.tsx';
 import { t, type Key } from '../i18n/index.ts';
 
 // Profil: the player card. Who the player is (güç like a kit number, role, trait, level),
@@ -41,7 +42,7 @@ export default function Profil() {
   const k = g.kariyer;
   const loading = online && !g.kariyerTried && !k;
 
-  const refresh = useCallback(() => Promise.all([g.refreshAccount(), g.refreshKariyer(), g.refreshTraining()]),
+  const refresh = useCallback(() => Promise.all([g.refreshAccount(), g.refreshKariyer(), g.refreshTraining(), g.refreshShop()]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []);
   useEffect(() => { if (online) void refresh(); }, [online, refresh]);
@@ -58,7 +59,7 @@ export default function Profil() {
 
   return (
     <Shell title={t('profile.title')} right={settings} onRefresh={online ? refresh : undefined}>
-      <PlayerCard name={g.name} ch={ch} power={ovr(g.stats)} level={g.level} xp={g.xp} />
+      <PlayerCard name={g.name} ch={ch} power={ovr(g.stats)} level={g.level} xp={g.xp} life={online ? g.owned.filter(o => LIFE_ICON[o.id]).map(o => o.id) : undefined} />
 
       {/* Where the player plays */}
       <View style={{ borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
@@ -104,19 +105,22 @@ export default function Profil() {
   );
 }
 
-/** The player card. Without xp (someone else's card) the progress row is left out. */
-export function PlayerCard({ name, ch, power, level, xp }: { name: string; ch: typeof DEFAULT_CHARACTER; power: number; level: number; xp?: number }) {
+/**
+ * The player card. Without xp (someone else's card) the progress row is left out. With `life`
+ * (the Yaşam ids) the player stands in their home, and the home and ride are named under the name.
+ */
+export function PlayerCard({ name, ch, power, level, xp, life }: { name: string; ch: typeof DEFAULT_CHARACTER; power: number; level: number; xp?: number; life?: readonly string[] }) {
   const xpLeft = xp === undefined ? 0 : Math.max(0, xpNeed(level + 1) - xp);
   const role = t(`char.pos.${ch.position}.role` as Key);
   const trait = t(`char.trait.${ch.trait}` as Key);
   return (
     <View
       accessible accessibilityRole="header"
-      accessibilityLabel={`${name}, ${role}, ${trait}. ${t('hub.ovr')} ${power}. ${t('profile.level', { n: level })}`}
+      accessibilityLabel={`${name}, ${role}, ${trait}. ${t('hub.ovr')} ${power}. ${t('profile.level', { n: level })}${life ? `. ${lifeCaption(life)}` : ''}`}
       style={{ height: 440, borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900, overflow: 'hidden' }}
     >
-      {/* Floodlight on the player: the screen's one lit thing. */}
-      <Svg width="100%" height="100%" style={{ position: 'absolute' }} pointerEvents="none">
+      {/* The player's home behind them, or a floodlight on the player: the screen's one lit thing. */}
+      {life ? <HomeBackdrop bought={life} /> : <Svg width="100%" height="100%" style={{ position: 'absolute' }} pointerEvents="none">
         <Defs>
           <RadialGradient id="cardGlow" cx="50%" cy="100%" rx="70%" ry="60%">
             <Stop offset="0" stopColor={colors.l600} stopOpacity={0.24} />
@@ -124,7 +128,7 @@ export function PlayerCard({ name, ch, power, level, xp }: { name: string; ch: t
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#cardGlow)" />
-      </Svg>
+      </Svg>}
       <Model3D
         model={HERO_MODEL[ch.hero]} fallback={HERO_IMAGE[ch.hero][ch.jersey]} clip="idle" tint={jerseyTint(ch.jersey)}
         style={{ position: 'absolute', left: 0, right: 0, top: 12, height: 330 }} label={t('hub.heroLabel', { name })}
@@ -138,7 +142,10 @@ export function PlayerCard({ name, ch, power, level, xp }: { name: string; ch: t
         <Caps>{trait}</Caps>
       </View>
       <View style={{ position: 'absolute', left: 20, right: 20, bottom: 20, gap: 8 }} pointerEvents="none">
-        <T w={600} size={28} numberOfLines={1}>{name}</T>
+        <View style={{ gap: 2 }}>
+          <T w={600} size={28} numberOfLines={1}>{name}</T>
+          {life && <T w={500} size={13} color={colors.g200} numberOfLines={1}>{lifeCaption(life)}</T>}
+        </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <T w={600} size={14}>{t('profile.level', { n: level })}</T>
           {xp !== undefined && <T w={500} size={13} color={colors.g200}>{t('profile.xpShort', { n: num(xpLeft) })}</T>}
