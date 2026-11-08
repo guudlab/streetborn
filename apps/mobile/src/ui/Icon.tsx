@@ -7,7 +7,7 @@ import { colors } from '../theme.ts';
 export type IconName =
   | 'home' | 'train' | 'bag' | 'mail' | 'bolt' | 'coin' | 'gem' | 'pause' | 'clock' | 'lock'
   | 'info' | 'check' | 'x' | 'chev' | 'back' | 'play' | 'trophy' | 'ad' | 'whistle' | 'ball' | 'star'
-  | 'sound' | 'mute' | 'music' | 'city' | 'share' | 'plus' | 'trash' | 'shield' | 'phone' | 'smile';
+  | 'sound' | 'mute' | 'music' | 'city' | 'share' | 'plus' | 'trash' | 'shield' | 'phone' | 'smile' | 'gear';
 
 const SHADE = 'rgba(0,0,0,.45)';
 
@@ -22,6 +22,7 @@ function paths(name: IconName, c: string) {
     case 'gem': return <><Path d="M6 4h12l3 5-9 11L3 9z" fill={c} stroke="none" /><Path d="M3 9h18M9 4l3 16M15 4l-3 16" stroke="rgba(0,0,0,.35)" strokeWidth={1.2} /></>;
     case 'pause': return <><Rect x={6.5} y={5} width={3.5} height={14} rx={1} fill={c} stroke="none" /><Rect x={14} y={5} width={3.5} height={14} rx={1} fill={c} stroke="none" /></>;
     case 'clock': return <><Circle cx={12} cy={12} r={9} /><Path d="M12 7v5l3 2" /></>;
+    case 'gear': return <><Circle cx={12} cy={12} r={3} /><Path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>;
     case 'lock': return <><Rect x={5} y={11} width={14} height={10} rx={2} /><Path d="M8 11V8a4 4 0 0 1 8 0v3" /></>;
     case 'info': return <><Circle cx={12} cy={12} r={9} /><Path d="M12 11v6M12 7.5v.5" /></>;
     case 'check': return <Path d="M5 12.5l4.5 4.5L19 7.5" />;
