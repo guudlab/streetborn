@@ -686,8 +686,6 @@ export const en: Record<Key, string> = {
   'life.needs': 'Buy the land first',
   'life.locked': 'Not open at this level',
   'life.buyFailed': 'Could not buy. Try again in a bit.',
-  'life.none.ulasim': 'No ride yet',
-  'life.none.arsa': 'No land yet',
   'life.arrive.bisiklet': 'You rode in on your bike',
   'life.arrive.araba': 'You drove in in your car',
   'life.arrive.spor_araba': 'You pulled up in your sports car. Heads turned',

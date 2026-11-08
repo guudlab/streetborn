@@ -685,8 +685,6 @@ export const tr = {
   'life.needs': 'Önce arsayı al',
   'life.locked': 'Bu seviyede açılmadı',
   'life.buyFailed': 'Satın alınamadı. Biraz sonra tekrar dene.',
-  'life.none.ulasim': 'Aracın yok',
-  'life.none.arsa': 'Arsan yok',
   'life.arrive.bisiklet': 'Maça bisikletinle geldin',
   'life.arrive.araba': 'Maça arabanla geldin',
   'life.arrive.spor_araba': 'Maça spor arabanla geldin, herkes baktı',
