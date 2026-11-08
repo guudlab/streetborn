@@ -4,9 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { num } from '../../game/format.ts';
 import { useGame } from '../../game/store.ts';
-import { colors, TAB_BAR_SPACE } from '../../theme.ts';
+import { colors, radius, TAB_BAR_SPACE } from '../../theme.ts';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { Icon } from '../../ui/Icon.tsx';
-import { Cta, H1, H3, T } from '../../ui/kit.tsx';
+import { Caps, Cta, H1, H3, T } from '../../ui/kit.tsx';
+import { PressableScale } from '../../ui/motion.tsx';
 import { closeSheet, openSheet, SheetText } from '../../ui/overlay.tsx';
 import { Amount, Ico, Tile, type IconAsset } from '../../ui/sade.tsx';
 import { HintBubble } from '../../ui/hint.tsx';
@@ -29,6 +31,9 @@ export default function Yasam() {
   const level = useGame(s => s.level);
   // Only the free starter room is owned until buying lands on the server.
   const owned = (i: LifestyleItem) => i.price === 0 && level >= i.unlockLevel;
+  // The showcase: the best home the player has and the next thing to aim for.
+  const home = [...ITEMS].reverse().find(i => i.id.startsWith('ev_') && owned(i));
+  const next = ITEMS.find(i => !owned(i));
 
   function open(i: LifestyleItem) {
     const locked = level < i.unlockLevel;
@@ -56,36 +61,79 @@ export default function Yasam() {
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
         <H1>{t('tab.life')}</H1>
-        <View style={{ height: 40, paddingLeft: 6, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, justifyContent: 'center' }}>
+        <View style={{ height: 40, paddingLeft: 8, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, justifyContent: 'center' }}>
           <Amount icon="coin" size={26}>{num(coins)}</Amount>
         </View>
       </View>
       <HintBubble id="lifeTab" text={t('hint.lifeTab')} />
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      {home && <Showcase home={home} next={next} level={level} onPress={() => open(home)} />}
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {ITEMS.map(i => {
           const mine = owned(i);
           const locked = level < i.unlockLevel;
           return (
             <Tile
-              key={i.id} selected={mine} onPress={() => open(i)} style={{ width: '48%', flexGrow: 1, minHeight: 150 }}
+              key={i.id} selected={mine} onPress={() => open(i)} style={{ width: '48%', flexGrow: 1, minHeight: 152, gap: 4 }}
               label={`${name(i)}, ${mine ? t('life.owned') : locked ? t('life.level', { n: i.unlockLevel }) : `${num(i.price)} coin`}`}
             >
-              <Ico name={ICON[i.id]!} size={84} dim={locked} />
+              <Ico name={ICON[i.id]!} size={72} dim={locked} />
+              <T w={600} size={15} color={locked ? colors.g200 : colors.g100} numberOfLines={1} style={{ marginTop: 4 }}>{name(i)}</T>
               {mine ? (
-                <Icon name="check" size={20} color={colors.l600} />
+                <Icon name="check" size={16} color={colors.l600} />
               ) : locked ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Icon name="lock" size={15} color={colors.g200} />
-                  <T w={600} size={14} color={colors.g200}>{t('life.level', { n: i.unlockLevel })}</T>
+                  <Icon name="lock" size={14} color={colors.g200} />
+                  <T w={500} size={13} color={colors.g200}>{t('life.level', { n: i.unlockLevel })}</T>
                 </View>
               ) : (
-                <Amount icon="coin" size={20} textSize={14}>{num(i.price)}</Amount>
+                <Amount icon="coin" size={16} textSize={13}>{num(i.price)}</Amount>
               )}
             </Tile>
           );
         })}
       </View>
     </ScrollView>
+  );
+}
+
+/**
+ * The screen's one lit card: the player's home on a lime floor glow, and the next item to aim for.
+ * Status only, like the rest of Yaşam (GDD v3.1 section 8.1).
+ */
+function Showcase({ home, next, level, onPress }: { home: LifestyleItem; next: LifestyleItem | undefined; level: number; onPress: () => void }) {
+  const nextLocked = !!next && level < next.unlockLevel;
+  return (
+    <PressableScale
+      accessibilityRole="button" onPress={onPress} to={0.98}
+      accessibilityLabel={`${t('life.home')}: ${name(home)}${next ? `. ${t('life.next')}: ${name(next)}` : ''}`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 168, paddingHorizontal: 16, borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}
+    >
+      <View style={{ width: 148, height: 148, alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width={148} height={36} style={{ position: 'absolute', bottom: 4 }}>
+          <Defs>
+            <RadialGradient id="homeGlow" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor={colors.l600} stopOpacity={0.28} />
+              <Stop offset="1" stopColor={colors.l600} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Ellipse cx={74} cy={18} rx={74} ry={18} fill="url(#homeGlow)" />
+        </Svg>
+        <Ico name={ICON[home.id]!} size={140} />
+      </View>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Caps>{t('life.home')}</Caps>
+        <T w={600} size={22}>{name(home)}</T>
+        {next && <>
+          <Caps style={{ marginTop: 12 }}>{t('life.next')}</Caps>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+            {nextLocked
+              ? <><Icon name="lock" size={14} color={colors.g200} /><T w={600} size={15}>{name(next)} · {t('life.level', { n: next.unlockLevel })}</T></>
+              : <><Amount icon="coin" size={18} textSize={15}>{num(next.price)}</Amount><T w={600} size={15}>· {name(next)}</T></>}
+          </View>
+        </>}
+      </View>
+    </PressableScale>
   );
 }

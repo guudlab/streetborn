@@ -6,10 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sfx } from '../../audio/audio.ts';
 import type { SfxId } from '../../audio/sounds.ts';
 import { useGame } from '../../game/store.ts';
-import { colors, shadow, TAB_BAR_SPACE } from '../../theme.ts';
+import { num } from '../../game/format.ts';
+import { colors, radius, shadow, TAB_BAR_SPACE } from '../../theme.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { EnergyTiles, energyLeft } from '../../ui/energy.tsx';
-import { buzz, Cta, Ghost, H1, H3, T, useNow } from '../../ui/kit.tsx';
+import { buzz, Caps, Cta, Ghost, H1, H3, Section, T, useNow } from '../../ui/kit.tsx';
 import { Amount, bootIcon, Ico, Tile } from '../../ui/sade.tsx';
 import { closeSheet, openSheet, SheetText, Spinner, toast } from '../../ui/overlay.tsx';
 import { HintBubble } from '../../ui/hint.tsx';
@@ -68,6 +69,14 @@ function buy(name: string, price: string, sound: SfxId = 'coin') {
     </>,
   );
 }
+
+/** One season pass perk on the shop card: an icon and two words. */
+const Perk = ({ icon, children }: { icon: React.ReactNode; children: string }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    {icon}
+    <T w={500} size={13}>{children}</T>
+  </View>
+);
 
 const Check = ({ children, muted }: { children: string; muted?: boolean }) => (
   <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
@@ -163,7 +172,7 @@ function openBoots(b: BootsItem) {
 }
 
 const SheetRow = ({ icon, children }: { icon: 'star' | 'clock'; children: string }) => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.s2 }}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: colors.s2 }}>
     <Icon name={icon} size={20} color={colors.l600} />
     <T w={600} size={15} style={{ flex: 1 }}>{children}</T>
   </View>
@@ -175,20 +184,20 @@ function BootsSection() {
   // The pair in use comes with the training state.
   useEffect(() => { if (mode === 'online') void useGame.getState().refreshTraining(); }, [mode]);
   return (
-    <View style={{ gap: 10 }}>
-      <H3>{t('shop.boots')}</H3>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+    <View style={{ gap: 12 }}>
+      <Section>{t('shop.boots')}</Section>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
         {BOOTS.map(b => {
           const inUse = boots?.id === b.id ? boots : null;
           const locked = level < b.unlockLevel;
           const state = inUse ? t('shop.bootsLeft', { n: inUse.usesLeft, of: b.uses })
             : locked ? t('shop.bootsLevel', { n: b.unlockLevel }) : `${t('shop.bootsUses', { n: b.uses })}, ${b.price} coin`;
           return (
-            <Tile key={b.id} selected={!!inUse} onPress={() => openBoots(b)} label={t('shop.bootsA11y', { name: bootName(b.id), state })} style={{ flex: 1, minHeight: 168, gap: 6, justifyContent: 'flex-start' }}>
-              <Ico name={bootIcon(b.id)} size={60} dim={locked} />
+            <Tile key={b.id} selected={!!inUse} onPress={() => openBoots(b)} label={t('shop.bootsA11y', { name: bootName(b.id), state })} style={{ flex: 1, minHeight: 160, gap: 4, justifyContent: 'flex-start' }}>
+              <Ico name={bootIcon(b.id)} size={56} dim={locked} />
               <T w={600} size={15} color={locked ? colors.g200 : colors.g100}>{t(`boots.short.${b.id}` as Key)}</T>
               {inUse ? (
-                <View style={{ alignSelf: 'stretch', paddingHorizontal: 10, gap: 6 }}>
+                <View style={{ alignSelf: 'stretch', paddingHorizontal: 8, gap: 4, marginTop: 4 }}>
                   <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.s3, overflow: 'hidden' }}>
                     <View style={{ width: `${(inUse.usesLeft / b.uses) * 100}%`, height: '100%', backgroundColor: colors.l600 }} />
                   </View>
@@ -196,14 +205,14 @@ function BootsSection() {
                 </View>
               ) : locked ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Icon name="lock" size={13} color={colors.g200} />
-                  <T w={600} size={12} color={colors.g200}>{t('shop.bootsLevel', { n: b.unlockLevel })}</T>
+                  <Icon name="lock" size={14} color={colors.g200} />
+                  <T w={500} size={13} color={colors.g200}>{t('shop.bootsLevel', { n: b.unlockLevel })}</T>
                 </View>
               ) : (
                 <>
                   <T w={500} size={12} color={colors.g200}>{t('shop.bootsUses', { n: b.uses })}</T>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.s3, borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
-                    <Ico name="coin" size={16} /><T w={600} size={13}>{b.price.toLocaleString('tr-TR')}</T>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <Ico name="coin" size={16} /><T w={600} size={13}>{num(b.price)}</T>
                   </View>
                 </>
               )}
@@ -293,65 +302,71 @@ export default function Dukkan() {
 
   return (
     <View ref={root} collapsable={false} style={{ flex: 1 }}>
-    <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 14 }}>
+    <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE + insets.bottom, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
         <H1>{t('tab.shop')}</H1>
-        <View style={{ height: 40, paddingLeft: 6, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ height: 40, paddingLeft: 8, paddingRight: 12, borderRadius: 20, backgroundColor: colors.s2, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Amount icon="coin" size={24}>{coins.toLocaleString('tr-TR')}</Amount>
           <Amount icon="gem" size={26}>{shownGems}</Amount>
         </View>
       </View>
       <HintBubble id="shopTab" text={t('hint.shopTab')} />
-      <Tile row selected label={`${t('shop.pass')}, ${t('shop.price.pass')}`} onPress={openPass} style={[shadow.lime, { paddingVertical: 14 }]}>
-        <Ico name="sezonKart" size={64} />
-        <View style={{ flex: 1, gap: 4 }}>
-          <T w={600} size={17}>{t('shop.pass')}</T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icon name="bolt" size={14} color={colors.l600} /><T w={600} size={13} color={colors.g200}>6</T></View>
-            <Ico name="coin" size={18} />
-            <Ico name="milliForma" size={22} />
+      {/* The season pass is the shop's one lit card; everything below stays quiet. */}
+      <Tile selected label={`${t('shop.pass')}, ${t('shop.price.pass')}`} onPress={openPass} style={[shadow.lime, { alignItems: 'stretch', gap: 12, padding: 16 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Ico name="sezonKart" size={56} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <T w={600} size={17}>{t('shop.pass')}</T>
+            <Caps>{t('shop.monthly')}</Caps>
+          </View>
+          <View style={{ height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
+            <T w={600} size={15} color={colors.ink}>{t('shop.price.pass')}</T>
           </View>
         </View>
-        <T w={600} size={15} color={colors.l500}>{t('shop.price.pass')}</T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 8 }}>
+          <Perk icon={<Ico name="enerji" size={20} />}>{t('shop.passShort.1')}</Perk>
+          <Perk icon={<Icon name="ad" size={16} color={colors.g200} />}>{t('shop.passShort.2')}</Perk>
+          <Perk icon={<Ico name="milliForma" size={20} />}>{t('shop.passShort.3')}</Perk>
+        </View>
       </Tile>
 
-      <BootsSection />
-
+      <Section right={<Caps>{left ? t('shop.nextEnergy', { t: left }) : t('shop.energyFull')}</Caps>}>{t('energy.title')}</Section>
       <View
         accessible accessibilityLabel={`${t('shop.energy', { energy, max: energyMax })}. ${left ? t('shop.nextEnergy', { t: left }) : t('shop.energyFull')}`}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
       >
-        <Ico name="enerji" size={48} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <View style={{ flexDirection: 'row', gap: 5 }}>
-            {Array.from({ length: energyMax }, (_, i) => <View key={i} style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: i < energy ? colors.l600 : colors.s3 }} />)}
-          </View>
-          {left && <T w={600} size={12} color={colors.g200}>{left}</T>}
+        <Ico name="enerji" size={40} />
+        <View style={{ flex: 1, flexDirection: 'row', gap: 4 }}>
+          {Array.from({ length: energyMax }, (_, i) => <View key={i} style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: i < energy ? colors.l600 : colors.s3 }} />)}
         </View>
-        <T w={600} size={20}>{energy}/{energyMax}</T>
+        <T w={600} size={17}>{energy}/{energyMax}</T>
       </View>
       <EnergyTiles />
 
-      <View ref={packRow} collapsable={false} style={{ flexDirection: 'row', gap: 10 }}>
+      <BootsSection />
+
+      <Section>{t('shop.gems')}</Section>
+      <View ref={packRow} collapsable={false} style={{ flexDirection: 'row', gap: 8 }}>
         {GEM_PACKS.map(([pack, n, pk, size]) => (
           <View key={pack} ref={el => { packRefs.current[pack] = el; }} collapsable={false} style={{ flex: 1 }}>
-          <Tile label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={[{ flex: 1, justifyContent: 'flex-end', minHeight: 140 }, n === 450 && { borderColor: colors.l600 }]}>
+          <Tile label={t('shop.gemPackA11y', { n, price: gemPrices[pack] ?? t(pk) })} onPress={() => void buyGemPack(pack, n, gemPrices[pack] ?? t(pk))} style={{ flex: 1, justifyContent: 'flex-end', minHeight: 152, gap: 4 }}>
             <Ico name={n >= 1000 ? 'gemCase' : 'gemCluster'} size={size + 8} />
-            <T w={600} size={18}>{n}</T>
-            <T w={600} size={12} color={colors.g200}>{gemPrices[pack] ?? t(pk)}</T>
-            {n === 450 && <View style={{ backgroundColor: colors.l600, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}><T w={600} size={11} color={colors.ink}>{t('shop.best')}</T></View>}
+            <T w={600} size={18}>{num(n)}</T>
+            <T w={500} size={12} color={colors.g200}>{gemPrices[pack] ?? t(pk)}</T>
+            <T w={600} size={12} color={n === 450 ? colors.l600 : 'transparent'} accessibilityElementsHidden={n !== 450}>{t('shop.best')}</T>
           </Tile>
           </View>
         ))}
       </View>
 
-      <H3>{t('shop.cosmetic')}</H3>
+      <Section>{t('shop.cosmetic')}</Section>
       <Tile row label={`${t('shop.jersey')}, ${jersey ? (jersey.equipped ? t('shop.equipped') : t('shop.owned')) : `${jerseyPrice} ${t('shop.gems')}`}`} onPress={jerseyAction}>
-        <Ico name="milliForma" size={60} />
+        <Ico name="milliForma" size={56} />
         <View style={{ flex: 1, gap: 2 }}>
           <T w={600} size={16} numberOfLines={1}>{t('shop.jersey')}</T>
           <Pressable accessibilityRole="button" accessibilityLabel={t('shop.releasableTitle')} hitSlop={8} onPress={openJersey}
             style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Caps>{t('shop.cosmeticNote')}</Caps>
             <Icon name="info" size={16} color={colors.g300} />
           </Pressable>
         </View>

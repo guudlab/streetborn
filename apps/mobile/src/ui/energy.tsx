@@ -70,7 +70,7 @@ export function EnergyOptions({ onDone }: { onDone?: () => void }) {
 export function EnergyTiles() {
   const a = useEnergyActions();
   return (
-    <View style={{ flexDirection: 'row', gap: 10 }}>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
       {/* No ad SDK online yet: a dead "Yakında" tile is only noise, so the refill tile stands alone. */}
       {!a.adSoon && <Tile
         onPress={a.watchAd} disabled={a.adOff} style={{ flex: 1, opacity: a.adOff ? 0.5 : 1 }}
