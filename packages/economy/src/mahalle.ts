@@ -52,7 +52,8 @@ export interface MahalleOpponent {
   attack: number;
 }
 
-const OPPONENT_NAMES = [
+/** Invented NPC mahalle names: the daily NPC opponent and the bot mahalleler of the Mahalle Ligi. */
+export const NPC_MAHALLE_NAMES = [
   'Çınar Mahallesi', 'Yıldız Mahallesi', 'Değirmen Mahallesi', 'Tepe Mahallesi', 'Liman Mahallesi', 'Fidanlık Mahallesi',
   'Çamlık Mahallesi', 'Sahil Mahallesi', 'Kale Mahallesi', 'Pınar Mahallesi', 'Bahçe Mahallesi', 'Köprü Mahallesi',
 ];
@@ -62,39 +63,52 @@ export function mahalleOpponent(mahalleId: string, day: string, avgLevel: number
   const next = rng(`${mahalleId}:${day}:opponent`);
   const spread = next(7) - 3;
   return {
-    name: OPPONENT_NAMES[next(OPPONENT_NAMES.length)]!,
+    name: NPC_MAHALLE_NAMES[next(NPC_MAHALLE_NAMES.length)]!,
     goalkeeping: Math.max(1, Math.min(95, 35 + avgLevel * 2 + spread)),
     attack: Math.max(1, Math.min(95, 30 + avgLevel * 2 + spread)),
   };
 }
 
-/**
- * Settles one mahalle day (GDD v3.1): the best `slots` contributions count, empty
- * slots are filled by seeded NPC children, and everyone who played gets the
- * mahalle bonus. Pure and deterministic for a (mahalle, day, inputs) triple.
- */
-export function settleMahalleDay(
-  input: { mahalleId: string; day: string; contributions: DayContribution[]; members: DayMember[] },
-  config: EconomyConfig,
-): DaySettlement {
-  const cfg = config.mahalle;
-  const ranked = [...input.contributions].sort((a, b) =>
+/** Contributions best first: rating, then goals + assists, then player id. */
+export function rankContributions(contributions: DayContribution[]): DayContribution[] {
+  return [...contributions].sort((a, b) =>
     b.rating - a.rating || b.goals + b.assists - (a.goals + a.assists) || (a.playerId < b.playerId ? -1 : 1));
+}
+
+/** One side's matches of the day: the best `slots` count and seeded NPC children fill the rest. */
+export interface HalfScore {
+  ranked: DayContribution[];
+  counted: DayContribution[];
+  fills: number;
+  /** Goals for the side that played these matches. */
+  ours: number;
+  /** Goals its opponent scored in them. */
+  theirs: number;
+}
+
+export function halfScore(fillSeed: string, contributions: DayContribution[], config: EconomyConfig): HalfScore {
+  const cfg = config.mahalle;
+  const ranked = rankContributions(contributions);
   const counted = ranked.slice(0, cfg.slots);
-
-  let ourGoals = counted.reduce((sum, c) => sum + c.goals + c.assists, 0);
-  let theirGoals = counted.reduce((sum, c) => sum + c.opponentGoals, 0);
+  let ours = counted.reduce((sum, c) => sum + c.goals + c.assists, 0);
+  let theirs = counted.reduce((sum, c) => sum + c.opponentGoals, 0);
   const fills = cfg.slots - counted.length;
-  const next = rng(`${input.mahalleId}:${input.day}:fill`);
+  const next = rng(fillSeed);
   for (let i = 0; i < fills; i++) {
-    ourGoals += weighted(next, cfg.fillOurWeights);
-    theirGoals += weighted(next, cfg.fillTheirWeights);
+    ours += weighted(next, cfg.fillOurWeights);
+    theirs += weighted(next, cfg.fillTheirWeights);
   }
-  const result = ourGoals > theirGoals ? 'W' : ourGoals < theirGoals ? 'L' : 'D';
+  return { ranked, counted, fills, ours, theirs };
+}
 
+/** Bonus, XP and respect for everyone who played, given the day's result. */
+export function dayPayouts(
+  ranked: DayContribution[], result: 'W' | 'D' | 'L', members: DayMember[], config: EconomyConfig,
+): { motm: string | null; turnout: boolean; payouts: DayPayout[] } {
+  const cfg = config.mahalle;
   const motm = ranked[0]?.playerId ?? null;
-  const played = new Set(input.contributions.map((c) => c.playerId));
-  const real = input.members.filter((m) => m.real);
+  const played = new Set(ranked.map((c) => c.playerId));
+  const real = members.filter((m) => m.real);
   const realPlayed = real.filter((m) => played.has(m.playerId)).length;
   const turnout = real.length > 0 && realPlayed * 100 >= real.length * cfg.turnoutPct;
 
@@ -110,6 +124,26 @@ export function settleMahalleDay(
     }
     return { playerId: c.playerId, coin, xp, respect };
   });
+  return { motm, turnout, payouts };
+}
 
-  return { ourGoals, theirGoals, result, counted: counted.map((c) => c.playerId), fills, motm, turnout, payouts };
+export const resultOf = (us: number, them: number): 'W' | 'D' | 'L' => (us > them ? 'W' : us < them ? 'L' : 'D');
+
+/**
+ * Settles one mahalle day against the NPC mahalle (GDD v3.1): the best `slots`
+ * contributions count, empty slots are filled by seeded NPC children, and everyone
+ * who played gets the mahalle bonus. Pure and deterministic for a (mahalle, day, inputs) triple.
+ * Mahalleler in the week's Mahalle Ligi settle with settleLigMatch instead.
+ */
+export function settleMahalleDay(
+  input: { mahalleId: string; day: string; contributions: DayContribution[]; members: DayMember[] },
+  config: EconomyConfig,
+): DaySettlement {
+  const half = halfScore(`${input.mahalleId}:${input.day}:fill`, input.contributions, config);
+  const result = resultOf(half.ours, half.theirs);
+  const { motm, turnout, payouts } = dayPayouts(half.ranked, result, input.members, config);
+  return {
+    ourGoals: half.ours, theirGoals: half.theirs, result, counted: half.counted.map((c) => c.playerId),
+    fills: half.fills, motm, turnout, payouts,
+  };
 }

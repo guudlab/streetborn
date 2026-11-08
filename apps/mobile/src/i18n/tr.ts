@@ -1242,6 +1242,20 @@ export const tr = {
   'live.ht.keep': 'Böyle devam',
   'post.story': 'Maçın akışı',
   'post.storyA11y': '{n} anın, {g} gol',
+  'lig.title': 'Mahalle Ligi',
+  'lig.day': '{n}. gün / 7',
+  'lig.colPlayed': 'O',
+  'lig.colGd': 'AV',
+  'lig.colPts': 'P',
+  'lig.bot': 'BOT',
+  'lig.today': 'Bugünkü rakip',
+  'lig.rowA11y': '{pos}. sıra {name}, {pts} puan, {played} maç, averaj {gd}',
+  'lig.botA11y': ', bot mahalle',
+  'lig.todayA11y': ', bugünkü rakibin',
+  'lig.how': 'Her gün gruptan bir mahalleyle oynarsınız. Skor iki yarı: sizin maçlarınız ve onların maçları.',
+  'lig.wait': 'Lig her pazartesi başlar. Girmek için mahallende en az 2 düzenli oyuncu olmalı ve geçen hafta mahalle maçı oynamış olmalısınız.',
+  'mahalle.today.halves': 'Bizim sahada {a}–{b} · Onların sahasında {c}–{d}',
+  'mahalle.last.halves': '1. yarı {a}–{b} · 2. yarı {c}–{d}',
 } as const;
 
 export type Key = keyof typeof tr;
