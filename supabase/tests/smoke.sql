@@ -768,3 +768,64 @@ do $$ declare l jsonb := mahalle_bugun()->'lig'; begin
   raise notice 'mahalle ligi rls: ok';
 end $$;
 reset role;
+
+-- Player profiles and search.
+set role service_role;
+do $$
+declare
+  a constant uuid := '00000000-0000-0000-0000-000000000103';
+  b constant uuid := '00000000-0000-0000-0000-000000000102';
+  c constant uuid := '00000000-0000-0000-0000-000000000104';
+  p jsonb; hits jsonb; code text;
+begin
+  update players set nick = 'Çağlar' where id = b;
+  update players set nick = 'Cemil' where id = c;
+  code := (select kod from players where id = b);
+  if code !~ '^[A-HJ-NP-Z2-9]{6}$' then raise exception 'bad player code %', code; end if;
+
+  p := oyuncu_profil(a, b, null);
+  if p->>'nick' <> 'Çağlar' or p->'stats' is null or p->'totals' is null then raise exception 'profile incomplete: %', p; end if;
+  if p ? 'coin' or p ? 'gem' or p ? 'xp' or p ? 'inventory' or p::text like '%wallet%' then raise exception 'profile leaks private fields'; end if;
+  if oyuncu_profil(a, null, code)->>'id' <> b::text then raise exception 'profile by code failed'; end if;
+  if oyuncu_profil(a, gen_random_uuid(), null) is not null then raise exception 'unknown player should be null'; end if;
+  -- a blocked pair cannot see each other, in either direction
+  if oyuncu_profil(a, c, null) is not null or oyuncu_profil(c, a, null) is not null then raise exception 'block ignored by profile'; end if;
+
+  begin perform oyuncu_ara(a, 'ca'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'short' then raise; end if; end;
+  hits := oyuncu_ara(a, 'ÇAĞ');
+  if jsonb_array_length(hits) <> 1 or hits->0->>'id' <> b::text then raise exception 'prefix search wrong: %', hits; end if;
+  if jsonb_array_length(oyuncu_ara(a, 'cag')) <> 1 then raise exception 'accent-free search failed'; end if;
+  if jsonb_array_length(oyuncu_ara(a, lower(code))) <> 1 then raise exception 'code search failed'; end if;
+  if jsonb_array_length(oyuncu_ara(a, '%%%')) <> 0 then raise exception 'wildcard not escaped'; end if;
+  if jsonb_array_length(oyuncu_ara(a, 'cem')) <> 0 then raise exception 'blocked player in search'; end if;
+
+  perform oyuncu_aranabilir(b, false);
+  if jsonb_array_length(oyuncu_ara(a, 'cag')) <> 0 then raise exception 'private player in search'; end if;
+  perform oyuncu_aranabilir(b, true);
+
+  -- three different reporters hide a player from search
+  insert into reports (reporter_id, target_id, reason, nick)
+  select ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid, b, 'spam', 'x' from generate_series(5, 7) g;
+  if not oyuncu_gizli(b) or jsonb_array_length(oyuncu_ara(a, 'cag')) <> 0 then raise exception 'reported player not hidden'; end if;
+  delete from reports where nick = 'x';
+
+  -- rate limit: 60 searches a day
+  delete from oyuncu_sorgu;
+  for i in 1..60 loop perform oyuncu_ara(a, 'cag'); end loop;
+  begin perform oyuncu_ara(a, 'cag'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'too_many' then raise; end if; end;
+  raise notice 'player profile and search: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000103';
+do $$ begin
+  begin perform oyuncu_ara('00000000-0000-0000-0000-000000000103', 'cag'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform oyuncu_profil('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000102', null); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  if (select count(*) from oyuncu_sorgu) <> 0 then raise exception 'RLS leak: oyuncu_sorgu readable'; end if;
+  if (select count(*) from players) <> 1 then raise exception 'RLS leak: players readable'; end if;
+  raise notice 'player profile rls: ok';
+end $$;
+reset role;

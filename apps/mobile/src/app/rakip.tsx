@@ -7,8 +7,8 @@ import { useGame } from '../game/store.ts';
 
 import { colors } from '../theme.ts';
 import { Icon } from '../ui/Icon.tsx';
-import { Caps, Cta, Ghost, T } from '../ui/kit.tsx';
-import { Skeleton } from '../ui/motion.tsx';
+import { buzz, Caps, Cta, Ghost, T } from '../ui/kit.tsx';
+import { PressableScale, Skeleton } from '../ui/motion.tsx';
 import { ErrorState } from '../ui/states.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Amount, Bubble } from '../ui/sade.tsx';
@@ -58,7 +58,7 @@ export default function Rakip() {
           </View>
           <Caps>{t('duel.score')}</Caps>
         </View>
-        <Face letter={rivalName.charAt(0).toLocaleUpperCase('tr')} label={rivalName} sub={t('profile.level', { n: d.rival.level })} />
+        <Face letter={rivalName.charAt(0).toLocaleUpperCase('tr')} label={rivalName} sub={t('profile.level', { n: d.rival.level })} playerId={npc ? null : d.rival.id} />
       </View>
 
       <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 16 }}>
@@ -101,9 +101,10 @@ function RakipSkeleton() {
   );
 }
 
-function Face({ letter, label, sub, me }: { letter: string; label: string; sub: string; me?: boolean }) {
+function Face({ letter, label, sub, me, playerId }: { letter: string; label: string; sub: string; me?: boolean; playerId?: string | null }) {
+  const open = playerId ? () => { buzz(); router.push({ pathname: '/oyuncu', params: { id: playerId } }); } : undefined;
   return (
-    <View style={{ alignItems: 'center', gap: 4, width: 88 }}>
+    <PressableScale disabled={!open} onPress={open} accessibilityRole={open ? 'button' : undefined} accessibilityLabel={open ? t('player.open', { name: label }) : undefined} style={{ alignItems: 'center', gap: 4, width: 88 }}>
       <View style={{
         width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center',
         backgroundColor: me ? colors.l900 : colors.awayCrest,
@@ -112,7 +113,7 @@ function Face({ letter, label, sub, me }: { letter: string; label: string; sub: 
       </View>
       <T w={600} size={15} numberOfLines={1}>{label}</T>
       <T w={500} size={12} color={colors.g200}>{sub}</T>
-    </View>
+    </PressableScale>
   );
 }
 

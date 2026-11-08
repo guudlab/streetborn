@@ -211,6 +211,23 @@ export const reportPlayer = (to: string, reason: ReportReason) => call<{ ok: tru
 export const blockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'block', to });
 export const unblockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'unblock', to });
 
+/** Another player's public profile (oyuncu Edge Function). Nothing economic is ever in it. */
+export interface PlayerProfile {
+  id: string; kod: string; nick: string | null; level: number; character: Partial<Character> | null; me: boolean; mate: boolean;
+  stats: { sut: number; pas: number; hiz: number; fizik: number };
+  totals: { matches: number; goals: number; assists: number };
+  /** Last five match ratings (tenths), oldest first. */
+  ratings: number[];
+  club: string | null;
+  mahalle: { id: string; name: string; emblem: MahalleEmblem; color: MahalleColor } | null;
+  trophies: string[]; trophyCount: number;
+}
+export interface PlayerHit { id: string; kod: string; nick: string | null; level: number; character: Partial<Character> | null; mahalle: string | null }
+
+export const loadPlayer = (who: { id?: string; kod?: string }) => call<{ ok: true; player: PlayerProfile }>('oyuncu', { action: 'profil', ...who }).then(r => r.player);
+export const searchPlayers = (q: string) => call<{ ok: true; players: PlayerHit[] }>('oyuncu', { action: 'ara', q }).then(r => r.players);
+export const setSearchable = (value: boolean) => call<{ ok: true; value: boolean }>('oyuncu', { action: 'aranabilir', value });
+
 /** Ids of the players the caller blocked. */
 export async function loadBlocked(): Promise<string[]> {
   await ensureSession();
