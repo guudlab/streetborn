@@ -8,7 +8,7 @@ import { leagueToday, multiplierLabel, standings, tierName } from '../game/caree
 import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import type { CareerOffer } from '../net/api.ts';
-import { colors } from '../theme.ts';
+import { colors, radius } from '../theme.ts';
 import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
@@ -61,11 +61,18 @@ export function CareerScreen() {
 
       {contract ? <Contract /> : career.offers.length > 0 ? (
         <View style={{ gap: 12 }}>
-          {career.offers.map((o, i) => <Enter key={o.id} i={i}><OfferCard offer={o} /></Enter>)}
+          {career.offers.map((o, i) => <Enter key={o.id} i={i}><OfferCard offer={o} lead={o.id === leadOffer(career.offers)} /></Enter>)}
         </View>
       ) : <Road />}
     </Shell>
   );
+}
+
+/** The offer worth the most a week (that can still be taken): the one lit card with the lime button. */
+function leadOffer(offers: CareerOffer[]): string | null {
+  let best: CareerOffer | null = null;
+  for (const o of offers) if (o.status !== 'trial_failed' && (!best || o.salaryWeekly > best.salaryWeekly)) best = o;
+  return best?.id ?? null;
 }
 
 /** The shape of the contract card and two offers, while the first answer is on its way. */
@@ -78,7 +85,7 @@ function CareerSkeleton() {
   );
 }
 
-function OfferCard({ offer }: { offer: CareerOffer }) {
+function OfferCard({ offer, lead }: { offer: CareerOffer; lead: boolean }) {
   const [busy, setBusy] = useState(false);
   const trial = offer.kind === 'trial';
 
@@ -119,33 +126,33 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
   const failed = offer.status === 'trial_failed';
   const needsTrial = trial && offer.status === 'open';
   const highlight = offer.kind === 'better' || offer.kind === 'promote';
+  const terms = t('career.offerLine', { mult: multiplierLabel(offer.tier), days: SEASON_DAYS });
+  const trialLine = !trial ? null : offer.status === 'trial_passed' ? t('career.trialPassedLine') : needsTrial ? t('career.trialLine', { n: num(cfg.trialMinRating / 10, 1) }) : null;
+  // Only the best offer is lit and gets the lime button; the others stay quiet.
+  const Btn = lead ? Cta : Ghost;
   return (
-    <View style={{ borderRadius: 20, backgroundColor: highlight ? 'rgba(63,77,24,.38)' : colors.s1, borderWidth: 1.5, borderColor: highlight ? colors.l600 : colors.line, padding: 16, gap: 12, opacity: failed ? 0.55 : 1 }}>
+    <View style={{ borderRadius: radius.lg, backgroundColor: lead ? 'rgba(63,77,24,.28)' : colors.s1, borderWidth: lead ? 1.5 : 1, borderColor: lead ? colors.l600 : colors.line, padding: 16, gap: 12, opacity: failed ? 0.55 : 1 }}>
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-        <Ico name="kulup" size={56} />
+        <Ico name="kulup" size={48} />
         <View style={{ flex: 1, gap: 2 }}>
           <T w={600} size={17} numberOfLines={1}>{offer.clubName}</T>
-          <T w={600} size={12} color={colors.g200}>{tierName(offer.tier)}</T>
+          <T w={500} size={13} color={colors.g200} numberOfLines={1}>{tierName(offer.tier)}</T>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <Amount icon="coin" size={22} textSize={16}>{num(offer.salaryWeekly)}</Amount>
-          <T w={600} size={12} color={colors.g300}>{t('career.perWeek')}</T>
+        <View style={{ alignItems: 'flex-end' }} accessible accessibilityLabel={`${num(offer.salaryWeekly)} coin ${t('career.perWeek')}`}>
+          <T w={600} size={24} style={{ lineHeight: 28, fontVariant: ['tabular-nums'] }}>{num(offer.salaryWeekly)}</T>
+          <T w={500} size={12} color={colors.g200}>{t('career.coinPerWeek')}</T>
         </View>
       </View>
-      {/* A trial offer shows its trial in the facts below. */}
-      {offer.kind !== 'trial' && <Tag lime={highlight}>{t(KIND_LABEL[offer.kind])}</Tag>}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Fact icon="coinStack" value={multiplierLabel(offer.tier)} label={t('career.fact.multiplier')} />
-        <Fact icon="sezonKart" value={t('career.fact.days', { n: SEASON_DAYS })} label={t('career.fact.season')} />
-        {trial && (offer.status === 'trial_passed'
-          ? <Fact icon="kale" value={t('career.fact.trialPassed')} label={t('career.fact.trial')} lime />
-          : <Fact icon="kale" value={num(cfg.trialMinRating / 10, 1)} label={t('career.fact.trial')} />)}
+      <View style={{ gap: 4 }}>
+        <T w={500} size={14}>{terms}</T>
+        {offer.kind !== 'trial' && <T w={500} size={13} color={highlight ? colors.l600 : colors.g200}>{t(KIND_LABEL[offer.kind])}</T>}
+        {trialLine && <T w={500} size={13} color={offer.status === 'trial_passed' ? colors.l600 : colors.g200}>{trialLine}</T>}
       </View>
       {failed
         ? <T size={13} color={colors.g200}>{t('career.trialFailed')}</T>
         : needsTrial
-          ? <Cta busy={busy} onPress={() => void playTrial()}>{t('career.playTrial')}</Cta>
-          : <Cta busy={busy} onPress={confirm}>{t('offers.sign')}</Cta>}
+          ? <Btn busy={busy} onPress={() => void playTrial()}>{t('career.playTrial')}</Btn>
+          : <Btn busy={busy} onPress={confirm}>{t('offers.sign')}</Btn>}
     </View>
   );
 }

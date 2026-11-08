@@ -58,24 +58,28 @@ export function LigCard() {
               key={r.slot} accessible accessibilityLabel={label}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: 12,
-                backgroundColor: mine ? colors.l900 : colors.s2, borderWidth: 1.5, borderColor: rival ? colors.l700 : 'transparent',
+                backgroundColor: mine ? colors.s3 : colors.s2,
               }}
             >
-              <T w={600} size={13} color={mine ? colors.l500 : colors.g300} style={{ width: 16 }}>{i + 1}</T>
+              {/* Our row: a lime dot by the place, not a lit row; the screen's lime belongs to the match button. */}
+              <View style={{ width: 16, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                <T w={600} size={13} color={mine ? colors.g100 : colors.g300}>{i + 1}</T>
+                {mine && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.l600 }} />}
+              </View>
               <Emblem shape={team.emblem} color={team.color} name={team.name} size={26} />
               {/* Bot and today's rival go on a second line, so the name keeps the row's width. */}
               <View style={{ flex: 1, minWidth: 0, paddingVertical: 8 }}>
-                <T w={mine ? 700 : 600} size={14} numberOfLines={1}>{team.name}</T>
+                <T w={mine ? 600 : 500} size={14} numberOfLines={1}>{team.name}</T>
                 {(team.bot || rival) && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                    {rival && <T w={600} size={12} color={colors.l600}>{t('lig.today')}</T>}
+                    {rival && <T w={600} size={12} color={colors.g200}>{t('lig.today')}</T>}
                     {team.bot && <BotTag />}
                   </View>
                 )}
               </View>
               <T w={500} size={13} color={colors.g200} style={NUM}>{r.played}</T>
               <T w={500} size={13} color={colors.g200} style={NUM}>{gdText}</T>
-              <T w={600} size={14} color={mine ? colors.l500 : colors.g100} style={NUM}>{r.points}</T>
+              <T w={600} size={14} color={colors.g100} style={NUM}>{r.points}</T>
             </View>
           );
         })}

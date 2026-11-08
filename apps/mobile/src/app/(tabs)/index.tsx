@@ -1,7 +1,7 @@
 import { Model3D, preloadModels } from '../../ui/Model3D.tsx';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
@@ -141,7 +141,8 @@ export default function Hub() {
 
       <View style={{ paddingHorizontal: 16, gap: 12 }}>
         <FormStrip />
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        {/* A scrolling row: each chip as wide as its words, so names are never cut. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
           {g.mahalle && (
             <Chip
               label={t('mahalle.card.a11y', { name: g.mahalle.name })} onPress={() => router.push('/mahalle')} dot={mahalleReady}
@@ -150,16 +151,16 @@ export default function Hub() {
             />
           )}
           {online && !g.career && !g.careerTried
-            ? <Skeleton width="auto" height={56} radius={radius.card} style={{ flex: 1 }} />
+            ? <Skeleton width={128} height={56} radius={radius.card} />
             : (
               <Chip
                 label={offers ? t('hub.offersBannerN', { n: offers }) : t('offers.title')} onPress={() => router.push('/teklifler')} dot={offers > 0}
                 icon={<Ico name="kulup" size={32} />}
-                title={contract ? multiplierLabel(contract.tier) : offers ? t('hub.chip.offersN', { n: offers }) : t('offers.title')}
-                sub={contract ? t('hub.chip.contract') : offers ? t('hub.chip.new') : t('hub.chip.none')}
+                title={contract ? contract.clubName : offers ? t('hub.chip.offersN', { n: offers }) : t('offers.title')}
+                sub={contract ? t('hub.chip.contractMult', { mult: multiplierLabel(contract.tier) }) : offers ? t('hub.chip.new') : t('hub.chip.none')}
               />
             )}
-          {online && !g.kariyer && !g.kariyerTried && <Skeleton width="auto" height={56} radius={radius.card} style={{ flex: 1 }} />}
+          {online && !g.kariyer && !g.kariyerTried && <Skeleton width={128} height={56} radius={radius.card} />}
           {duel && (
             <Chip
               label={t('duel.chipA11y', { me: duel.me.score, them: duel.them.score, name: rivalName(duel.rival) })}
@@ -168,7 +169,7 @@ export default function Hub() {
               sub={rivalName(duel.rival)}
             />
           )}
-        </View>
+        </ScrollView>
 
         <Cta off={empty || injured} busy={starting} onPress={() => void play()} accessibilityLabel={label}>
           {empty && !injured ? <EnergyCountdown /> : <>
@@ -214,9 +215,9 @@ function Chip({ icon, title, titleColor = colors.g100, sub, dot, label, onPress 
   icon: React.ReactNode; title: string; titleColor?: string; sub: string; dot?: boolean; label: string; onPress: () => void;
 }) {
   return (
-    <Tile row label={label} onPress={onPress} style={{ flex: 1, minHeight: 56, paddingVertical: 8, paddingLeft: 8, paddingRight: 12, gap: 8, borderRadius: radius.card }}>
+    <Tile row label={label} onPress={onPress} style={{ minHeight: 56, paddingVertical: 8, paddingLeft: 8, paddingRight: 12, gap: 8, borderRadius: radius.card }}>
       {icon}
-      <View style={{ flex: 1, minWidth: 0 }}>
+      <View>
         <T w={600} size={15} color={titleColor} numberOfLines={1}>{title}</T>
         <T w={500} size={12} color={colors.g200} numberOfLines={1}>{sub}</T>
       </View>
