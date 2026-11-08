@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, lifeShowcase, lifeTop } from '@streetborn/economy';
+import { DEFAULT_CONFIG, lifeShowcase } from '@streetborn/economy';
 import { View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
@@ -10,7 +10,7 @@ import { PressableScale } from './motion.tsx';
 import { Ico, type IconAsset } from './sade.tsx';
 
 // The Yaşam showcase outside the Yaşam tab (Kaan 2026-11-08 "Şimdi aç + vitrin"): the profile
-// row, the badge on the mahalle member card and the kick-off line. Status only.
+// row and the kick-off line. Mahalle cards stay quiet: a mate's items show on their profile. Status only.
 
 const LIFE = DEFAULT_CONFIG.lifestyle;
 
@@ -58,19 +58,6 @@ export function LifeRow({ bought, onPress }: { bought: readonly string[]; onPres
     </View>
   );
 }
-
-/** The dearest item a mahalle mate owns, as a small badge on their card. Null when they own none. */
-export function LifeBadge({ bought, size = 24 }: { bought: readonly string[] | undefined; size?: number }) {
-  const top = lifeTop(bought ?? [], LIFE);
-  if (!top) return null;
-  return <Ico name={LIFE_ICON[top]!} size={size} />;
-}
-
-/** Spoken name of a mate's dearest item, for the card's accessibility label. */
-export const lifeTopName = (bought: readonly string[] | undefined) => {
-  const top = lifeTop(bought ?? [], LIFE);
-  return top ? t(`life.${top}` as Key) : null;
-};
 
 /** The kick-off line when the player came in something: "Maça arabanla geldin." Null on foot. */
 export function arrivalLine(): FeedLine | null {
