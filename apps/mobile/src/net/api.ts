@@ -166,16 +166,33 @@ export interface MahalleContribution {
   rating: number;
   cheers: number; cheered: boolean;
 }
+/** The day's opponent: an NPC mahalle, or the Mahalle Ligi rival (with its crest; bot for a bot mahalle). */
+export interface MahalleOpponent { name: string; emblem?: MahalleEmblem; color?: MahalleColor; bot?: boolean }
 export interface MahalleLastDay {
-  day: string; opponent: { name: string }; ourGoals: number; theirGoals: number; result: 'W' | 'D' | 'L';
+  day: string; opponent: MahalleOpponent; ourGoals: number; theirGoals: number; result: 'W' | 'D' | 'L';
   summary: {
     motm: string | null; turnout: boolean; fills: number;
     payouts: { player: string; coin: number; xp: number; respect: number }[];
+    /** League days: [us, them] in our members' matches and in the rival's. */
+    halves?: { ours: [number, number]; theirs: [number, number] };
   };
 }
+export interface MahalleLigTeam { slot: number; name: string; emblem: MahalleEmblem; color: MahalleColor; level: number; bot: boolean }
+/** The week's Mahalle Ligi group of the caller's mahalle. */
+export interface MahalleLig {
+  week: string;
+  /** Today's round, 0 (Monday) .. 6. */
+  round: number;
+  slot: number;
+  teams: MahalleLigTeam[];
+  results: { round: number; home: number; away: number; homeGoals: number; awayGoals: number }[];
+  /** Live score of today's rival's own matches (their best 7): goals for us, goals for them. */
+  rivalHalf: { played: number; us: number; them: number };
+}
 export interface MahalleToday {
-  me: string; day: string; opponent: { name: string } | null; played: boolean;
+  me: string; day: string; opponent: MahalleOpponent | null; played: boolean;
   contributions: MahalleContribution[]; cheersLeft: number; respect: number; last: MahalleLastDay | null;
+  lig?: MahalleLig | null;
 }
 
 /** Today's mahalle match (live contributions) and the last settled day. Null without a mahalle. */

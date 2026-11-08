@@ -10,12 +10,13 @@ import { Cta, Ghost, H3, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { Amount, Ico } from '../ui/sade.tsx';
 import { openPlayerMenu } from '../ui/player-menu.tsx';
+import { LigCard } from '../ui/mahalle-lig.tsx';
 import { TodayCard } from '../ui/mahalle-mac.tsx';
 import { closeSheet, openSheet, SheetText, toast } from '../ui/overlay.tsx';
 import { t } from '../i18n/index.ts';
 import { PressableScale } from '../ui/motion.tsx';
 
-// The player's mahalle: squad, invite code and link, leave.
+// The player's mahalle: today's match, the Mahalle Ligi group, squad, invite code and link, leave.
 
 async function shareInvite(name: string, code: string) {
   const link = `${INVITE_BASE}/davet/${code}`;
@@ -71,6 +72,8 @@ export default function Mahalle() {
       </View>
 
       <TodayCard />
+
+      <LigCard />
 
       <View style={{ gap: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
