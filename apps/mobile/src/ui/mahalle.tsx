@@ -56,7 +56,7 @@ export function Shell({ label, title, right, back = true, children, footer, onRe
         )}
         {children}
       </ScrollView>
-      {footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 10 }}>{footer}</View>}
+      {footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 12 }}>{footer}</View>}
     </KeyboardAvoidingView>
   );
 }

@@ -29,7 +29,7 @@ export default function MahalleSecim() {
     <Shell back={false}>
       {/* Back returns to the first screen; the empty guest account is simply dropped. */}
       <SetupBar onBack={() => void signOut()} />
-      <Enter style={{ gap: 18, paddingTop: 8 }}>
+      <Enter style={{ gap: 16, paddingTop: 8 }}>
         <Bubble text={t('mahalle.pick.title')} size={56} />
       </Enter>
       <View style={{ gap: 12 }}>

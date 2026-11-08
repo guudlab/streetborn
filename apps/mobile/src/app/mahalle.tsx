@@ -88,21 +88,21 @@ export default function Mahalle() {
               <PressableScale
                 key={m.playerId} disabled={m.playerId === me} onPress={() => openPlayerMenu(m.playerId, m.nick)}
                 accessibilityRole="button" accessibilityLabel={`${nick}, ${t('mahalle.home.level', { n: m.level })}${captain ? `, ${t('mahalle.home.captain')}` : ''}`}
-                style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 18, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: m.playerId === me ? colors.l600 : 'transparent' }}
+                style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 16, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: m.playerId === me ? colors.l600 : 'transparent' }}
               >
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
                   <T w={600} size={14}>{(m.nick ?? '?').slice(0, 2).toLocaleUpperCase('tr')}</T>
                   {captain && <View style={{ position: 'absolute', top: -4, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={12} color={colors.ink} /></View>}
                 </View>
                 <T w={600} size={13} numberOfLines={1} style={{ maxWidth: '90%' }}>{nick}</T>
-                <T w={600} size={11} color={colors.g300}>{t('mahalle.home.level', { n: m.level })}</T>
+                <T w={600} size={12} color={colors.g300}>{t('mahalle.home.level', { n: m.level })}</T>
               </PressableScale>
             );
           })}
           {free > 0 && (
             <PressableScale
               accessibilityRole="button" accessibilityLabel={t('mahalle.home.share')} onPress={share}
-              style={{ width: '31%', flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.g400 }}
+              style={{ width: '31%', flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.g400 }}
             >
               <Icon name="plus" size={26} color={colors.l600} />
               <T w={600} size={13} color={colors.g200}>{t('mahalle.invite.free', { n: free })}</T>
@@ -113,7 +113,7 @@ export default function Mahalle() {
 
       {free > 0 && (
         <PressableScale accessibilityRole="button" accessibilityLabel={`${t('mahalle.home.code')} ${mahalle.code}. ${t('mahalle.home.share')}`} onPress={share}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900 }}>
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.l900 }}>
           <Ico name="anahtar" size={40} />
           <T w={600} size={26} style={{ flex: 1, letterSpacing: 5 }}>{mahalle.code}</T>
           <Icon name="share" size={22} color={colors.l600} />
