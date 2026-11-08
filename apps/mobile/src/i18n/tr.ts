@@ -343,6 +343,8 @@ export const tr = {
   'train.grade.iyi': 'İyi',
   'train.grade.kacti': 'Kaçtı',
   'train.noProgress': 'İlerleme yok, sadece deneyim',
+  'train.improves': '{stat} gelişir',
+  'train.nextPoint': 'Sonraki puan: {stat} {n}',
   'train.progress': 'İlerleme {n}/{need}',
   'train.levelUp': ' · Seviye {n}!',
 

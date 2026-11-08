@@ -117,7 +117,7 @@ function TenekeDemo() {
       ))}
       <Mover p={p} x={ball} y={ballY} size={{ w: 26, h: 26 }} scale={[[0.5, 0.64], [1, 0.6]]} opacity={[[0, 0.64, 0.72], [1, 1, 0]]}>{img(ICONS.ball, 26)}</Mover>
       <Mover p={p} x={72} y={148} size={{ w: 44, h: 44 }} scale={[[0.2, 0.46], [2, 1]]} opacity={[[0.19, 0.2, 0.46, 0.5], [0, 1, 1, 0]]}>
-        <View style={{ flex: 1, borderRadius: 22, borderWidth: 2.5, borderColor: colors.l600 }} />
+        <View style={{ flex: 1, borderRadius: 20, borderWidth: 2.5, borderColor: colors.l600 }} />
       </Mover>
       <Hand p={p} x={[[0, 0.16, 0.18, 0.46, 0.56], [130, 92, 92, 72, 60]]} y={[[0, 0.16, 0.18, 0.46, 0.56], [170, 126, 126, 148, 168]]} opacity={[[0, 0.08, 0.16, 0.48, 0.56], [0, 0, 1, 1, 0]]} />
     </>
@@ -329,7 +329,7 @@ export function HowToSteps({ drill }: { drill: HowToKind }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
       {Array.from({ length: STEPS[drill] }, (_, i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 6, paddingRight: 14, borderRadius: 20, backgroundColor: colors.s2 }}>
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 6, paddingRight: 16, borderRadius: 20, backgroundColor: colors.s2 }}>
           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
             <T w={600} size={14} color={colors.ink}>{i + 1}</T>
           </View>
@@ -344,19 +344,19 @@ export function HowToSteps({ drill }: { drill: HowToKind }) {
 export function HowTo({ drill, name, onDone, style }: { drill: HowToKind; name: string; onDone(): void; style?: ViewStyle }) {
   const Demo = DEMOS[drill];
   return (
-    <View style={[{ alignItems: 'center', gap: 18, paddingHorizontal: 20 }, style]}>
+    <View style={[{ alignItems: 'center', gap: 16, paddingHorizontal: 20 }, style]}>
       <View style={{ alignItems: 'center', gap: 4 }}>
         <T w={600} size={14} color={colors.l600}>{t('howto.title')}</T>
         <T w={600} size={24} accessibilityRole="header">{name}</T>
       </View>
       <View
         accessible accessibilityRole="image" accessibilityLabel={t(`howto.${drill}` as Key)}
-        style={{ width: W, height: H, borderRadius: 22, overflow: 'hidden', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
+        style={{ width: W, height: H, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
       >
         <Demo />
       </View>
       <HowToSteps drill={drill} />
-      <Cta style={{ alignSelf: 'stretch', marginTop: 6 }} onPress={onDone} accessibilityLabel={t('howto.ok')}>
+      <Cta style={{ alignSelf: 'stretch', marginTop: 8 }} onPress={onDone} accessibilityLabel={t('howto.ok')}>
         <T w={600} size={17} color={colors.ink}>{t('howto.ok')}</T>
       </Cta>
     </View>

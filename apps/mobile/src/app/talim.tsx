@@ -113,7 +113,7 @@ export default function Talim() {
   const Game = GAMES[key];
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, paddingTop: insets.top + 8 }}>
-      <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 10 }}>
+      <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
           <PressableScale
             accessibilityRole="button" accessibilityLabel={t('talim.close')} onPress={quit} disabled={phase === 'saving'} hitSlop={8}
@@ -227,15 +227,15 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
         ))}
         {r.stars >= 3 && <Sparkles />}
       </View>
-      <View style={{ alignItems: 'center', gap: 10 }}>
+      <View style={{ alignItems: 'center', gap: 12 }}>
         <H1 accessibilityRole="header" style={{ fontSize: 34, lineHeight: 38 }}>{t(GRADE_KEY[r.grade])}</H1>
-        <View style={{ backgroundColor: newRecord ? colors.l900 : colors.s2, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
+        <View style={{ backgroundColor: newRecord ? colors.l900 : colors.s2, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 12 }}>
           <T w={600} size={14} color={newRecord ? colors.l500 : colors.g200}>{chip}</T>
         </View>
       </View>
 
       {/* What the drill paid, as cards: the stat and its steps to the next point, XP, then the extras. */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 4 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 4 }}>
         {!omuz && (
           <RewardCard
             icon={<Ico name={DRILL_ICON[r.key]} size={44} />} value={r.statUp ? `+${r.statUp}` : `${r.after}`}
@@ -259,7 +259,7 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
 
       <View style={{ flex: 1 }} />
       <Bubble text={line} style={{ alignSelf: 'stretch' }} />
-      <View style={{ alignSelf: 'stretch', flexDirection: 'row', gap: 10 }}>
+      <View style={{ alignSelf: 'stretch', flexDirection: 'row', gap: 8 }}>
         <PressableScale
           accessibilityRole="button" onPress={onOk}
           style={{ flex: 1, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}

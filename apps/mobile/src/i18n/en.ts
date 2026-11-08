@@ -344,6 +344,8 @@ export const en: Record<Key, string> = {
   'train.grade.iyi': 'Good',
   'train.grade.kacti': 'Missed',
   'train.noProgress': 'No progress, experience only',
+  'train.improves': 'Improves {stat}',
+  'train.nextPoint': 'Next point: {stat} {n}',
   'train.progress': 'Progress {n}/{need}',
   'train.levelUp': ' · Level {n}!',
 
