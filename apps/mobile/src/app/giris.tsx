@@ -67,9 +67,9 @@ export default function Giris() {
       <Animated.View pointerEvents="none" style={{ alignItems: 'center', marginTop: insets.top + 28, opacity: intro.logo }}>
         <Image source={LOGO} style={{ width: 168, height: 31, alignSelf: 'flex-start', marginLeft: 20 }} contentFit="contain" accessibilityLabel="StreetBorn" />
         <Animated.View style={{ opacity: head }}>
-        <T w={700} size={26} style={{ letterSpacing: -0.4, marginTop: 28, height: 32 }}>
-          {revealed ? <>{t('login.badgeA')}<T w={700} size={26} color={colors.l600}>{t('login.badgeB')}</T></>
-            : <>{t('login.packA')}<T w={700} size={26} color={colors.l600}>{t('login.packB')}</T></>}
+        <T w={600} size={26} style={{ marginTop: 28, height: 32 }}>
+          {revealed ? <>{t('login.badgeA')}<T w={600} size={26} color={colors.l600}>{t('login.badgeB')}</T></>
+            : <>{t('login.packA')}<T w={600} size={26} color={colors.l600}>{t('login.packB')}</T></>}
         </T>
         </Animated.View>
       </Animated.View>
@@ -116,8 +116,8 @@ export default function Giris() {
           accessibilityRole="link" accessibilityLabel={t('privacy.title')}
           style={{ paddingVertical: 4 }}
         >
-          <T w={500} size={11} color={colors.g300} style={{ textAlign: 'center', lineHeight: 16 }}>
-            {t('login.termsA')}<T w={600} size={11} color={colors.g100} style={{ textDecorationLine: 'underline' }}>{t('login.termsLink')}</T>{t('login.termsB')}
+          <T w={500} size={12} color={colors.g300} style={{ textAlign: 'center', lineHeight: 16 }}>
+            {t('login.termsA')}<T w={600} size={12} color={colors.g100} style={{ textDecorationLine: 'underline' }}>{t('login.termsLink')}</T>{t('login.termsB')}
           </T>
         </Pressable>
       </View>
@@ -173,7 +173,7 @@ function TapHint({ hidden }: { hidden: boolean }) {
   }, [k]);
   return (
     <Animated.View pointerEvents="none" style={{ height: 56, alignItems: 'center', justifyContent: 'center', gap: 8, opacity: hidden ? 0 : k }}>
-      <T w={700} size={16} style={{ letterSpacing: 3 }}>{t('login.tap')}</T>
+      <T w={600} size={16} style={{ letterSpacing: 3 }}>{t('login.tap')}</T>
       <View style={{ width: 120, height: 4, borderRadius: 2, backgroundColor: colors.l600, shadowColor: colors.l600, shadowOpacity: 0.8, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }} />
     </Animated.View>
   );

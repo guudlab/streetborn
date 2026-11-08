@@ -75,7 +75,7 @@ export default function Yasam() {
           const locked = level < i.unlockLevel;
           return (
             <Tile
-              key={i.id} selected={mine} onPress={() => open(i)} style={{ width: '48%', flexGrow: 1, minHeight: 152, gap: 4 }}
+              key={i.id} onPress={() => open(i)} style={{ width: '48%', flexGrow: 1, minHeight: 152, gap: 4 }}
               label={`${name(i)}, ${mine ? t('life.owned') : locked ? t('life.level', { n: i.unlockLevel }) : `${num(i.price)} coin`}`}
             >
               <Ico name={ICON[i.id]!} size={72} dim={locked} />

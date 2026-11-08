@@ -662,6 +662,7 @@ declare
   teams jsonb;
   fixtures jsonb;
   shift integer;
+  w integer;
   r integer;
   rest integer[];
   g uuid;
@@ -680,7 +681,9 @@ begin
     || (select jsonb_agg(jsonb_build_object('slot', s, 'botKey', 'bot' || s, 'name', 'Bot ' || s, 'emblem', 'diamond', 'color', 'teal', 'level', 4))
           from generate_series(2, 7) s);
   -- Two weeks of fixtures: last week slots 0 and 1 meet in round 0, this week in today's round.
-  foreach shift in array array[0, rt] loop
+  -- Loop over the week, not the shift: on a Monday today's round is 0 too.
+  for w in 0..1 loop
+    shift := case when w = 0 then 0 else rt end;
     fixtures := '[]'::jsonb;
     for r in 0..6 loop
       rest := array(select s from generate_series(1, 7) s where s <> ((r - shift + 7) % 7) + 1);
@@ -690,7 +693,7 @@ begin
         || jsonb_build_object('round', r, 'home', rest[3], 'away', rest[4])
         || jsonb_build_object('round', r, 'home', rest[5], 'away', rest[6]);
     end loop;
-    if lig_kur(case when shift = 0 then pw else wk end, jsonb_build_array(jsonb_build_object('no', 0, 'teams', teams, 'fixtures', fixtures))) <> 1 then
+    if lig_kur(case when w = 0 then pw else wk end, jsonb_build_array(jsonb_build_object('no', 0, 'teams', teams, 'fixtures', fixtures))) <> 1 then
       raise exception 'group not created';
     end if;
   end loop;

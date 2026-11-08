@@ -28,7 +28,7 @@ export function openSettingsSheet() {
   openSheet(<><H3>{t('settings.title')}</H3><SoundToggles /><ProfileRow /><AccountRow /></>);
 }
 
-/** Opens the profile screen, where the account and the sign-out button live. */
+/** Opens the profile screen; its gear leads to Ayarlar, where the account and sign-out live. */
 function ProfileRow() {
   const name = useGame(s => s.name);
   const online = useGame(s => s.mode === 'online');

@@ -86,15 +86,16 @@ export function FormStrip() {
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <T w={600} size={13} color={FORM_COLOR[c.form.level]} numberOfLines={1}>{label}</T>
-          <T w={600} size={13} color={low ? colors.bad : colors.g100}>{c.morale}</T>
+          <T w={500} size={13} color={low ? colors.bad : colors.g200}>{t('form.moraleShort', { n: c.morale })}</T>
         </View>
         <Track value={c.morale / 100} height={5} color={low ? colors.bad : colors.l600} />
       </View>
       {!c.choseToday
         ? (
-          // Lime on dark, not solid lime: the play button stays the one loud thing on the hub.
-          <View style={{ height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.l900, borderWidth: 1, borderColor: colors.l700, alignItems: 'center', justifyContent: 'center' }}>
-            <T w={600} size={13} color={colors.l500}>{t('choice.pill')}</T>
+          // Lime words, not a pill: the play button stays the one loud thing on the hub.
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, minHeight: 32 }}>
+            <T w={600} size={14} color={colors.l600}>{t('choice.pill')}</T>
+            <Icon name="chev" size={14} color={colors.l600} />
           </View>
         )
         : c.choice

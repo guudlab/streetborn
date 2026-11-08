@@ -56,19 +56,21 @@ export default function Sakatlik() {
       footer={
         <>
           <Cta off={coins < cost} busy={busy} onPress={() => void heal()} accessibilityLabel={`${t('injury.massage')}, ${cost} coin`}>
-            <Amount icon="coin" size={26} textSize={16} color={coins < cost ? colors.g200 : colors.ink}>{cost}</Amount>
             <T w={600} size={16} color={coins < cost ? colors.g200 : colors.ink}>{t('injury.massage')}</T>
+            <Amount icon="coin" size={24} textSize={15} color={coins < cost ? colors.g200 : colors.ink}>{cost}</Amount>
           </Cta>
           <Ghost onPress={() => router.back()}>{t('common.close')}</Ghost>
         </>
       }
     >
-      <View style={{ alignItems: 'center', gap: 8, paddingTop: 16 }}>
-        <View style={{ width: 96, height: 96, borderRadius: 28, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="plus" size={48} color={colors.bad} />
+      {/* Time left is the hero number; the injury's name sits under it. */}
+      <View style={{ alignItems: 'center', gap: 8, paddingTop: 24 }}>
+        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#3A1D19', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="plus" size={28} color={colors.bad} />
         </View>
-        <T w={600} size={24} accessibilityRole="header">{injuryName(injury.kind)}</T>
-        <T w={600} size={16} color={colors.g200} accessibilityLiveRegion="polite">{t('injury.left', { t: timeLeft(left) })}</T>
+        <T w={600} size={48} style={{ lineHeight: 52, fontVariant: ['tabular-nums'] }} accessibilityLiveRegion="polite" accessibilityLabel={t('injury.left', { t: timeLeft(left) })}>{timeLeft(left)}</T>
+        <T w={500} size={13} color={colors.g200}>{t('injury.leftLabel')}</T>
+        <T w={600} size={20} accessibilityRole="header" style={{ marginTop: 8 }}>{injuryName(injury.kind)}</T>
       </View>
       <Bubble text={t('injury.line')} />
       <T size={13} color={colors.g200} style={{ textAlign: 'center', lineHeight: 19 }}>{t('injury.note')}</T>

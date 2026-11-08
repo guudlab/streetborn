@@ -137,6 +137,7 @@ export default function RootLayout() {
               <Stack.Screen name="mahalle" options={slide} />
               <Stack.Screen name="teklifler" options={slide} />
               <Stack.Screen name="profil" options={slide} />
+              <Stack.Screen name="ayarlar" options={slide} />
               <Stack.Screen name="rakip" options={slide} />
               <Stack.Screen name="kupalar" options={slide} />
               <Stack.Screen name="sakatlik" options={slide} />

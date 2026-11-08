@@ -32,7 +32,6 @@ const LAST = 5;
 
 const POS_ICON: Record<Position, IconAsset> = { bitirici: 'sut', oyunKurucu: 'pas', kanat: 'calim' };
 const DREAM_ICON: Record<Dream, IconAsset> = { milli: 'milliForma', avrupa: 'cup', saha: 'halisaha' };
-const TRAIT_EMOJI: Record<Trait, string> = { hirsli: '🔥', sakin: '🧊', caliskan: '🛠️', sovmen: '✨', lider: '👑', sert: '💥' };
 const SUGGEST: Key[] = ['char.nick.s1', 'char.nick.s2', 'char.nick.s3', 'char.nick.s4', 'char.nick.s5', 'char.nick.s6'];
 
 export default function Karakter() {
@@ -142,7 +141,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
   return (
     <>
       <Enter key={step}><Bubble text={title} size={48} /></Enter>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 12, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, gap: 12, paddingTop: 8, paddingBottom: 2 }} showsVerticalScrollIndicator={false}>
         {step === 1 && POSITIONS.map((p, i) => (
           <Enter key={p} i={i + 1}>
             <Tile row role="radio" selected={c.position === p} label={`${t(`char.pos.${p}`)}, ${t(`char.pos.${p}.role`)}`} onPress={() => onChange({ ...c, position: p })} style={{ minHeight: 88 }}>
@@ -155,9 +154,9 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {TRAITS.map((k: Trait, i) => (
               <Enter key={k} i={i + 1} style={{ width: '48%', flexGrow: 1 }}>
-                <Tile role="radio" selected={c.trait === k} label={t(`char.trait.${k}`)} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 92 }}>
-                  <T size={28} accessibilityElementsHidden importantForAccessibility="no">{TRAIT_EMOJI[k]}</T>
+                <Tile role="radio" selected={c.trait === k} label={`${t(`char.trait.${k}`)}, ${t(`char.trait.${k}.sub`)}`} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 80, alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 16, gap: 4 }}>
                   <T w={600} size={16}>{t(`char.trait.${k}`)}</T>
+                  <T w={500} size={13} color={colors.g200}>{t(`char.trait.${k}.sub`)}</T>
                 </Tile>
               </Enter>
             ))}

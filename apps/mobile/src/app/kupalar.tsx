@@ -5,7 +5,6 @@ import { useGame } from '../game/store.ts';
 import type { AchievementView } from '../net/api.ts';
 import { colors } from '../theme.ts';
 import { achDesc, achIcon, achName, achProgress } from '../ui/kariyer.tsx';
-import { Icon } from '../ui/Icon.tsx';
 import { Caps, Cta, H3, Section, T, Track } from '../ui/kit.tsx';
 import { Enter, Skeleton } from '../ui/motion.tsx';
 import { ErrorState } from '../ui/states.tsx';
@@ -28,13 +27,17 @@ export default function Kupalar() {
   const done = list?.filter(a => a.unlocked).length ?? 0;
 
   return (
-    <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined} right={list ? <T w={600} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
+    <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined}>
       {list && (
-        <View style={{ alignItems: 'center', gap: 12, paddingVertical: 4 }}>
-          <Ico name="cup" size={96} dim={done === 0} />
-          <View style={{ width: '70%' }}><Track value={list.length ? done / list.length : 0} /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }} accessible accessibilityLabel={t('ach.count', { n: done, m: list.length })}>
+          <View>
+            <T w={600} size={56} style={{ lineHeight: 60, fontVariant: ['tabular-nums'] }}>{done}</T>
+            <Caps>{t('ach.ofTotal', { m: list.length })}</Caps>
+          </View>
+          <View style={{ flex: 1, paddingBottom: 8 }}><Track value={list.length ? done / list.length : 0} /></View>
         </View>
       )}
+      {list && <NextTrophy list={list} />}
       {loading && (
         <>
           <View style={{ alignItems: 'center', gap: 12, paddingVertical: 4 }}>
@@ -65,17 +68,43 @@ export default function Kupalar() {
 }
 
 function Trophy({ a, i }: { a: AchievementView; i: number }) {
+  // Unlocked trophies are in full colour; locked ones are dimmed with a thin progress bar.
+  // No lime frames here: the one lit card on this screen is the next trophy above.
   return (
     <Enter i={i} style={{ flexBasis: '31%', flexGrow: 0, flexShrink: 0 }}>
       <Tile
-        selected={a.unlocked} onPress={() => open(a)} style={{ minHeight: 132 }}
+        onPress={() => open(a)} style={{ minHeight: 128 }}
         label={t('ach.a11y', { name: achName(a.key), state: a.unlocked ? t('ach.unlocked') : achProgress(a) })}
       >
         <Ico name={achIcon(a.key)} size={52} dim={!a.unlocked} />
-        <T w={600} size={12} numberOfLines={2} style={{ textAlign: 'center', minHeight: 30 }} color={a.unlocked ? colors.g100 : colors.g200}>{achName(a.key)}</T>
-        {a.unlocked ? <Icon name="check" size={16} color={colors.l600} /> : <T w={600} size={11} color={colors.g300}>{achProgress(a)}</T>}
+        <T w={a.unlocked ? 600 : 500} size={12} numberOfLines={2} style={{ textAlign: 'center', minHeight: 32 }} color={a.unlocked ? colors.g100 : colors.g200}>{achName(a.key)}</T>
+        {!a.unlocked && (
+          <View style={{ width: 56, height: 4, borderRadius: 2, backgroundColor: colors.s3, overflow: 'hidden' }}>
+            <View style={{ width: `${Math.min(100, (a.value / a.target) * 100)}%`, height: '100%', backgroundColor: colors.g300 }} />
+          </View>
+        )}
       </Tile>
     </Enter>
+  );
+}
+
+/** The locked trophy the player is closest to, with its reward: the screen's lit card. */
+function NextTrophy({ list }: { list: AchievementView[] }) {
+  const next = list.filter(a => !a.unlocked).sort((x, y) => y.value / y.target - x.value / x.target)[0];
+  if (!next) return null;
+  return (
+    <Tile
+      row selected onPress={() => open(next)} style={{ minHeight: 88 }}
+      label={`${t('ach.next')}: ${achName(next.key)}, ${achProgress(next)}`}
+    >
+      <Ico name={achIcon(next.key)} size={56} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Caps>{t('ach.next')}</Caps>
+        <T w={600} size={17} numberOfLines={1}>{achName(next.key)}</T>
+        <T w={500} size={13} color={colors.g200} numberOfLines={2}>{t('ach.nextReward', { coin: next.coin })}</T>
+      </View>
+      <T w={600} size={22} style={{ fontVariant: ['tabular-nums'] }}>{achProgress(next)}</T>
+    </Tile>
   );
 }
 

@@ -330,8 +330,9 @@ export function HowToSteps({ drill }: { drill: HowToKind }) {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
       {Array.from({ length: STEPS[drill] }, (_, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 6, paddingRight: 16, borderRadius: 20, backgroundColor: colors.s2 }}>
-          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
-            <T w={600} size={14} color={colors.ink}>{i + 1}</T>
+          {/* Grey step numbers: the lime belongs to the start button under them. */}
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+            <T w={600} size={14} color={colors.g100}>{i + 1}</T>
           </View>
           <T w={600} size={15}>{t(`howto.${drill}.${i + 1}` as Key)}</T>
         </View>
