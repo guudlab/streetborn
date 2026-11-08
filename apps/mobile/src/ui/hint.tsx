@@ -85,7 +85,7 @@ export function JobsPips() {
     <View accessible accessibilityLabel={`${t('jobs.title')} ${done}/${jobs.length}. ${t('jobs.next', { task: t(next.key) })}`}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 46, marginTop: 6 }}>
       {jobs.map((j, i) => <View key={i} style={{ width: 16, height: 5, borderRadius: 3, backgroundColor: j.done ? colors.l600 : colors.s3 }} />)}
-      {online && <><Ico name="coin" size={16} style={{ marginLeft: 4 }} /><T w={700} size={12} color={colors.g200}>{DEFAULT_CONFIG.shop.jobsCoin}</T></>}
+      {online && <><Ico name="coin" size={16} style={{ marginLeft: 4 }} /><T w={600} size={12} color={colors.g200}>{DEFAULT_CONFIG.shop.jobsCoin}</T></>}
     </View>
   );
 }
@@ -101,8 +101,8 @@ export function JobsChip() {
     <View accessible accessibilityLabel={`${t('jobs.title')} ${done}/${jobs.length}. ${line}`}
       style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.s2, paddingVertical: 10, paddingHorizontal: 14, gap: 8 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-        <T w={700} size={13}>{t('jobs.title')}</T>
-        <T w={700} size={13} color={colors.l500}>{done}/{jobs.length}</T>
+        <T w={600} size={13}>{t('jobs.title')}</T>
+        <T w={600} size={13} color={colors.l500}>{done}/{jobs.length}</T>
       </View>
       <Segments n={done} of={jobs.length} />
       <T w={500} size={13} color={colors.g200} numberOfLines={2}>{line}</T>

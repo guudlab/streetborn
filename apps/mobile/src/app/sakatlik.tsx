@@ -35,7 +35,7 @@ export default function Sakatlik() {
           <View style={{ width: 88, height: 88, borderRadius: 28, backgroundColor: colors.l900, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="check" size={44} color={colors.l500} />
           </View>
-          <T w={700} size={22}>{t('injury.massageDone')}</T>
+          <T w={600} size={22}>{t('injury.massageDone')}</T>
         </View>
       </Shell>
     );
@@ -57,7 +57,7 @@ export default function Sakatlik() {
         <>
           <Cta off={coins < cost} busy={busy} onPress={() => void heal()} accessibilityLabel={`${t('injury.massage')}, ${cost} coin`}>
             <Amount icon="coin" size={26} textSize={16} color={coins < cost ? colors.g200 : colors.ink}>{cost}</Amount>
-            <T w={700} size={16} color={coins < cost ? colors.g200 : colors.ink}>{t('injury.massage')}</T>
+            <T w={600} size={16} color={coins < cost ? colors.g200 : colors.ink}>{t('injury.massage')}</T>
           </Cta>
           <Ghost onPress={() => router.back()}>{t('common.close')}</Ghost>
         </>
@@ -67,7 +67,7 @@ export default function Sakatlik() {
         <View style={{ width: 96, height: 96, borderRadius: 30, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="plus" size={48} color={colors.bad} />
         </View>
-        <T w={700} size={24} accessibilityRole="header">{injuryName(injury.kind)}</T>
+        <T w={600} size={24} accessibilityRole="header">{injuryName(injury.kind)}</T>
         <T w={600} size={16} color={colors.g200} accessibilityLiveRegion="polite">{t('injury.left', { t: timeLeft(left) })}</T>
       </View>
       <Bubble text={t('injury.line')} />

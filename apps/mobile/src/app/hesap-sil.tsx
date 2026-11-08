@@ -78,7 +78,7 @@ export default function HesapSil() {
           <View style={{ width: 80, height: 80, borderRadius: 26, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trash" size={38} color={colors.bad} />
           </View>
-          <T w={700} size={22} style={{ textAlign: 'center' }} accessibilityRole="header">{t('delete.headline')}</T>
+          <T w={600} size={22} style={{ textAlign: 'center' }} accessibilityRole="header">{t('delete.headline')}</T>
           <T size={14} color={colors.g200} style={{ textAlign: 'center', lineHeight: 20 }}>{t('delete.sub')}</T>
         </View>
 

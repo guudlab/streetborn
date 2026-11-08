@@ -42,7 +42,7 @@ export default function Yasam() {
           {i.price > 0 && <Amount icon="coin" size={26} textSize={18}>{num(i.price)}</Amount>}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Icon name={locked ? 'lock' : 'check'} size={18} color={locked ? colors.g200 : colors.l600} />
-            <T w={700} size={18} color={locked ? colors.g200 : colors.l600}>{t('life.level', { n: i.unlockLevel })}</T>
+            <T w={600} size={18} color={locked ? colors.g200 : colors.l600}>{t('life.level', { n: i.unlockLevel })}</T>
           </View>
         </View>
         {i.id === 'halisaha' && <SheetText>{t('life.halisahaIncome', { n: DEFAULT_CONFIG.lifestyle.halisahaIncomePerDay })}</SheetText>}
@@ -77,7 +77,7 @@ export default function Yasam() {
               ) : locked ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Icon name="lock" size={15} color={colors.g200} />
-                  <T w={700} size={14} color={colors.g200}>{t('life.level', { n: i.unlockLevel })}</T>
+                  <T w={600} size={14} color={colors.g200}>{t('life.level', { n: i.unlockLevel })}</T>
                 </View>
               ) : (
                 <Amount icon="coin" size={20} textSize={14}>{num(i.price)}</Amount>

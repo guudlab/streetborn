@@ -43,7 +43,7 @@ export function SetupBar({ onBack, account = true, label }: { onBack?: () => voi
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
       {onBack ? <SetupBack onPress={onBack} /> : <View />}
-      {label ? <T w={600} size={11} color={colors.g200} style={{ letterSpacing: 1, flex: 1, textAlign: 'center' }}>{label}</T> : null}
+      {label ? <T w={500} size={13} color={colors.g200} style={{ flex: 1, textAlign: 'center' }}>{label}</T> : null}
       {account ? <HaveAccount /> : <View />}
     </View>
   );

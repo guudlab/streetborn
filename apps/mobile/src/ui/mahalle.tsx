@@ -49,8 +49,8 @@ export function Shell({ label, title, right, back = true, children, footer, onRe
                 <Icon name="back" color={colors.g100} />
               </PressableScale>
             )}
-            {label && <T w={600} size={11} color={colors.g200} style={{ letterSpacing: 1 }}>{label}</T>}
-            {title && <T w={700} size={20} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{title}</T>}
+            {label && <T w={500} size={13} color={colors.g200}>{label}</T>}
+            {title && <T w={600} size={20} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{title}</T>}
             {right}
           </View>
         )}

@@ -147,7 +147,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
           <Enter key={p} i={i + 1}>
             <Tile row role="radio" selected={c.position === p} label={`${t(`char.pos.${p}`)}, ${t(`char.pos.${p}.role`)}`} onPress={() => onChange({ ...c, position: p })} style={{ minHeight: 88 }}>
               <Ico name={POS_ICON[p]} size={60} />
-              <T w={700} size={18} style={{ flex: 1 }}>{t(`char.pos.${p}`)}</T>
+              <T w={600} size={18} style={{ flex: 1 }}>{t(`char.pos.${p}`)}</T>
             </Tile>
           </Enter>
         ))}
@@ -157,7 +157,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
               <Enter key={k} i={i + 1} style={{ width: '48%', flexGrow: 1 }}>
                 <Tile role="radio" selected={c.trait === k} label={t(`char.trait.${k}`)} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 92 }}>
                   <T size={28} accessibilityElementsHidden importantForAccessibility="no">{TRAIT_EMOJI[k]}</T>
-                  <T w={700} size={16}>{t(`char.trait.${k}`)}</T>
+                  <T w={600} size={16}>{t(`char.trait.${k}`)}</T>
                 </Tile>
               </Enter>
             ))}
@@ -167,7 +167,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
           <Enter key={d} i={i + 1}>
             <Tile row role="radio" selected={c.dream === d} label={t(`char.dream.${d}`)} onPress={() => onChange({ ...c, dream: d })} style={{ minHeight: 88 }}>
               <Ico name={DREAM_ICON[d]} size={60} />
-              <T w={700} size={18} style={{ flex: 1 }}>{t(`char.dream.${d}`)}</T>
+              <T w={600} size={18} style={{ flex: 1 }}>{t(`char.dream.${d}`)}</T>
             </Tile>
           </Enter>
         ))}
@@ -180,7 +180,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
 function Chip({ children, selected, onPress }: { children: string; selected: boolean; onPress: () => void }) {
   return (
     <Tile role="radio" selected={selected} label={children} onPress={onPress} style={{ width: '31%', flexGrow: 1, height: 48, paddingVertical: 0, borderRadius: 16 }}>
-      <T w={700} size={15} color={selected ? colors.l500 : colors.g100}>{children}</T>
+      <T w={600} size={15} color={selected ? colors.l500 : colors.g100}>{children}</T>
     </Tile>
   );
 }
@@ -254,7 +254,7 @@ function Nick({ nick, onChange, busy, onDone, error }: { nick: string; onChange:
           accessibilityLabel={t('char.nick.a11y')} selectionColor={colors.l600}
           style={{
             height: 68, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1.5, borderColor: error ? colors.bad : colors.l600,
-            paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_700Bold', fontSize: 26, textAlign: 'center',
+            paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_600SemiBold', fontSize: 26, textAlign: 'center',
           }}
         />
         {error && <T w={500} size={13} color={colors.bad} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{error}</T>}

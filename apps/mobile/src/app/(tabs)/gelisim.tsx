@@ -98,7 +98,7 @@ export default function Gelisim() {
         <H1>{t('tab.train')}</H1>
         <View accessible accessibilityLabel={`${t('train.overall')} ${ovr(g.stats)}`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
           <Caps>{t('hub.ovr')}</Caps>
-          <T w={700} size={30}>{ovr(g.stats)}</T>
+          <T w={600} size={30}>{ovr(g.stats)}</T>
         </View>
       </View>
       <Bubble text={g.drillStars[daily] === 3 || g.drillStars.omuz === 3 ? t('daily.ready') : t(`daily.${today}`)} size={36} />
@@ -116,7 +116,7 @@ export default function Gelisim() {
             >
               {k === daily && <View style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={14} color={colors.ink} /></View>}
               <Ring progress={g.drillProgress[k] / need(k)} size={72}><Ico name={STAT_ICON[k]} size={48} /></Ring>
-              <T w={700} size={26} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
+              <T w={600} size={26} color={flash ? colors.l600 : colors.g100}>{g.stats[k]}</T>
             </Tile>
           );
         })}
@@ -126,7 +126,7 @@ export default function Gelisim() {
         >
           <Ico name="calim" size={48} />
           <View style={{ flex: 1, gap: 2 }}>
-            <T w={700} size={16}>{DRILLS.omuz.name}</T>
+            <T w={600} size={16}>{DRILLS.omuz.name}</T>
             <T w={600} size={13} color={colors.g200}>{DRILLS.omuz.stat} · {t('talim.prep')}</T>
           </View>
           <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -150,12 +150,12 @@ export default function Gelisim() {
           onPress={() => void startDrill()}
           accessibilityLabel={`${d.name}: ${can ? t('common.start') : t('train.noEnergy')}`}
         >
-          <T w={700} size={17} color={can ? colors.ink : colors.g200}>{can ? d.name : t('train.noEnergy')}</T>
+          <T w={600} size={17} color={can ? colors.ink : colors.g200}>{can ? d.name : t('train.noEnergy')}</T>
           {can && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
               {g.trainFree > 0
-                ? <T w={700} size={13} color={colors.ink}>{t('train.freeShort', { n: g.trainFree })}</T>
-                : <><Icon name="bolt" size={15} color={colors.ink} /><T w={700} size={14} color={colors.ink}>1</T></>}
+                ? <T w={600} size={13} color={colors.ink}>{t('train.freeShort', { n: g.trainFree })}</T>
+                : <><Icon name="bolt" size={15} color={colors.ink} /><T w={600} size={14} color={colors.ink}>1</T></>}
             </View>
           )}
         </Cta>
@@ -168,7 +168,7 @@ export default function Gelisim() {
             <CoachFace size={34} />
             <View style={{ alignItems: 'center' }}>
               <Ico name="coin" size={18} />
-              <T w={700} size={11}>{cost}</T>
+              <T w={600} size={11}>{cost}</T>
             </View>
           </PressableScale>
         )}
@@ -201,11 +201,11 @@ function DrillResult({ r, stat, level, need }: { r: TrainResult; stat: string; l
   return (
     <View accessibilityLiveRegion="polite" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
       <Icon name={G.icon} size={24} color={G.color} />
-      <T w={700} size={17} color={G.color}>{G.label}</T>
-      <T w={700} size={15}>+{r.xp} XP</T>
+      <T w={600} size={17} color={G.color}>{G.label}</T>
+      <T w={600} size={15}>+{r.xp} XP</T>
       {r.coin ? <Amount icon="coin" size={18} textSize={14}>−{r.coin}</Amount> : null}
       {sub !== '' && <T w={600} size={13} color={colors.g200}>{sub}</T>}
-      {r.ups ? <T w={700} size={13} color={colors.l600}>{t('post.level', { n: level })}</T> : null}
+      {r.ups ? <T w={600} size={13} color={colors.l600}>{t('post.level', { n: level })}</T> : null}
     </View>
   );
 }

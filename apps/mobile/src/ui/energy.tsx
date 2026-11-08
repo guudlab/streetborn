@@ -79,7 +79,7 @@ export function EnergyTiles() {
         <Ico name="enerji" size={48} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Icon name="ad" size={18} color={colors.g100} />
-          <T w={700} size={15}>+1</T>
+          <T w={600} size={15}>+1</T>
         </View>
       </Tile>}
       <Tile
@@ -88,7 +88,7 @@ export function EnergyTiles() {
       >
         <Ico name="enerji" size={48} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <T w={700} size={15}>{t('energy.fillShort')}</T>
+          <T w={600} size={15}>{t('energy.fillShort')}</T>
           <Amount icon="gem" size={18} textSize={15}>{a.cost}</Amount>
         </View>
       </Tile>

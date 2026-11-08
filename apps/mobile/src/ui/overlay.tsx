@@ -158,7 +158,7 @@ function Toast({ toast: { text, kind, action } }: { toast: ToastState }) {
             onPress={() => { buzz(); useOverlay.getState().hideToast(); action.onPress(); }}
             style={({ pressed }) => ({ minHeight: 34, paddingHorizontal: 12, borderRadius: 17, justifyContent: 'center', backgroundColor: pressed ? 'rgba(13,13,13,.16)' : 'rgba(13,13,13,.08)' })}
           >
-            <T w={700} size={14} color={colors.l900}>{action.label}</T>
+            <T w={600} size={14} color={colors.l900}>{action.label}</T>
           </Pressable>
         )}
       </View>

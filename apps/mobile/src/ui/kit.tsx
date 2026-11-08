@@ -7,7 +7,7 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 
 import { sfx } from '../audio/audio.ts';
-import { colors, fonts, MAX_FONT_SCALE, motion, shadow, type Weight } from '../theme.ts';
+import { colors, fonts, MAX_FONT_SCALE, motion, radius, shadow, type Weight } from '../theme.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { PressableScale, useReduceMotion } from './motion.tsx';
 import { t } from '../i18n/index.ts';
@@ -25,8 +25,19 @@ export function T({ w = 400, size = 15, color = colors.g100, style, maxFontSizeM
   return <Text {...rest} maxFontSizeMultiplier={maxFontSizeMultiplier} style={[{ fontFamily: fonts[w], fontSize: size, color, fontVariant: ['tabular-nums'] }, style]} />;
 }
 
+/**
+ * Small label for a number or a field ("Güç", "Kulüp"): sentence case in the secondary grey.
+ * No uppercase or wide tracking (unslop pass, 2026-11-08); hierarchy comes from size and colour.
+ */
 export const Caps = ({ children, style, color = colors.g200 }: { children: ReactNode; style?: StyleProp<TextStyle>; color?: string }) => (
-  <T w={600} size={11} color={color} style={[{ letterSpacing: 1, textTransform: 'uppercase' }, style]}>{children}</T>
+  <T w={500} size={13} color={color} style={style}>{children}</T>
+);
+/** The one section title style of every screen ("Becerilerim", "Krampon"). */
+export const Section = ({ children, right, style }: { children: ReactNode; right?: ReactNode; style?: StyleProp<ViewStyle> }) => (
+  <View style={[{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 8 }, style]}>
+    <T w={600} size={17} accessibilityRole="header">{children}</T>
+    {right}
+  </View>
 );
 export const H1 = (p: TProps) => <T w={600} size={24} {...p} style={[{ lineHeight: 29 }, p.style]} />;
 export const H3 = (p: TProps) => <T w={600} size={20} {...p} style={[{ lineHeight: 25 }, p.style]} />;
@@ -99,7 +110,7 @@ export function Pill({ icon, iconColor, image, children, onPress, label }: { ico
   return (
     <PressableScale
       accessibilityRole="button" accessibilityLabel={label} onPress={onPress && (() => { tap(); onPress(); })}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingLeft: 8, paddingRight: 12, borderRadius: 22, backgroundColor: colors.s2, minWidth: 44 }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingLeft: 8, paddingRight: 12, borderRadius: 22, backgroundColor: colors.s2, minWidth: 44 }}
     >
       {image ? <Image source={image} style={{ width: 28, height: 28, marginLeft: -4, marginVertical: -4 }} contentFit="contain" accessibilityElementsHidden importantForAccessibility="no" /> : <Icon name={icon!} size={20} color={iconColor} />}
       {children}
@@ -108,7 +119,7 @@ export function Pill({ icon, iconColor, image, children, onPress, label }: { ico
 }
 
 export const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
-  <View style={[{ borderRadius: 22, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, padding: 16, gap: 12 }, style]}>{children}</View>
+  <View style={[{ borderRadius: radius.lg, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, padding: 16, gap: 12 }, style]}>{children}</View>
 );
 
 /* ---------- Haptics ---------- */
@@ -211,10 +222,10 @@ export function CoachLine({ text }: { text: string }) {
     a.setValue(0); Animated.timing(a, { toValue: 1, duration: motion.base, useNativeDriver: true }).start();
   }, [text, a, still]);
   return (
-    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
       <CoachFace />
       <Animated.View style={{ flex: 1, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }] }}>
-        <Caps style={{ fontSize: 12, marginBottom: 2 }}>{t('coach.name')}</Caps>
+        <Caps style={{ marginBottom: 2 }}>{t('coach.name')}</Caps>
         <T w={500} size={15} style={{ lineHeight: 20 }} accessibilityLiveRegion="polite">{text}</T>
       </Animated.View>
     </View>
@@ -226,7 +237,7 @@ export function Opt({ icon, title, sub, right, disabled, onPress }: { icon: Icon
   return (
     <PressableScale
       accessibilityRole="button" disabled={disabled} onPress={() => { tap(); onPress(); }} to={0.98}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2, opacity: disabled ? 0.45 : 1 }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, borderRadius: radius.card, backgroundColor: colors.s2, opacity: disabled ? 0.45 : 1 }}
     >
       <Icon name={icon} color={colors.l600} />
       <View style={{ flex: 1, paddingVertical: 8 }}>

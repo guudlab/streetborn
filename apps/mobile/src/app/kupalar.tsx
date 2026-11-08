@@ -28,7 +28,7 @@ export default function Kupalar() {
   const done = list?.filter(a => a.unlocked).length ?? 0;
 
   return (
-    <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined} right={list ? <T w={700} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
+    <Shell title={t('ach.title')} onRefresh={list ? refresh : undefined} right={list ? <T w={600} size={16} color={colors.l500}>{t('ach.count', { n: done, m: list.length })}</T> : undefined}>
       {list && (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 4 }}>
           <Ico name="cup" size={96} dim={done === 0} />
@@ -72,7 +72,7 @@ function Trophy({ a, i }: { a: AchievementView; i: number }) {
         label={t('ach.a11y', { name: achName(a.key), state: a.unlocked ? t('ach.unlocked') : achProgress(a) })}
       >
         <Ico name={achIcon(a.key)} size={52} dim={!a.unlocked} />
-        <T w={700} size={12} numberOfLines={2} style={{ textAlign: 'center', minHeight: 30 }} color={a.unlocked ? colors.g100 : colors.g200}>{achName(a.key)}</T>
+        <T w={600} size={12} numberOfLines={2} style={{ textAlign: 'center', minHeight: 30 }} color={a.unlocked ? colors.g100 : colors.g200}>{achName(a.key)}</T>
         {a.unlocked ? <Icon name="check" size={16} color={colors.l600} /> : <T w={600} size={11} color={colors.g300}>{achProgress(a)}</T>}
       </Tile>
     </Enter>
