@@ -78,7 +78,7 @@ export default function Yasam() {
               key={i.id} onPress={() => open(i)} style={{ width: '48%', flexGrow: 1, minHeight: 152, gap: 4 }}
               label={`${name(i)}, ${mine ? t('life.owned') : locked ? t('life.level', { n: i.unlockLevel }) : `${num(i.price)} coin`}`}
             >
-              <Ico name={ICON[i.id]!} size={72} dim={locked} />
+              <Ico name={ICON[i.id]!} size={88} dim={locked} />
               <T w={600} size={15} color={locked ? colors.g200 : colors.g100} numberOfLines={1} style={{ marginTop: 4 }}>{name(i)}</T>
               {mine ? (
                 <Icon name="check" size={16} color={colors.l600} />
