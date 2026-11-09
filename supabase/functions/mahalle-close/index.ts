@@ -39,10 +39,16 @@ Deno.serve(handle(async (req) => {
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   if (!token || token !== Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) throw new HttpError(401, 'unauthorized');
 
+  // Test mode (dev-tools): `{ mahalle }` closes only that mahalle's open day, ended or not,
+  // and skips the league. The schedule sends no body.
+  const body = await req.json().catch(() => ({})) as { mahalle?: unknown };
+  const only = typeof body.mahalle === 'string' ? body.mahalle : null;
+
   const config = await loadEconomyConfig();
   const { data, error } = await admin.rpc('mahalle_to_settle', {
     p_min_age_hours: config.mahalle.realMemberMinAgeHours,
     p_min_matches: config.mahalle.realMemberMinMatches,
+    p_mahalle: only,
   });
   if (error) throw error;
 
@@ -80,6 +86,7 @@ Deno.serve(handle(async (req) => {
     if (settleError) throw settleError;
     if (done) settled++;
   }
+  if (only) return json({ settled, groups: groups.size });
   const league = await settleLeague(config);
   const formed = await formGroups(config);
   return json({ settled, groups: groups.size, league, formed });

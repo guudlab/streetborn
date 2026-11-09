@@ -11,7 +11,7 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, buyLife as apiBuyLife, claimHalisaha as apiClaimHalisaha, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount, ensureSession, syncPurchases,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, buyLife as apiBuyLife, claimHalisaha as apiClaimHalisaha, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount, devTool as apiDevTool, type DevAction, ensureSession, syncPurchases,
   type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Boots, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
@@ -136,6 +136,11 @@ interface GameState {
   kariyerTried: boolean;
   /** Whether the player linked an email, Google or Apple (online, loaded on demand). */
   account: Account | null;
+  /** Test mode is on for this player (set in the database). */
+  testMode: boolean;
+  testAllowed: boolean;
+  /** Runs a test mode tool, then reloads the player and the career. */
+  devTool(action: DevAction, value?: number): Promise<void>;
   /** Form, morale, injury, the day's choice, achievements and the weekly duel (online). */
   kariyer: Kariyer | null;
   /** Salary, season result or gems from the last career refresh, shown once by the hub. */
@@ -330,6 +335,8 @@ function showProfile(p: Profile, fromServer = false) {
       ? { sut: p.ap.shooting, pas: p.ap.passing, hiz: p.ap.pace, fizik: p.ap.stamina }
       : { sut: 0, pas: 0, hiz: 0, fizik: 0 },
     form: [],
+    testMode: p.testMode === true,
+    testAllowed: p.testAllowed === true,
   });
   useGame.getState().syncEnergy();
 }
@@ -381,6 +388,13 @@ export const useGame = create<GameState>()((set, get) => ({
   kariyerTried: false,
   kariyer: null,
   account: null,
+  testMode: false,
+  testAllowed: false,
+  async devTool(action, value) {
+    await apiDevTool(action, value);
+    await connect(true);
+    await get().refreshCareer();
+  },
   careerNews: null,
   kariyerNews: null,
   seasonSummary: null,

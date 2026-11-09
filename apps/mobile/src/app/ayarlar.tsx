@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
+import type { DevAction } from '../net/api.ts';
 import { colors, radius } from '../theme.ts';
 import { openLinkSheet } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
@@ -18,6 +19,8 @@ import { t } from '../i18n/index.ts';
 
 export default function Ayarlar() {
   const online = useGame(s => s.mode === 'online');
+  const testMode = useGame(s => s.testMode);
+  const testAllowed = useGame(s => s.testAllowed);
   useEffect(() => { if (online) void useGame.getState().refreshAccount(); }, [online]);
 
   return (
@@ -39,6 +42,8 @@ export default function Ayarlar() {
           <Icon name="chev" size={18} color={colors.g300} />
         </PressableScale>
       </View>
+
+      {online && testAllowed && <DevTools on={testMode} />}
 
       {online && <SignOut />}
       {online && (
@@ -125,4 +130,80 @@ function SignOut() {
   // Signing out is not destructive for a linked account, so the button itself stays neutral;
   // the sheet it opens carries the warning.
   return <Ghost onPress={ask} busy={busy} style={{ marginTop: 8 }}>{t('profile.signOut')}</Ghost>;
+}
+
+// Test mode: only drawn when the server says this player has the switch; the server checks it again.
+function DevTools({ on }: { on: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const run = async (action: DevAction, value?: number) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await useGame.getState().devTool(action, value);
+      toast(t('dev.done'), 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const level = useGame(s => s.level);
+  const group = (title: string, items: { label: string; action: DevAction; value?: number }[]) => (
+    <View style={{ gap: 8 }}>
+      <T size={13} color={colors.g200}>{title}</T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {items.map(i => (
+          <Ghost key={i.label} disabled={busy} onPress={() => void run(i.action, i.value)}>{i.label}</Ghost>
+        ))}
+      </View>
+    </View>
+  );
+  return (
+    <View style={{ gap: 16 }}>
+      <Section>{t('dev.title')}</Section>
+      <Ghost disabled={busy} onPress={() => void run('mode', on ? 0 : 1)}>{on ? 'Test modunu kapat' : 'Test modunu aç'}</Ghost>
+      {on && (<>
+      {group('Zaman', [
+        { label: `${t('dev.days')} +1`, action: 'days', value: 1 },
+        { label: `${t('dev.days')} +7`, action: 'days', value: 7 },
+        { label: `${t('dev.days')} +30`, action: 'days', value: 30 },
+        { label: 'Günlük limitleri sıfırla', action: 'resetDay' },
+      ])}
+      {group('Para', [
+        { label: '+1000 coin', action: 'coin', value: 1000 },
+        { label: '+10000 coin', action: 'coin', value: 10000 },
+        { label: '+100 gem', action: 'gem', value: 100 },
+        { label: '+1000 gem', action: 'gem', value: 1000 },
+      ])}
+      {group('Seviye', [
+        { label: `${t('dev.level')} ${level + 1}`, action: 'level', value: level + 1 },
+        { label: `${t('dev.level')} 5`, action: 'level', value: 5 },
+        { label: `${t('dev.level')} 12`, action: 'level', value: 12 },
+        { label: `${t('dev.level')} 20`, action: 'level', value: 20 },
+        { label: `${t('dev.level')} 30`, action: 'level', value: 30 },
+        { label: 'Statlar 50', action: 'stats', value: 50 },
+        { label: 'Statlar 80', action: 'stats', value: 80 },
+      ])}
+      {group('Enerji ve form', [
+        { label: t('dev.energy'), action: 'energy' },
+        { label: 'Moral 100', action: 'morale', value: 100 },
+        { label: 'Moral 10', action: 'morale', value: 10 },
+        { label: 'Sakatla', action: 'injury', value: 1 },
+        { label: 'İyileştir', action: 'injury', value: 0 },
+      ])}
+      {group('Kulüp ve mahalle', [
+        { label: 'Teklif: İlçe Amatör', action: 'offer', value: 0 },
+        { label: 'Teklif: Süper Amatör', action: 'offer', value: 1 },
+        { label: 'Teklif: Bölge Amatör', action: 'offer', value: 2 },
+        { label: 'Hoca güveni 90', action: 'trust', value: 90 },
+        { label: 'Hoca güveni 10', action: 'trust', value: 10 },
+        { label: 'Mahalle saygısı 500', action: 'respect', value: 500 },
+        { label: 'Mahalle gününü kapat (sadece benim mahallem)', action: 'mahalleClose' },
+        { label: 'Tüm başarımları aç', action: 'achievements', value: 1 },
+        { label: 'Başarımları sıfırla', action: 'achievements', value: 0 },
+        { label: 'Kariyeri sıfırla (mahalleye dön)', action: 'resetCareer' },
+      ])}
+      </>)}
+    </View>
+  );
 }
