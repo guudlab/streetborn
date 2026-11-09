@@ -27,3 +27,5 @@ supabase/tests/run.sh   # needs a Postgres; see the CI workflow
 ## Design skills
 
 `.claude/skills/design-taste-frontend` is vendored from github.com/Leonxlnx/taste-skill (MIT, commit 6010f91). It is written for web pages and dashboards. Use its screenshot-critique loop and its type and motion references on app screens, but StreetBorn's game rules win where they clash: the lime glow, reward effects, icon tiles, the glass tab bar and Concept A tokens in `apps/mobile/src/theme.ts` stay. Do not run its `draw.mjs` to pick a new art direction; the direction is decided (Concept A "Saha Kenarı").
+
+`.claude/skills/hyperframes*`, `media-use`, `figma`, `reverse-any-video`, `remotion-to-hyperframes`, `slideshow` and `style-sampling` are vendored from github.com/heygen-com/hyperframes (Apache-2.0, commit e351253; `LICENSE` in `.claude/skills/hyperframes`). They are for promo videos and Reels, not the app. Refresh with `npx skills add heygen-com/hyperframes`.
