@@ -329,6 +329,28 @@ export class Keeper {
     h.updateMatrixWorld(true);
   }
 
+  /**
+   * Keep a free ball out of the keeper's body: a beaten keeper lands near the net and the ball
+   * must roll round him, never through. Moves `p` (world, ball radius r) out of the nearest
+   * capsule and returns the push direction, or null when nothing touched it.
+   */
+  pushOut(p, r) {
+    const CAPS = [['Hips', 'Spine', 0.19], ['Spine', 'neck', 0.17], ['neck', 'Head', 0.13],
+      ['LeftArm', 'LeftForeArm', 0.07], ['LeftForeArm', 'LeftHand', 0.06], ['RightArm', 'RightForeArm', 0.07], ['RightForeArm', 'RightHand', 0.06],
+      ['LeftUpLeg', 'LeftLeg', 0.1], ['LeftLeg', 'LeftFoot', 0.08], ['RightUpLeg', 'RightLeg', 0.1], ['RightLeg', 'RightFoot', 0.08]];
+    let moved = null;
+    for (const [an, bn, rad] of CAPS) {
+      const a = this.b[an].getWorldPosition(V()), c = this.b[bn].getWorldPosition(V()), ac = c.clone().sub(a);
+      const t = THREE.MathUtils.clamp(p.clone().sub(a).dot(ac) / Math.max(ac.lengthSq(), 1e-6), 0, 1);
+      const q = a.addScaledVector(ac, t), n = p.clone().sub(q), d = n.length(), need = rad + r;
+      if (d >= need) continue;
+      if (d < 1e-4) n.set(0, 1, 0); else n.multiplyScalar(1 / d);
+      p.copy(q).addScaledVector(n, need);
+      moved = n;
+    }
+    return moved;
+  }
+
   /** World position between the hands (for a caught ball). */
   handsWorld() { return this.b.LeftHand.getWorldPosition(V()).add(this.b.RightHand.getWorldPosition(V())).multiplyScalar(0.5); }
 }
