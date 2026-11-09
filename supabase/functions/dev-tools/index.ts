@@ -1,7 +1,8 @@
-// Test mode tools. Works only for a player whose `players.test_mode` the owner switched on
-// in the database; everyone else gets 403. Actions: `status`, `days` (skip league days),
+// Test mode tools. Works only for a player whose `players.test_allowed` the owner set in the
+// database (everyone else gets 403) and, except for `mode`, whose test mode is on. Actions: `mode` (the switch), `days` (skip league days),
 // `coin`, `gem`, `level`, `energy`, `trust`, `resetDay` (today's limits), `injury`, `morale`, `respect`,
-// `stats`, `offer` (a club offer at a tier) `resetCareer` and `achievements`. The client sends a plain number; coin and gem
+// `stats`, `offer` (a club offer at a tier) `resetCareer`, `achievements` and `mahalleClose`
+// (closes today's day of the caller's own mahalle only; the league is left to the schedule). The client sends a plain number; coin and gem
 // still go through grant_currency() and leave a ledger row with reason 'dev'.
 import { ACHIEVEMENTS, CLUBS, levelForXp, xpNeed } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
@@ -22,14 +23,19 @@ Deno.serve(handle(async (req) => {
   const playerId = await requirePlayer(req);
   const body = await req.json().catch(() => ({})) as { action?: unknown; value?: unknown };
 
-  const { data, error } = await admin.from('players').select('test_mode').eq('id', playerId).single();
+  const { data, error } = await admin.from('players').select('test_allowed, test_mode').eq('id', playerId).single();
   if (error) throw error;
+  if (!data.test_allowed) throw new HttpError(403, 'forbidden');
+  // The Ayarlar switch works for an allowed player whether the mode is on or off.
+  if (body.action === 'mode') {
+    const on = int(body.value, 0, 1) === 1;
+    fail((await admin.rpc('dev_toggle', { p_player: playerId, p_on: on })).error);
+    return json({ enabled: on });
+  }
   if (!data.test_mode) throw new HttpError(403, 'forbidden');
 
   const config = await loadEconomyConfig();
   switch (body.action) {
-    case 'status':
-      return json({ enabled: true });
     case 'days':
       fail((await admin.rpc('dev_skip_days', { p_player: playerId, p_days: int(body.value, 1, 30) })).error);
       return json({ ok: true });
@@ -84,6 +90,22 @@ Deno.serve(handle(async (req) => {
         p_player: playerId, p_keys: int(body.value, 0, 1) === 1 ? ACHIEVEMENTS.map((a) => a.key) : null,
       })).error);
       return json({ ok: true });
+    case 'mahalleClose': {
+      // Settles today's day of the caller's own mahalle (payouts, result), then moves the
+      // closed rows to an earlier free day so the mahalle can play a new day.
+      const { data: mahalle, error: mahalleError } = await admin.rpc('dev_mahalle_of', { p_player: playerId });
+      fail(mahalleError);
+      if (!mahalle) throw new HttpError(404, 'no_mahalle');
+      const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mahalle-close`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mahalle }),
+      });
+      if (!res.ok) throw new HttpError(502, 'close_failed');
+      const { data: moved, error: reopenError } = await admin.rpc('dev_mahalle_reopen', { p_player: playerId });
+      fail(reopenError);
+      return json({ closed: Number(moved) > 0 });
+    }
     default:
       throw new HttpError(400, 'bad_action');
   }

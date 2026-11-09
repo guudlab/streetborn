@@ -20,6 +20,7 @@ import { t } from '../i18n/index.ts';
 export default function Ayarlar() {
   const online = useGame(s => s.mode === 'online');
   const testMode = useGame(s => s.testMode);
+  const testAllowed = useGame(s => s.testAllowed);
   useEffect(() => { if (online) void useGame.getState().refreshAccount(); }, [online]);
 
   return (
@@ -42,7 +43,7 @@ export default function Ayarlar() {
         </PressableScale>
       </View>
 
-      {online && testMode && <DevTools />}
+      {online && testAllowed && <DevTools on={testMode} />}
 
       {online && <SignOut />}
       {online && (
@@ -132,7 +133,7 @@ function SignOut() {
 }
 
 // Test mode: only drawn when the server says this player has the switch; the server checks it again.
-function DevTools() {
+function DevTools({ on }: { on: boolean }) {
   const [busy, setBusy] = useState(false);
   const run = async (action: DevAction, value?: number) => {
     if (busy) return;
@@ -160,6 +161,8 @@ function DevTools() {
   return (
     <View style={{ gap: 16 }}>
       <Section>{t('dev.title')}</Section>
+      <Ghost disabled={busy} onPress={() => void run('mode', on ? 0 : 1)}>{on ? 'Test modunu kapat' : 'Test modunu aç'}</Ghost>
+      {on && (<>
       {group('Zaman', [
         { label: `${t('dev.days')} +1`, action: 'days', value: 1 },
         { label: `${t('dev.days')} +7`, action: 'days', value: 7 },
@@ -195,9 +198,12 @@ function DevTools() {
         { label: 'Hoca güveni 90', action: 'trust', value: 90 },
         { label: 'Hoca güveni 10', action: 'trust', value: 10 },
         { label: 'Mahalle saygısı 500', action: 'respect', value: 500 },
+        { label: 'Mahalle gününü kapat (sadece benim mahallem)', action: 'mahalleClose' },
         { label: 'Tüm başarımları aç', action: 'achievements', value: 1 },
         { label: 'Başarımları sıfırla', action: 'achievements', value: 0 },
         { label: 'Kariyeri sıfırla (mahalleye dön)', action: 'resetCareer' },
       ])}
+      </>)}
     </View>
-  );}
+  );
+}

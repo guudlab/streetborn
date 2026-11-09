@@ -138,6 +138,7 @@ interface GameState {
   account: Account | null;
   /** Test mode is on for this player (set in the database). */
   testMode: boolean;
+  testAllowed: boolean;
   /** Runs a test mode tool, then reloads the player and the career. */
   devTool(action: DevAction, value?: number): Promise<void>;
   /** Form, morale, injury, the day's choice, achievements and the weekly duel (online). */
@@ -335,6 +336,7 @@ function showProfile(p: Profile, fromServer = false) {
       : { sut: 0, pas: 0, hiz: 0, fizik: 0 },
     form: [],
     testMode: p.testMode === true,
+    testAllowed: p.testAllowed === true,
   });
   useGame.getState().syncEnergy();
 }
@@ -387,6 +389,7 @@ export const useGame = create<GameState>()((set, get) => ({
   kariyer: null,
   account: null,
   testMode: false,
+  testAllowed: false,
   async devTool(action, value) {
     await apiDevTool(action, value);
     await connect(true);

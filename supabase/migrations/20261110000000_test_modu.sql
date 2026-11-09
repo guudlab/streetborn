@@ -1,19 +1,32 @@
--- Test mode: a per-player switch that unlocks the `dev-tools` Edge Function for that
+-- Test mode: two per-player switches. `test_allowed` is set only by the owner in the SQL
+-- editor and lets the player see the switch in Ayarlar; `test_mode` is that switch. It unlocks the `dev-tools` Edge Function for that
 -- player only (skip league days, add coin or gem, set the level, fill energy, set coach
 -- trust). Nobody can turn it on from the app: there is no write policy, so the owner sets
--- it in the SQL editor:
---   update players set test_mode = true where id = '<player id>';
--- Every function below refuses a player whose test_mode is false, and only the service
+-- test_allowed, and the app can only flip test_mode for a player who has it:
+--   update players set test_allowed = true, test_mode = true where id = '<player id>';
+-- Every function below refuses a player whose test_allowed or test_mode is false, and only the service
 -- role can call them. Currency still moves only through grant_currency() with a ledger row.
 
+alter table public.players add column test_allowed boolean not null default false;
 alter table public.players add column test_mode boolean not null default false;
 
 create function public.dev_check(p_player uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not coalesce((select test_mode from players where id = p_player), false) then
+  if not coalesce((select test_mode and test_allowed from players where id = p_player), false) then
     raise exception 'forbidden';
   end if;
+end $$;
+
+-- The Ayarlar switch: only a player with test_allowed can turn their own test mode on or off.
+create function public.dev_toggle(p_player uuid, p_on boolean) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if not coalesce((select test_allowed from players where id = p_player), false) then
+    raise exception 'forbidden';
+  end if;
+  update players set test_mode = p_on where id = p_player;
+  return p_on;
 end $$;
 
 -- Moves the player's calendar forward: the active league season started p_days earlier,
@@ -55,9 +68,9 @@ begin
   update players set coach_trust = greatest(0, least(100, p_trust)) where id = p_player;
 end $$;
 
-revoke all on function public.dev_check(uuid), public.dev_skip_days(uuid, integer), public.dev_grant(uuid, text, bigint),
+revoke all on function public.dev_toggle(uuid, boolean), public.dev_check(uuid), public.dev_skip_days(uuid, integer), public.dev_grant(uuid, text, bigint),
   public.dev_set_level(uuid, integer, bigint), public.dev_fill_energy(uuid, smallint), public.dev_set_trust(uuid, integer)
   from public, anon, authenticated;
-grant execute on function public.dev_check(uuid), public.dev_skip_days(uuid, integer), public.dev_grant(uuid, text, bigint),
+grant execute on function public.dev_toggle(uuid, boolean), public.dev_check(uuid), public.dev_skip_days(uuid, integer), public.dev_grant(uuid, text, bigint),
   public.dev_set_level(uuid, integer, bigint), public.dev_fill_energy(uuid, smallint), public.dev_set_trust(uuid, integer)
   to service_role;
