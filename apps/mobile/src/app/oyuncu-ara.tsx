@@ -42,9 +42,9 @@ export default function OyuncuAra() {
     <Shell title={t('player.search')}>
       <View style={{ height: 52, borderRadius: radius.md, backgroundColor: colors.s2, borderWidth: 1, borderColor: colors.l600, justifyContent: 'center', paddingHorizontal: 14 }}>
         <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
-          value={q} onChangeText={setQ} autoFocus autoCorrect={false} autoCapitalize="none" maxLength={24} returnKeyType="search"
+          value={q} onChangeText={setQ} autoFocus autoCorrect={false} spellCheck={false} autoCapitalize="none" autoComplete="off" textContentType="none" maxLength={24} returnKeyType="search"
           placeholder={t('player.searchHint')} placeholderTextColor={colors.g400} selectionColor={colors.l600} accessibilityLabel={t('player.search')}
-          style={{ color: colors.g100, fontFamily: 'Inter_500Medium', fontSize: 17, outlineStyle: 'none' } as object}
+          style={{ color: colors.g100, fontFamily: 'Inter_500Medium', fontSize: 17, letterSpacing: 0, outlineStyle: 'none' } as object}
         />
       </View>
 
