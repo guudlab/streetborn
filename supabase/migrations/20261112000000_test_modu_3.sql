@@ -1,6 +1,7 @@
 -- Test mode, part 3: close today's mahalle day for the caller's own mahalle only.
 -- mahalle_to_settle gets an optional mahalle: with it, that mahalle's open day is offered
--- even when the day has not ended. Without it the function is exactly as before.
+-- even when the day has not ended. Without it the function is exactly as before (league
+-- days stay out of it in both cases: a mahalle in this week's league is settled with the league).
 
 drop function public.mahalle_to_settle(integer, integer);
 create function public.mahalle_to_settle(p_min_age_hours integer, p_min_matches integer, p_mahalle uuid default null) returns table (
@@ -18,7 +19,9 @@ language sql stable security definer set search_path = public as $$
     left join mahalle_katki k on k.mahalle_id = g.mahalle_id and k.day = g.day and k.player_id = u.player_id
    where g.status = 'open'
      and (case when p_mahalle is null then g.day < mahalle_today() else g.mahalle_id = p_mahalle end)
-     and exists (select 1 from mahalle_katki k2 where k2.mahalle_id = g.mahalle_id and k2.day = g.day);
+     and exists (select 1 from mahalle_katki k2 where k2.mahalle_id = g.mahalle_id and k2.day = g.day)
+     -- League days are settled by settle_lig_tur, never against the NPC mahalle.
+     and not exists (select 1 from lig_takim t where t.mahalle_id = g.mahalle_id and t.week = lig_week(g.day));
 $$;
 revoke execute on function public.mahalle_to_settle(integer, integer, uuid) from public, anon, authenticated;
 grant execute on function public.mahalle_to_settle(integer, integer, uuid) to service_role;

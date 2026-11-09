@@ -2,7 +2,8 @@
 // database (everyone else gets 403) and, except for `mode`, whose test mode is on. Actions: `mode` (the switch), `days` (skip league days),
 // `coin`, `gem`, `level`, `energy`, `trust`, `resetDay` (today's limits), `injury`, `morale`, `respect`,
 // `stats`, `offer` (a club offer at a tier) `resetCareer`, `achievements` and `mahalleClose`
-// (closes today's day of the caller's own mahalle only; the league is left to the schedule). The client sends a plain number; coin and gem
+// (closes today's day of the caller's own mahalle only; a mahalle in this week's league is
+// settled with the league by the schedule, so the answer is `closed: false`). The client sends a plain number; coin and gem
 // still go through grant_currency() and leave a ledger row with reason 'dev'.
 import { ACHIEVEMENTS, CLUBS, levelForXp, xpNeed } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
