@@ -91,3 +91,18 @@ grant execute on function public.dev_reset_day(uuid), public.dev_injury(uuid, bo
   public.dev_set_respect(uuid, integer), public.dev_set_stats(uuid, integer),
   public.dev_offer(uuid, text, smallint, text, text, integer), public.dev_reset_career(uuid)
   to service_role;
+
+-- Achievements: unlock all (no coin is paid; use dev_grant for coin) or clear them.
+create function public.dev_achievements(p_player uuid, p_keys text[]) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform dev_check(p_player);
+  if p_keys is null then
+    delete from basarimlar where player_id = p_player;
+  else
+    insert into basarimlar (player_id, key) select p_player, unnest(p_keys) on conflict do nothing;
+  end if;
+end $$;
+
+revoke all on function public.dev_achievements(uuid, text[]) from public, anon, authenticated;
+grant execute on function public.dev_achievements(uuid, text[]) to service_role;

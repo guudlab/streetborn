@@ -195,6 +195,8 @@ function DevTools() {
         { label: 'Hoca güveni 90', action: 'trust', value: 90 },
         { label: 'Hoca güveni 10', action: 'trust', value: 10 },
         { label: 'Mahalle saygısı 500', action: 'respect', value: 500 },
+        { label: 'Tüm başarımları aç', action: 'achievements', value: 1 },
+        { label: 'Başarımları sıfırla', action: 'achievements', value: 0 },
         { label: 'Kariyeri sıfırla (mahalleye dön)', action: 'resetCareer' },
       ])}
     </View>

@@ -1,9 +1,9 @@
 // Test mode tools. Works only for a player whose `players.test_mode` the owner switched on
 // in the database; everyone else gets 403. Actions: `status`, `days` (skip league days),
 // `coin`, `gem`, `level`, `energy`, `trust`, `resetDay` (today's limits), `injury`, `morale`, `respect`,
-// `stats`, `offer` (a club offer at a tier) and `resetCareer`. The client sends a plain number; coin and gem
+// `stats`, `offer` (a club offer at a tier) `resetCareer` and `achievements`. The client sends a plain number; coin and gem
 // still go through grant_currency() and leave a ledger row with reason 'dev'.
-import { CLUBS, levelForXp, xpNeed } from '../../../packages/economy/src/index.ts';
+import { ACHIEVEMENTS, CLUBS, levelForXp, xpNeed } from '../../../packages/economy/src/index.ts';
 import { handle, HttpError, json } from '../_shared/http.ts';
 import { admin, loadEconomyConfig, requirePlayer } from '../_shared/supabase.ts';
 
@@ -77,6 +77,12 @@ Deno.serve(handle(async (req) => {
     }
     case 'resetCareer':
       fail((await admin.rpc('dev_reset_career', { p_player: playerId })).error);
+      return json({ ok: true });
+    case 'achievements':
+      // value 1: unlock all (no coin paid); value 0: clear them.
+      fail((await admin.rpc('dev_achievements', {
+        p_player: playerId, p_keys: int(body.value, 0, 1) === 1 ? ACHIEVEMENTS.map((a) => a.key) : null,
+      })).error);
       return json({ ok: true });
     default:
       throw new HttpError(400, 'bad_action');
