@@ -141,8 +141,9 @@ export default function Hub() {
 
       <View style={{ paddingHorizontal: 16, gap: 12 }}>
         <FormStrip />
-        {/* A scrolling row: each chip as wide as its words, so names are never cut. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+        {/* Chips share the row and end flush with the form card; when the names are too long
+            to fit, the row scrolls instead, so names are never cut. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, flexGrow: 0 }} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, gap: 8 }}>
           {g.mahalle && (
             <Chip
               label={t('mahalle.card.a11y', { name: g.mahalle.name })} onPress={() => router.push('/mahalle')} dot={mahalleReady}
@@ -215,13 +216,14 @@ function Chip({ icon, title, titleColor = colors.g100, sub, dot, label, onPress 
   icon: React.ReactNode; title: string; titleColor?: string; sub: string; dot?: boolean; label: string; onPress: () => void;
 }) {
   return (
-    <Tile row label={label} onPress={onPress} style={{ minHeight: 56, paddingVertical: 8, paddingLeft: 8, paddingRight: 12, gap: 8, borderRadius: radius.card }}>
+    <Tile row label={label} onPress={onPress} style={{ flexGrow: 1, minHeight: 56, paddingVertical: 8, paddingLeft: 8, paddingRight: 12, gap: 8, borderRadius: radius.card }}>
       {icon}
       <View>
         <T w={600} size={15} color={titleColor} numberOfLines={1}>{title}</T>
         <T w={500} size={12} color={colors.g200} numberOfLines={1}>{sub}</T>
       </View>
-      {dot && <Dot />}
+      {/* On the icon's corner, so the dot never widens the chip or covers its name. */}
+      {dot && <Dot style={{ position: 'absolute', top: 6, left: 6 }} />}
     </Tile>
   );
 }
