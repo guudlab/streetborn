@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { useGame } from '../game/store.ts';
+import type { DevAction } from '../net/api.ts';
 import { colors, radius } from '../theme.ts';
 import { openLinkSheet } from '../ui/account.tsx';
 import { Icon } from '../ui/Icon.tsx';
@@ -18,6 +19,7 @@ import { t } from '../i18n/index.ts';
 
 export default function Ayarlar() {
   const online = useGame(s => s.mode === 'online');
+  const testMode = useGame(s => s.testMode);
   useEffect(() => { if (online) void useGame.getState().refreshAccount(); }, [online]);
 
   return (
@@ -39,6 +41,8 @@ export default function Ayarlar() {
           <Icon name="chev" size={18} color={colors.g300} />
         </PressableScale>
       </View>
+
+      {online && testMode && <DevTools />}
 
       {online && <SignOut />}
       {online && (
@@ -125,4 +129,37 @@ function SignOut() {
   // Signing out is not destructive for a linked account, so the button itself stays neutral;
   // the sheet it opens carries the warning.
   return <Ghost onPress={ask} busy={busy} style={{ marginTop: 8 }}>{t('profile.signOut')}</Ghost>;
+}
+
+// Test mode: only drawn when the server says this player has the switch; the server checks it again.
+function DevTools() {
+  const [busy, setBusy] = useState(false);
+  const run = async (action: DevAction, value?: number) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await useGame.getState().devTool(action, value);
+      toast(t('dev.done'), 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const level = useGame(s => s.level);
+  const row = (items: { label: string; action: DevAction; value?: number }[]) => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {items.map(i => (
+        <Ghost key={i.label} disabled={busy} onPress={() => void run(i.action, i.value)}>{i.label}</Ghost>
+      ))}
+    </View>
+  );
+  return (
+    <View style={{ gap: 12 }}>
+      <Section>{t('dev.title')}</Section>
+      {row([{ label: `${t('dev.days')} +1`, action: 'days', value: 1 }, { label: `${t('dev.days')} +7`, action: 'days', value: 7 }])}
+      {row([{ label: '+1000 coin', action: 'coin', value: 1000 }, { label: '+100 gem', action: 'gem', value: 100 }, { label: t('dev.energy'), action: 'energy' }])}
+      {row([{ label: `${t('dev.level')} ${level + 1}`, action: 'level', value: level + 1 }, { label: `${t('dev.level')} 5`, action: 'level', value: 5 }, { label: `${t('dev.level')} 12`, action: 'level', value: 12 }, { label: `${t('dev.level')} 20`, action: 'level', value: 20 }])}
+    </View>
+  );
 }

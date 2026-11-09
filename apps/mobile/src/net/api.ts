@@ -23,6 +23,8 @@ export interface Profile {
   /** Nickname and new-player choices saved by profile-set; null before character creation. */
   nick?: string | null;
   character?: Partial<Character> | null;
+  /** Test mode, switched on per player in the database; unlocks the Geliştirici section. */
+  testMode?: boolean;
 }
 
 export interface Ticket {
@@ -74,7 +76,7 @@ export async function loadProfile(): Promise<Profile> {
   const playerId = await ensureSession();
   const supabase = await client();
   const [p, w, s] = await Promise.all([
-    supabase.from('players').select('level, xp, nick, character').eq('id', playerId).single(),
+    supabase.from('players').select('level, xp, nick, character, test_mode').eq('id', playerId).single(),
     supabase.from('wallets').select('coin, gem, energy, energy_updated_at').eq('player_id', playerId).single(),
     supabase.from('player_stats').select('shooting, passing, pace, stamina, ap_shooting, ap_passing, ap_pace, ap_stamina').eq('player_id', playerId).single(),
   ]);
@@ -93,6 +95,7 @@ export async function loadProfile(): Promise<Profile> {
     ap: { shooting: s.data.ap_shooting ?? 0, passing: s.data.ap_passing ?? 0, pace: s.data.ap_pace ?? 0, stamina: s.data.ap_stamina ?? 0 },
     nick: p.data.nick ?? null,
     character: p.data.character ?? null,
+    testMode: p.data.test_mode === true,
   };
 }
 
@@ -390,4 +393,7 @@ export const kariyerTelefon = (key: string, answer: 0 | 1) => call<{ ok: true }>
 export const kariyerMasaj = () => call<{ ok: true; coin: number }>('oyuncu', { action: 'masaj' });
 
 /** Deletes the account and all its game data on the server. Cannot be undone. */
+export type DevAction = 'days' | 'coin' | 'gem' | 'level' | 'energy' | 'trust';
+/** Test mode only: the server refuses (403 forbidden) any player without the switch. */
+export const devTool = (action: DevAction, value?: number) => call<Record<string, unknown>>('dev-tools', { action, value });
 export const deleteAccount = () => call<{ ok: true }>('account-delete', { confirm: true });
