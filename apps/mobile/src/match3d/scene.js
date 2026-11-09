@@ -676,7 +676,8 @@ export function createMatch(env) {
     let tx = target.x, ty = target.y, delay = 0.06;
     if (outcome === 'goal') {
       const central = Math.abs(target.x - kx) < 1.3;
-      if (central) { tx = kx + (Math.random() < 0.5 ? 1 : -1) * 2.0; ty = 0.7 + Math.random() * 0.6; }    // guessed the wrong way
+      // guessed the wrong way: always dives AWAY from the ball (a dive to its side would land on it)
+      if (central) { tx = kx + (target.x > kx ? -1 : target.x < kx ? 1 : (Math.random() < 0.5 ? 1 : -1)) * 2.0; ty = 0.7 + Math.random() * 0.6; }
       else { tx = target.x - Math.sign(target.x - kx) * (0.65 + Math.random() * 0.35); ty = Math.max(0.3, target.y - 0.2); delay = 0.12; } // late and short
     } else if (outcome !== 'save') { tx = kx + (target.x - kx) * 0.6; ty = Math.min(target.y, 1.6); delay = 0.14; }
     flight.keeper = { at: V(tx, ty, GOAL_Z - 0.45), delay, catch: outcome === 'save' && (q === 'weak' || Math.abs(target.x - kx) < 0.9) };
@@ -1078,6 +1079,9 @@ export function createMatch(env) {
       }
     } else {
       flight.vel.y -= 9.8 * dt; pos.addScaledVector(flight.vel, dt);
+      // a beaten keeper lies in the net: the ball rolls round him, never through
+      const pushed = keeper.pushOut(pos, BALL_R);
+      if (pushed) { const into = flight.vel.dot(pushed); if (into < 0) flight.vel.addScaledVector(pushed, -into * 1.4); flight.vel.multiplyScalar(0.7); }
       if (flight.outcome === 'goal' && !flight.resolved && pos.z >= GOAL_Z + GD - 0.2) { pos.z = GOAL_Z + GD - 0.2; flight.vel.z *= -0.15; flight.vel.x *= 0.3; flight.vel.y *= 0.3; resolve('goal'); }
       if (flight.outcome === 'goal' && flight.resolved) pos.z = Math.min(pos.z, GOAL_Z + GD - 0.15);
       if (pos.z > GOAL_Z + 3.5) { pos.z = GOAL_Z + 3.5; flight.vel.z *= -0.2; }
