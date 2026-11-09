@@ -147,19 +147,55 @@ function DevTools() {
     }
   };
   const level = useGame(s => s.level);
-  const row = (items: { label: string; action: DevAction; value?: number }[]) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {items.map(i => (
-        <Ghost key={i.label} disabled={busy} onPress={() => void run(i.action, i.value)}>{i.label}</Ghost>
-      ))}
+  const group = (title: string, items: { label: string; action: DevAction; value?: number }[]) => (
+    <View style={{ gap: 8 }}>
+      <T size={13} color={colors.g200}>{title}</T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {items.map(i => (
+          <Ghost key={i.label} disabled={busy} onPress={() => void run(i.action, i.value)}>{i.label}</Ghost>
+        ))}
+      </View>
     </View>
   );
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: 16 }}>
       <Section>{t('dev.title')}</Section>
-      {row([{ label: `${t('dev.days')} +1`, action: 'days', value: 1 }, { label: `${t('dev.days')} +7`, action: 'days', value: 7 }])}
-      {row([{ label: '+1000 coin', action: 'coin', value: 1000 }, { label: '+100 gem', action: 'gem', value: 100 }, { label: t('dev.energy'), action: 'energy' }])}
-      {row([{ label: `${t('dev.level')} ${level + 1}`, action: 'level', value: level + 1 }, { label: `${t('dev.level')} 5`, action: 'level', value: 5 }, { label: `${t('dev.level')} 12`, action: 'level', value: 12 }, { label: `${t('dev.level')} 20`, action: 'level', value: 20 }])}
+      {group('Zaman', [
+        { label: `${t('dev.days')} +1`, action: 'days', value: 1 },
+        { label: `${t('dev.days')} +7`, action: 'days', value: 7 },
+        { label: `${t('dev.days')} +30`, action: 'days', value: 30 },
+        { label: 'Günlük limitleri sıfırla', action: 'resetDay' },
+      ])}
+      {group('Para', [
+        { label: '+1000 coin', action: 'coin', value: 1000 },
+        { label: '+10000 coin', action: 'coin', value: 10000 },
+        { label: '+100 gem', action: 'gem', value: 100 },
+        { label: '+1000 gem', action: 'gem', value: 1000 },
+      ])}
+      {group('Seviye', [
+        { label: `${t('dev.level')} ${level + 1}`, action: 'level', value: level + 1 },
+        { label: `${t('dev.level')} 5`, action: 'level', value: 5 },
+        { label: `${t('dev.level')} 12`, action: 'level', value: 12 },
+        { label: `${t('dev.level')} 20`, action: 'level', value: 20 },
+        { label: `${t('dev.level')} 30`, action: 'level', value: 30 },
+        { label: 'Statlar 50', action: 'stats', value: 50 },
+        { label: 'Statlar 80', action: 'stats', value: 80 },
+      ])}
+      {group('Enerji ve form', [
+        { label: t('dev.energy'), action: 'energy' },
+        { label: 'Moral 100', action: 'morale', value: 100 },
+        { label: 'Moral 10', action: 'morale', value: 10 },
+        { label: 'Sakatla', action: 'injury', value: 1 },
+        { label: 'İyileştir', action: 'injury', value: 0 },
+      ])}
+      {group('Kulüp ve mahalle', [
+        { label: 'Teklif: İlçe Amatör', action: 'offer', value: 0 },
+        { label: 'Teklif: Süper Amatör', action: 'offer', value: 1 },
+        { label: 'Teklif: Bölge Amatör', action: 'offer', value: 2 },
+        { label: 'Hoca güveni 90', action: 'trust', value: 90 },
+        { label: 'Hoca güveni 10', action: 'trust', value: 10 },
+        { label: 'Mahalle saygısı 500', action: 'respect', value: 500 },
+        { label: 'Kariyeri sıfırla (mahalleye dön)', action: 'resetCareer' },
+      ])}
     </View>
-  );
-}
+  );}

@@ -393,7 +393,7 @@ export const kariyerTelefon = (key: string, answer: 0 | 1) => call<{ ok: true }>
 export const kariyerMasaj = () => call<{ ok: true; coin: number }>('oyuncu', { action: 'masaj' });
 
 /** Deletes the account and all its game data on the server. Cannot be undone. */
-export type DevAction = 'days' | 'coin' | 'gem' | 'level' | 'energy' | 'trust';
+export type DevAction = 'days' | 'coin' | 'gem' | 'level' | 'energy' | 'trust' | 'resetDay' | 'injury' | 'morale' | 'respect' | 'stats' | 'offer' | 'resetCareer';
 /** Test mode only: the server refuses (403 forbidden) any player without the switch. */
 export const devTool = (action: DevAction, value?: number) => call<Record<string, unknown>>('dev-tools', { action, value });
 export const deleteAccount = () => call<{ ok: true }>('account-delete', { confirm: true });
