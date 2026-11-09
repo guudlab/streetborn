@@ -32,7 +32,6 @@ const LAST = 5;
 
 const POS_ICON: Record<Position, IconAsset> = { bitirici: 'sut', oyunKurucu: 'pas', kanat: 'calim' };
 const DREAM_ICON: Record<Dream, IconAsset> = { milli: 'milliForma', avrupa: 'cup', saha: 'halisaha' };
-const TRAIT_EMOJI: Record<Trait, string> = { hirsli: '🔥', sakin: '🧊', caliskan: '🛠️', sovmen: '✨', lider: '👑', sert: '💥' };
 const SUGGEST: Key[] = ['char.nick.s1', 'char.nick.s2', 'char.nick.s3', 'char.nick.s4', 'char.nick.s5', 'char.nick.s6'];
 
 export default function Karakter() {
@@ -142,22 +141,22 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
   return (
     <>
       <Enter key={step}><Bubble text={title} size={48} /></Enter>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 10, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, gap: 12, paddingTop: 8, paddingBottom: 2 }} showsVerticalScrollIndicator={false}>
         {step === 1 && POSITIONS.map((p, i) => (
           <Enter key={p} i={i + 1}>
             <Tile row role="radio" selected={c.position === p} label={`${t(`char.pos.${p}`)}, ${t(`char.pos.${p}.role`)}`} onPress={() => onChange({ ...c, position: p })} style={{ minHeight: 88 }}>
               <Ico name={POS_ICON[p]} size={60} />
-              <T w={700} size={18} style={{ flex: 1 }}>{t(`char.pos.${p}`)}</T>
+              <T w={600} size={18} style={{ flex: 1 }}>{t(`char.pos.${p}`)}</T>
             </Tile>
           </Enter>
         ))}
         {step === 2 && (
-          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {TRAITS.map((k: Trait, i) => (
               <Enter key={k} i={i + 1} style={{ width: '48%', flexGrow: 1 }}>
-                <Tile role="radio" selected={c.trait === k} label={t(`char.trait.${k}`)} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 92 }}>
-                  <T size={28} accessibilityElementsHidden importantForAccessibility="no">{TRAIT_EMOJI[k]}</T>
-                  <T w={700} size={16}>{t(`char.trait.${k}`)}</T>
+                <Tile role="radio" selected={c.trait === k} label={`${t(`char.trait.${k}`)}, ${t(`char.trait.${k}.sub`)}`} onPress={() => onChange({ ...c, trait: k })} style={{ minHeight: 80, alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 16, gap: 4 }}>
+                  <T w={600} size={16}>{t(`char.trait.${k}`)}</T>
+                  <T w={500} size={13} color={colors.g200}>{t(`char.trait.${k}.sub`)}</T>
                 </Tile>
               </Enter>
             ))}
@@ -167,7 +166,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
           <Enter key={d} i={i + 1}>
             <Tile row role="radio" selected={c.dream === d} label={t(`char.dream.${d}`)} onPress={() => onChange({ ...c, dream: d })} style={{ minHeight: 88 }}>
               <Ico name={DREAM_ICON[d]} size={60} />
-              <T w={700} size={18} style={{ flex: 1 }}>{t(`char.dream.${d}`)}</T>
+              <T w={600} size={18} style={{ flex: 1 }}>{t(`char.dream.${d}`)}</T>
             </Tile>
           </Enter>
         ))}
@@ -180,7 +179,7 @@ function Question({ step, c, onChange, onNext }: { step: number; c: Character; o
 function Chip({ children, selected, onPress }: { children: string; selected: boolean; onPress: () => void }) {
   return (
     <Tile role="radio" selected={selected} label={children} onPress={onPress} style={{ width: '31%', flexGrow: 1, height: 48, paddingVertical: 0, borderRadius: 16 }}>
-      <T w={700} size={15} color={selected ? colors.l500 : colors.g100}>{children}</T>
+      <T w={600} size={15} color={selected ? colors.l500 : colors.g100}>{children}</T>
     </Tile>
   );
 }
@@ -215,7 +214,7 @@ function Look({ c, onChange }: { c: Character; onChange: (c: Character) => void 
         ))}
       </View>
 
-      <View accessibilityRole="radiogroup" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
+      <View accessibilityRole="radiogroup" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
         {STARTERS.map(h => <Mini key={h} hero={h} selected={c.hero === h} onPress={() => pickHero(h)} label={name(h)} />)}
       </View>
     </View>
@@ -254,7 +253,7 @@ function Nick({ nick, onChange, busy, onDone, error }: { nick: string; onChange:
           accessibilityLabel={t('char.nick.a11y')} selectionColor={colors.l600}
           style={{
             height: 68, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1.5, borderColor: error ? colors.bad : colors.l600,
-            paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_700Bold', fontSize: 26, textAlign: 'center',
+            paddingHorizontal: 16, color: colors.g100, fontFamily: 'Inter_600SemiBold', fontSize: 26, textAlign: 'center',
           }}
         />
         {error && <T w={500} size={13} color={colors.bad} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{error}</T>}

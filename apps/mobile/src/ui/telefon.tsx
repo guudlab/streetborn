@@ -27,7 +27,7 @@ function Avatar({ p, size }: { p: PhoneView; size: number }) {
   if (p.from === 'burak') return <CoachFace size={size} />;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: AVATAR[p.from] ?? colors.s3, alignItems: 'center', justifyContent: 'center' }}>
-      <T w={700} size={Math.round(size * 0.42)}>{from(p).charAt(0)}</T>
+      <T w={600} size={Math.round(size * 0.42)}>{from(p).charAt(0)}</T>
     </View>
   );
 }
@@ -39,7 +39,7 @@ const fxList = (fx: PhoneFx): Fx[] => [
 function Said({ text, mine }: { text: string; mine?: boolean }) {
   return (
     <View style={{
-      alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '86%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18,
+      alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '86%', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16,
       borderBottomLeftRadius: mine ? 18 : 6, borderBottomRightRadius: mine ? 6 : 18, backgroundColor: mine ? colors.l900 : colors.s3,
     }}>
       <T w={mine ? 600 : 500} size={15} color={mine ? colors.l500 : colors.g100} style={{ lineHeight: 20 }}>{text}</T>
@@ -75,7 +75,7 @@ export function PhoneRow({ p }: { p: PhoneView }) {
         </View>
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <T w={700} size={14} numberOfLines={1}>{from(p)}</T>
+        <T w={600} size={14} numberOfLines={1}>{from(p)}</T>
         <T w={500} size={13} color={colors.g200} numberOfLines={1}>{text}</T>
       </View>
       <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: colors.l600 }} />
@@ -117,7 +117,7 @@ function PhoneSheet() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <Avatar p={p} size={44} />
         <View style={{ flex: 1 }}>
-          <T w={700} size={17}>{from(p)}</T>
+          <T w={600} size={17}>{from(p)}</T>
           <T w={500} size={12} color={colors.g300}>{t(`phone.role.${p.from}` as Key)}</T>
         </View>
       </View>
@@ -132,7 +132,7 @@ function PhoneSheet() {
         </>
       ) : (
         <>
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: 12 }}>
             {([0, 1] as const).map(i => (
               <Answer
                 key={i} text={label(i)} fx={fxList(fxOf(i))} short={short(i)}
@@ -161,7 +161,7 @@ function Answer({ text, fx, short, busy, dim, onPress }: { text: string; fx: Fx[
       })}
     >
       <View style={{ flex: 1, gap: 8 }}>
-        <T w={700} size={17}>{text}</T>
+        <T w={600} size={17}>{text}</T>
         <FxChips fx={fx} />
         {short && <T w={600} size={12} color={colors.bad}>{t('phone.noCoin')}</T>}
       </View>

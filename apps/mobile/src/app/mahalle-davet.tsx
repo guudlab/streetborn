@@ -74,7 +74,7 @@ export default function MahalleDavet() {
         <>
           <View style={{ alignItems: 'center', gap: 12, paddingTop: 32 }}>
             <Emblem shape={info.emblem} color={info.color} name={info.name} size={128} />
-            <T w={700} size={28} style={{ textAlign: 'center', letterSpacing: -0.4 }} accessibilityRole="header">{info.name}</T>
+            <T w={600} size={28} style={{ textAlign: 'center' }} accessibilityRole="header">{info.name}</T>
             {usable ? (
               <View style={{ flexDirection: 'row', gap: 20 }} accessible accessibilityLabel={t('mahalle.invite.sub', { n: info.memberCount, free })}>
                 <Amount icon="oyuncu" size={28} textSize={17}>{info.memberCount}</Amount>

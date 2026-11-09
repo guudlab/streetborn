@@ -105,9 +105,9 @@ export default function MacSonu() {
         <Pop delay={150}>
           {r.result === 'L' ? <Ico name="ball" size={96} /> : <Ico name="cup" size={r.result === 'W' ? 128 : 96} dim={r.result === 'D'} />}
         </Pop>
-        <T w={700} size={52} style={{ lineHeight: 58, letterSpacing: -1 }} accessibilityLabel={t('post.headline', { us: r.us, them: r.them })}>{r.us} – {r.them}</T>
+        <T w={600} size={52} style={{ lineHeight: 58, letterSpacing: -1 }} accessibilityLabel={t('post.headline', { us: r.us, them: r.them })}>{r.us} – {r.them}</T>
         <View style={{ height: 30, paddingHorizontal: 14, borderRadius: 15, justifyContent: 'center', backgroundColor: badgeBg }}>
-          <T w={700} size={14} color={badgeFg}>{RES[r.result]}</T>
+          <T w={600} size={14} color={badgeFg}>{RES[r.result]}</T>
         </View>
       </View>
 
@@ -118,7 +118,7 @@ export default function MacSonu() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
         <PressableScale accessibilityRole="button" accessibilityLabel={`${t('post.ratingA11y')}: ${num(r.rating / 10, 1)}`} onPress={details}>
           <Ring size={96} stroke={6} value={(step >= 1 ? rating : 6) / 10}>
-            <T w={700} size={34} style={{ letterSpacing: -0.6 }}>{num(rating, 1)}</T>
+            <T w={600} size={34} style={{ letterSpacing: -0.6 }}>{num(rating, 1)}</T>
           </Ring>
           <View style={{ position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="info" size={16} color={colors.g200} />
@@ -127,21 +127,21 @@ export default function MacSonu() {
         <View style={{ flex: 1, gap: 10 }}>
           <Gain show={step >= 2} rowRef={coinRow}>
             <Ico name="coin" size={30} />
-            <T w={700} size={22} color={colors.l500}>+{num(coins)}</T>
+            <T w={600} size={22} color={colors.l500}>+{num(coins)}</T>
           </Gain>
           <Gain show={step >= 3}>
             <Icon name="star" size={24} color={colors.l600} />
-            <T w={700} size={18}>+{r.xp}</T>
+            <T w={600} size={18}>+{r.xp}</T>
             <View style={{ flex: 1 }}><Track value={xpBar} reset={step === 4 ? 0 : undefined} /></View>
             {step >= 4 && (
               <Pop style={{ paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: colors.l600 }}>
-                <T w={700} size={12} color={colors.ink}>{t('post.level', { n: r.after.level })}</T>
+                <T w={600} size={12} color={colors.ink}>{t('post.level', { n: r.after.level })}</T>
               </Pop>
             )}
           </Gain>
           <Gain show={step >= 5}>
             <Icon name="whistle" size={24} color={colors.g200} />
-            <T w={700} size={18} color={r.trustDelta >= 0 ? colors.l500 : colors.bad} accessibilityLabel={`${r.coachTrust ? t('career.trust') : t('post.trust')} ${r.trustDelta}`}>
+            <T w={600} size={18} color={r.trustDelta >= 0 ? colors.l500 : colors.bad} accessibilityLabel={`${r.coachTrust ? t('career.trust') : t('post.trust')} ${r.trustDelta}`}>
               {r.trustDelta >= 0 ? '+' : '−'}{Math.abs(r.trustDelta)}
             </T>
             <T w={600} size={13} color={colors.g200} numberOfLines={1} style={{ flex: 1 }}>{r.coachTrust ? t('career.trust') : t('post.trust')}</T>
@@ -151,7 +151,7 @@ export default function MacSonu() {
 
       {r.kind === 'mahalle' && <T w={500} size={13} color={colors.g200} style={{ textAlign: 'center' }}>{t('post.mahalleShort')}</T>}
       {r.kind === 'trial' && (
-        <T w={700} size={15} color={r.trialPassed ? colors.l500 : colors.g200} style={{ textAlign: 'center' }}>{r.trialPassed ? t('post.trialPassed') : t('post.trialFailed')}</T>
+        <T w={600} size={15} color={r.trialPassed ? colors.l500 : colors.g200} style={{ textAlign: 'center' }}>{r.trialPassed ? t('post.trialPassed') : t('post.trialFailed')}</T>
       )}
 
       {r.kariyer && step >= 5 && <KariyerLines k={r.kariyer} />}
@@ -165,7 +165,7 @@ export default function MacSonu() {
       <View style={{ gap: 10, marginTop: 'auto' }}>
         {r.scout && (
           <Cta onPress={() => router.replace('/teklifler')}>
-            <Ico name="kulup" size={30} /><T w={700} size={17} color={colors.ink}>{t('post.scoutReport')}</T>
+            <Ico name="kulup" size={30} /><T w={600} size={17} color={colors.ink}>{t('post.scoutReport')}</T>
           </Cta>
         )}
         {r.scout
@@ -190,7 +190,7 @@ function KariyerLines({ k }: { k: NonNullable<PostMatch['kariyer']> }) {
           <Ico name="cup" size={40} />
           <View style={{ flex: 1 }}>
             <T w={600} size={12} color={colors.l500}>{t('ach.newLabel')}</T>
-            <T w={700} size={16}>{achName(u.key)}</T>
+            <T w={600} size={16}>{achName(u.key)}</T>
           </View>
           <Amount icon="coin" size={22} textSize={15} color={colors.l500}>+{u.coin}</Amount>
         </Pop>
@@ -202,7 +202,7 @@ function KariyerLines({ k }: { k: NonNullable<PostMatch['kariyer']> }) {
         >
           <Icon name="plus" size={26} color={colors.bad} />
           <View style={{ flex: 1 }}>
-            <T w={700} size={15} color={colors.bad}>{t('injury.postTitle', { kind: injuryName(k.injury.kind) })}</T>
+            <T w={600} size={15} color={colors.bad}>{t('injury.postTitle', { kind: injuryName(k.injury.kind) })}</T>
             <T size={13} color={colors.g200}>{t('injury.postText', { t: timeLeft(k.injury.days * 86_400_000) })}</T>
           </View>
           <Icon name="chev" size={18} color={colors.g300} />

@@ -29,7 +29,7 @@ export function Shell({ label, title, right, back = true, children, footer, onRe
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.ink, paddingTop: insets.top }}>
       <ScrollView
         keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 20, paddingBottom: 16, gap: 18 }}
+        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 20, paddingBottom: 16, gap: 24 }}
         refreshControl={onRefresh && (
           <RefreshControl
             refreshing={refreshing} onRefresh={() => void refresh()}
@@ -49,14 +49,14 @@ export function Shell({ label, title, right, back = true, children, footer, onRe
                 <Icon name="back" color={colors.g100} />
               </PressableScale>
             )}
-            {label && <T w={600} size={11} color={colors.g200} style={{ letterSpacing: 1 }}>{label}</T>}
-            {title && <T w={700} size={20} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{title}</T>}
+            {label && <T w={500} size={13} color={colors.g200}>{label}</T>}
+            {title && <T w={600} size={20} numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">{title}</T>}
             {right}
           </View>
         )}
         {children}
       </ScrollView>
-      {footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 10 }}>{footer}</View>}
+      {footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 12 }}>{footer}</View>}
     </KeyboardAvoidingView>
   );
 }

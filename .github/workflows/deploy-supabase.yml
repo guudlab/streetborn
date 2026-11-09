@@ -60,7 +60,7 @@ jobs:
       - name: Link project
         run: supabase/scripts/ci-run.sh "Link project" supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
       - name: Apply migrations
-        run: supabase/scripts/ci-run.sh "Apply migrations" supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: supabase/scripts/ci-run.sh "Apply migrations" supabase/scripts/db-push.sh
       - name: Configure auth
         # Account linking settings (redirect URLs, manual linking, email templates).
         # A failure here is reported but does not stop the deploy.
@@ -95,11 +95,11 @@ jobs:
           if [ ${#args[@]} -gt 0 ]; then args+=("REVENUECAT_ALLOW_TEST_STORE=$allow"); fi
           if [ "$allow" = "1" ]; then echo "::notice title=RevenueCat::Test Store purchases pay gems (REVENUECAT_ALLOW_TEST_STORE=1)."; else echo "::notice title=RevenueCat::Test Store purchases do not pay gems."; fi
           if [ ${#args[@]} -eq 0 ]; then echo "::notice title=RevenueCat::No RevenueCat secrets set; gem packs stay off."; exit 0; fi
-          supabase/scripts/ci-run.sh "Set payment secrets" supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" "${args[@]}"
+          supabase/scripts/ci-run.sh "Set payment secrets" supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" --yes "${args[@]}"
       - name: Vendor shared packages
         run: supabase/scripts/vendor-packages.sh
       - name: Deploy functions
-        run: supabase/scripts/ci-run.sh "Deploy functions" supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID" --use-api
+        run: supabase/scripts/ci-run.sh "Deploy functions" supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID" --use-api --yes
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc

@@ -34,6 +34,9 @@ export interface MahalleConfig {
   /** Weights (percent) of an NPC slot adding 0, 1 or 2 goals for the mahalle / against it. */
   fillOurWeights: [number, number, number];
   fillTheirWeights: [number, number, number];
+  /** Mahalle Ligi: a mahalle joins Monday's groups with this many real members and a mahalle match in the last `ligActiveDays` days. */
+  ligMinRealMembers: number;
+  ligActiveDays: number;
 }
 
 /** One amateur league level (GDD v3.1 section 7). Multipliers are x100 so the math stays integer. */
@@ -319,6 +322,8 @@ export const DEFAULT_CONFIG: EconomyConfig = {
     cheerXpGiver: 5,
     fillOurWeights: [30, 50, 20],
     fillTheirWeights: [45, 40, 15],
+    ligMinRealMembers: 2,
+    ligActiveDays: 7,
   },
 
   // GDD v3.1 offer and league blocks.

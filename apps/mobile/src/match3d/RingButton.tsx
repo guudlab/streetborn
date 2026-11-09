@@ -118,7 +118,7 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
       onPressIn={web ? undefined : press} onPressOut={web || mode !== 'charge' ? undefined : release}
       // Keyboard activation on the web (Enter/Space on the focused button) for tap buttons.
       onPress={web && mode === 'tap' ? press : undefined}
-      style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.12, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { touchAction: 'none' } : null) } as object)}
+      style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.3, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { touchAction: 'none' } : null) } as object)}
     >
       <Svg width={size} height={size} viewBox="0 0 132 132" style={{ position: 'absolute' }}>
         <G rotation={-90} origin="66, 66">
@@ -136,7 +136,7 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
         style={{
           position: 'absolute', top: inset, left: inset, right: inset, bottom: inset, borderRadius: size,
           alignItems: 'center', justifyContent: 'center', gap: 2,
-          backgroundColor: dark ? colors.s2 : colors.l600, borderWidth: dark ? 2 : 0, borderColor: colors.line,
+          backgroundColor: dark ? 'rgba(21,21,21,.88)' : colors.l600, borderWidth: dark ? 2 : 0, borderColor: 'rgba(255,255,255,.22)',
           boxShadow: dark ? undefined : '0 10px 34px rgba(207,253,92,0.35)',
         }}
       >

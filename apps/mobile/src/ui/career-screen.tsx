@@ -8,7 +8,7 @@ import { leagueToday, multiplierLabel, standings, tierName } from '../game/caree
 import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import type { CareerOffer } from '../net/api.ts';
-import { colors } from '../theme.ts';
+import { colors, radius } from '../theme.ts';
 import { openEnergySheet } from './energy.tsx';
 import { Icon } from './Icon.tsx';
 import { buzz, Caps, Cta, Ghost, H3, T, Track } from './kit.tsx';
@@ -53,7 +53,7 @@ export function CareerScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, backgroundColor: colors.l900 }}>
           <Ico name="cup" size={44} />
           <View style={{ flex: 1, gap: 2 }}>
-            <T w={700} size={15} color={colors.l500}>{t('career.lastSeason', { place: lastSeason.place ?? 0, tier: tierName(lastSeason.tier) })}</T>
+            <T w={600} size={15} color={colors.l500}>{t('career.lastSeason', { place: lastSeason.place ?? 0, tier: tierName(lastSeason.tier) })}</T>
             {(lastSeason.prize ?? 0) > 0 && <Amount icon="coin" size={18} textSize={14}>+{lastSeason.prize ?? 0}</Amount>}
           </View>
         </View>
@@ -61,11 +61,18 @@ export function CareerScreen() {
 
       {contract ? <Contract /> : career.offers.length > 0 ? (
         <View style={{ gap: 12 }}>
-          {career.offers.map((o, i) => <Enter key={o.id} i={i}><OfferCard offer={o} /></Enter>)}
+          {career.offers.map((o, i) => <Enter key={o.id} i={i}><OfferCard offer={o} lead={o.id === leadOffer(career.offers)} /></Enter>)}
         </View>
       ) : <Road />}
     </Shell>
   );
+}
+
+/** The offer worth the most a week (that can still be taken): the one lit card with the lime button. */
+function leadOffer(offers: CareerOffer[]): string | null {
+  let best: CareerOffer | null = null;
+  for (const o of offers) if (o.status !== 'trial_failed' && (!best || o.salaryWeekly > best.salaryWeekly)) best = o;
+  return best?.id ?? null;
 }
 
 /** The shape of the contract card and two offers, while the first answer is on its way. */
@@ -78,7 +85,7 @@ function CareerSkeleton() {
   );
 }
 
-function OfferCard({ offer }: { offer: CareerOffer }) {
+function OfferCard({ offer, lead }: { offer: CareerOffer; lead: boolean }) {
   const [busy, setBusy] = useState(false);
   const trial = offer.kind === 'trial';
 
@@ -119,33 +126,33 @@ function OfferCard({ offer }: { offer: CareerOffer }) {
   const failed = offer.status === 'trial_failed';
   const needsTrial = trial && offer.status === 'open';
   const highlight = offer.kind === 'better' || offer.kind === 'promote';
+  const terms = t('career.offerLine', { mult: multiplierLabel(offer.tier), days: SEASON_DAYS });
+  const trialLine = !trial ? null : offer.status === 'trial_passed' ? t('career.trialPassedLine') : needsTrial ? t('career.trialLine', { n: num(cfg.trialMinRating / 10, 1) }) : null;
+  // Only the best offer is lit and gets the lime button; the others stay quiet.
+  const Btn = lead ? Cta : Ghost;
   return (
-    <View style={{ borderRadius: 24, backgroundColor: highlight ? 'rgba(63,77,24,.38)' : colors.s1, borderWidth: 1.5, borderColor: highlight ? colors.l600 : colors.line, padding: 14, gap: 12, opacity: failed ? 0.55 : 1 }}>
+    <View style={{ borderRadius: radius.lg, backgroundColor: lead ? 'rgba(63,77,24,.28)' : colors.s1, borderWidth: lead ? 1.5 : 1, borderColor: lead ? colors.l600 : colors.line, padding: 16, gap: 12, opacity: failed ? 0.55 : 1 }}>
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-        <Ico name="kulup" size={56} />
+        <Ico name="kulup" size={48} />
         <View style={{ flex: 1, gap: 2 }}>
-          <T w={700} size={17} numberOfLines={1}>{offer.clubName}</T>
-          <T w={600} size={12} color={colors.g200}>{tierName(offer.tier)}</T>
+          <T w={600} size={17} numberOfLines={1}>{offer.clubName}</T>
+          <T w={500} size={13} color={colors.g200} numberOfLines={1}>{tierName(offer.tier)}</T>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <Amount icon="coin" size={22} textSize={16}>{num(offer.salaryWeekly)}</Amount>
-          <T w={600} size={11} color={colors.g300}>{t('career.perWeek')}</T>
+        <View style={{ alignItems: 'flex-end' }} accessible accessibilityLabel={`${num(offer.salaryWeekly)} coin ${t('career.perWeek')}`}>
+          <T w={600} size={24} style={{ lineHeight: 28, fontVariant: ['tabular-nums'] }}>{num(offer.salaryWeekly)}</T>
+          <T w={500} size={12} color={colors.g200}>{t('career.coinPerWeek')}</T>
         </View>
       </View>
-      {/* A trial offer shows its trial in the facts below. */}
-      {offer.kind !== 'trial' && <Tag lime={highlight}>{t(KIND_LABEL[offer.kind])}</Tag>}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Fact icon="coinStack" value={multiplierLabel(offer.tier)} label={t('career.fact.multiplier')} />
-        <Fact icon="sezonKart" value={t('career.fact.days', { n: SEASON_DAYS })} label={t('career.fact.season')} />
-        {trial && (offer.status === 'trial_passed'
-          ? <Fact icon="kale" value={t('career.fact.trialPassed')} label={t('career.fact.trial')} lime />
-          : <Fact icon="kale" value={num(cfg.trialMinRating / 10, 1)} label={t('career.fact.trial')} />)}
+      <View style={{ gap: 4 }}>
+        <T w={500} size={14}>{terms}</T>
+        {offer.kind !== 'trial' && <T w={500} size={13} color={highlight ? colors.l600 : colors.g200}>{t(KIND_LABEL[offer.kind])}</T>}
+        {trialLine && <T w={500} size={13} color={offer.status === 'trial_passed' ? colors.l600 : colors.g200}>{trialLine}</T>}
       </View>
       {failed
         ? <T size={13} color={colors.g200}>{t('career.trialFailed')}</T>
         : needsTrial
-          ? <Cta busy={busy} onPress={() => void playTrial()}>{t('career.playTrial')}</Cta>
-          : <Cta busy={busy} onPress={confirm}>{t('offers.sign')}</Cta>}
+          ? <Btn busy={busy} onPress={() => void playTrial()}>{t('career.playTrial')}</Btn>
+          : <Btn busy={busy} onPress={confirm}>{t('offers.sign')}</Btn>}
     </View>
   );
 }
@@ -155,19 +162,19 @@ function Fact({ icon, value, label, lime }: { icon: IconAsset; value: string; la
   return (
     <View
       accessible accessibilityLabel={`${label} ${value}`}
-      style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 16, backgroundColor: lime ? colors.l900 : colors.s2 }}
+      style={{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 12, paddingHorizontal: 4, borderRadius: 16, backgroundColor: lime ? colors.l900 : colors.s2 }}
     >
       <Ico name={icon} size={30} />
-      <T w={700} size={16} color={lime ? colors.l500 : colors.g100} numberOfLines={1}>{value}</T>
-      <T w={600} size={11} color={colors.g300} numberOfLines={1}>{label}</T>
+      <T w={600} size={16} color={lime ? colors.l500 : colors.g100} numberOfLines={1}>{value}</T>
+      <T w={600} size={12} color={colors.g300} numberOfLines={1}>{label}</T>
     </View>
   );
 }
 
 function Tag({ children, lime }: { children: string; lime?: boolean }) {
   return (
-    <View style={{ alignSelf: 'flex-start', height: 28, paddingHorizontal: 10, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
-      <T w={700} size={12} color={lime ? colors.l500 : colors.g100}>{children}</T>
+    <View style={{ alignSelf: 'flex-start', height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: 'center', backgroundColor: lime ? colors.l900 : colors.s3 }}>
+      <T w={600} size={12} color={lime ? colors.l500 : colors.g100}>{children}</T>
     </View>
   );
 }
@@ -181,12 +188,12 @@ function Contract() {
 
   return (
     <>
-      <View style={{ padding: 14, borderRadius: 24, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 14 }}>
+      <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, gap: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Ico name="kulup" size={56} />
           <View style={{ flex: 1, gap: 2 }}>
             <T w={600} size={12} color={colors.g200}>{tierName(contract.tier)}</T>
-            {today && <T w={700} size={15}>{t('league.dayShort', { n: today.round + 1, total: today.rounds })}</T>}
+            {today && <T w={600} size={15}>{t('league.dayShort', { n: today.round + 1, total: today.rounds })}</T>}
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
             <Amount icon="coin" size={22} textSize={16}>{num(contract.salaryWeekly)}</Amount>
@@ -196,12 +203,12 @@ function Contract() {
         <PressableScale
           accessibilityRole="button" accessibilityLabel={`${t('career.trust')} ${career.trust}`}
           onPress={() => openSheet(<><H3>{t('career.trust')}</H3><SheetText>{t('career.trustHint')}</SheetText><Cta onPress={closeSheet}>{t('common.ok')}</Cta></>)}
-          style={{ gap: 6 }}
+          style={{ gap: 8 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Icon name="whistle" size={18} color={colors.g200} />
             <T w={600} size={14} style={{ flex: 1 }}>{t('career.trust')}</T>
-            <T w={700} size={15} color={career.trust >= 70 ? colors.l500 : career.trust < 40 ? colors.bad : colors.g100}>{career.trust}</T>
+            <T w={600} size={15} color={career.trust >= 70 ? colors.l500 : career.trust < 40 ? colors.bad : colors.g100}>{career.trust}</T>
             <Icon name="info" size={16} color={colors.g300} />
           </View>
           <TrustBar trust={career.trust} />
@@ -211,7 +218,7 @@ function Contract() {
       {table && (
         <View style={{ gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Ico name="cup" size={24} /><Caps>{t('league.table')}</Caps></View>
-          <View style={{ borderRadius: 18, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
+          <View style={{ borderRadius: 16, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
             <Row head pos="#" name={t('league.team')} p={t('league.p')} gd={t('league.gd')} pts={t('league.pts')} />
             {rows.map((r, i) => (
               <Row key={r.key} pos={String(i + 1)} name={r.name} p={String(r.played)} gd={String(r.goalsFor - r.goalsAgainst)} pts={String(r.points)} me={r.index === 0} />
@@ -232,9 +239,9 @@ function TrustBar({ trust }: { trust: number }) {
         <Track value={trust / 100} color={trust >= cfg.trustPromoteMin ? colors.l500 : trust < cfg.trustRenewMin ? colors.bad : colors.l600} />
         {marks.map(([at]) => <View key={at} style={{ position: 'absolute', left: `${at}%`, top: -3, width: 2, height: 14, marginLeft: -1, borderRadius: 1, backgroundColor: colors.g100 }} />)}
       </View>
-      <View style={{ height: 16 }}>
+      <View style={{ height: 18 }}>
         {marks.map(([at, label]) => (
-          <T key={at} w={600} size={11} color={trust >= at ? colors.l500 : colors.g300} style={{ position: 'absolute', left: `${at}%`, width: 80, marginLeft: -40, textAlign: 'center' }}>{label}</T>
+          <T key={at} w={600} size={12} color={trust >= at ? colors.l500 : colors.g300} style={{ position: 'absolute', left: `${at}%`, width: 80, marginLeft: -40, textAlign: 'center' }}>{label}</T>
         ))}
       </View>
     </View>
@@ -250,7 +257,7 @@ function Row({ pos, name, p, gd, pts, me, head }: { pos: string; name: string; p
       <T w={w} size={14} color={c} style={{ flex: 1 }} numberOfLines={1}>{name}</T>
       <T w={w} size={13} color={c} style={{ width: 26, textAlign: 'right' }}>{p}</T>
       <T w={w} size={13} color={c} style={{ width: 34, textAlign: 'right' }}>{gd}</T>
-      <T w={700} size={13} color={c} style={{ width: 30, textAlign: 'right' }}>{pts}</T>
+      <T w={600} size={13} color={c} style={{ width: 30, textAlign: 'right' }}>{pts}</T>
     </View>
   );
 }
@@ -264,18 +271,18 @@ function Road() {
     { icon: 'mahalle' as const, label: t('career.road.mahalle'), have: p.mahalleMatches, need: DEFAULT_CONFIG.offerMinMahalleMatches },
   ];
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 16 }}>
       <Ico name="kulup" size={110} style={{ alignSelf: 'center' }} dim />
       <Bubble text={t('career.road.short')} />
-      <View style={{ gap: 10 }}>
+      <View style={{ gap: 12 }}>
         {items.map(it => (
           <View key={it.label} accessible accessibilityLabel={`${it.label} ${Math.min(it.have, it.need)} / ${it.need}`}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, backgroundColor: colors.s2 }}>
             <Ico name={it.icon} size={40} />
-            <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ flex: 1, gap: 8 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <T w={600} size={14}>{it.label}</T>
-                <T w={700} size={14} color={it.have >= it.need ? colors.l500 : colors.g100}>{Math.min(it.have, it.need)} / {it.need}</T>
+                <T w={600} size={14} color={it.have >= it.need ? colors.l500 : colors.g100}>{Math.min(it.have, it.need)} / {it.need}</T>
               </View>
               <Track value={Math.min(1, it.have / it.need)} />
             </View>
@@ -284,7 +291,7 @@ function Road() {
         ))}
       </View>
       <Cta onPress={() => router.navigate('/mahalle')}>
-        <Ico name="mahalle" size={30} /><T w={700} size={17} color={colors.ink}>{t('career.road.toMahalle')}</T>
+        <Ico name="mahalle" size={30} /><T w={600} size={17} color={colors.ink}>{t('career.road.toMahalle')}</T>
       </Cta>
     </View>
   );

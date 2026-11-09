@@ -40,7 +40,7 @@ export function Decision({ moment, mate, first, onPick }: {
     <View style={{ flex: 1, gap: 16, justifyContent: 'center' }}>
       <Radar ball={{ x: 0.6, y: 0.5 }} reduce duration={0} highlight={{ mate: free, lane: moment.best === 'shot' }} />
       <View style={{ alignItems: 'center', gap: 2 }}>
-        <T w={700} size={32} color={colors.l600} style={{ letterSpacing: 1, textShadowColor: 'rgba(207,253,92,.45)', textShadowRadius: 22 }}>{t('live.yours')}</T>
+        <T w={600} size={32} color={colors.l600} style={{ letterSpacing: 1, textShadowColor: 'rgba(207,253,92,.45)', textShadowRadius: 22 }}>{t('live.yours')}</T>
         <T size={13} color={colors.g200}>{moment.minute}'</T>
       </View>
       <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.s3, overflow: 'hidden' }}>
@@ -63,7 +63,7 @@ function Choice({ icon, label, a11y, onPress }: { icon: 'sut' | 'pas'; label: st
           <View style={{ width: 92, height: 92, borderRadius: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? colors.l900 : colors.s2, borderWidth: 1, borderColor: pressed ? colors.l600 : colors.line }}>
             <Ico name={icon} size={48} />
           </View>
-          <T w={700} size={16}>{label}</T>
+          <T w={600} size={16}>{label}</T>
         </>
       )}
     </Pressable>
@@ -71,13 +71,22 @@ function Choice({ icon, label, a11y, onPress }: { icon: 'sut' | 'pas'; label: st
 }
 
 /** Half-time: Burak abi asks one question; the answer shapes the second half. */
-export function Halftime({ us, them, onPick }: { us: number; them: number; onPick(t: Tactic | null): void }) {
+export function Halftime({ us, them, codes, shots, onPick }: { us: number; them: number; codes?: [string, string]; shots?: [number, number]; onPick(t: Tactic | null): void }) {
   const [busy, setBusy] = useState(false);
   const go = (v: Tactic | null) => { if (busy) return; setBusy(true); buzz('select'); onPick(v); };
   const ask = us < them ? t('live.ht.behind') : us > them ? t('live.ht.ahead') : t('live.ht.level');
   return (
-    <View style={{ flex: 1, justifyContent: 'center', gap: 18 }}>
-      <T w={700} size={13} color={colors.l600} style={{ textAlign: 'center', letterSpacing: 1.6 }}>{t('m3.banner.halftime')}</T>
+    <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
+      {/* First-half summary, so the call is made on something. */}
+      <View accessible accessibilityLabel={`${t('m3.banner.halftime')}. ${us} – ${them}${shots ? `. ${t('live.ht.shots', { us: shots[0], them: shots[1] })}` : ''}`} style={{ alignItems: 'center', gap: 4 }}>
+        <T w={500} size={13} color={colors.g200}>{t('m3.banner.halftime')}</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {codes && <T w={600} size={17} color={colors.l600}>{codes[0]}</T>}
+          <T w={600} size={44} style={{ lineHeight: 48, fontVariant: ['tabular-nums'] }}>{us} – {them}</T>
+          {codes && <T w={600} size={17} color={colors.g200}>{codes[1]}</T>}
+        </View>
+        {shots && <T w={500} size={13} color={colors.g200}>{t('live.ht.shots', { us: shots[0], them: shots[1] })}</T>}
+      </View>
       <Bubble text={ask} size={46} />
       <View style={{ gap: 10 }}>
         <Option title={t('live.ht.push')} sub={t('live.ht.pushSub')} icon="play" onPress={() => go('push')} />
@@ -93,15 +102,15 @@ function Option({ title, sub, icon, onPress }: { title: string; sub: string; ico
     <Pressable
       accessibilityRole="button" accessibilityLabel={`${title}. ${sub}`} onPress={onPress}
       style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 22, borderWidth: 1,
+        flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 20, borderWidth: 1,
         borderColor: pressed ? colors.l600 : colors.line, backgroundColor: pressed ? colors.l900 : colors.s1,
       })}
     >
-      <View style={{ width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.s2, transform: [{ rotate: icon === 'play' ? '-90deg' : '0deg' }] }}>
+      <View style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.s2, transform: [{ rotate: icon === 'play' ? '-90deg' : '0deg' }] }}>
         <Icon name={icon} size={20} color={colors.l600} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <T w={700} size={17}>{title}</T>
+        <T w={600} size={17}>{title}</T>
         <T size={13} color={colors.g200}>{sub}</T>
       </View>
     </Pressable>

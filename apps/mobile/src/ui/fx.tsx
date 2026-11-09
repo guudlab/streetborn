@@ -40,7 +40,7 @@ export function FxChips({ fx, big, center }: { fx: Fx[]; big?: boolean; center?:
             }}
           >
             <Icon name={ICON[f.kind]} size={big ? 18 : 14} color={color} />
-            <T w={700} size={big ? 14 : 12} color={color}>{fxText(f)}</T>
+            <T w={600} size={big ? 14 : 12} color={color}>{fxText(f)}</T>
           </View>
         );
       })}

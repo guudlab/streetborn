@@ -117,7 +117,7 @@ function TenekeDemo() {
       ))}
       <Mover p={p} x={ball} y={ballY} size={{ w: 26, h: 26 }} scale={[[0.5, 0.64], [1, 0.6]]} opacity={[[0, 0.64, 0.72], [1, 1, 0]]}>{img(ICONS.ball, 26)}</Mover>
       <Mover p={p} x={72} y={148} size={{ w: 44, h: 44 }} scale={[[0.2, 0.46], [2, 1]]} opacity={[[0.19, 0.2, 0.46, 0.5], [0, 1, 1, 0]]}>
-        <View style={{ flex: 1, borderRadius: 22, borderWidth: 2.5, borderColor: colors.l600 }} />
+        <View style={{ flex: 1, borderRadius: 20, borderWidth: 2.5, borderColor: colors.l600 }} />
       </Mover>
       <Hand p={p} x={[[0, 0.16, 0.18, 0.46, 0.56], [130, 92, 92, 72, 60]]} y={[[0, 0.16, 0.18, 0.46, 0.56], [170, 126, 126, 148, 168]]} opacity={[[0, 0.08, 0.16, 0.48, 0.56], [0, 0, 1, 1, 0]]} />
     </>
@@ -178,8 +178,8 @@ function MerdivenDemo() {
     <>
       {[0, 1, 2, 3, 4].map(i => <View key={i} style={{ position: 'absolute', left: 104 + i * 18, top: 104 - i * 18, width: 72, height: 6, borderRadius: 2, backgroundColor: '#3A3A3A' }} />)}
       <Mover p={p} x={[up(18)[0], up(18)[1].map(v => 118 + v)]} y={[up(-18)[0], up(-18)[1].map(v => 84 + v)]} opacity={[[0, 0.94, 0.97, 1], [1, 1, 0, 0]]} size={{ w: 34, h: 40 }}>{img(ICONS.oyuncuKosu, 34, 40)}</Mover>
-      <Spot x={L.x} y={L.y} r={20}><T w={700} size={12} color={colors.g200}>{t('talim.left')}</T></Spot>
-      <Spot x={R.x} y={R.y} r={20}><T w={700} size={12} color={colors.g200}>{t('talim.right')}</T></Spot>
+      <Spot x={L.x} y={L.y} r={20}><T w={600} size={12} color={colors.g200}>{t('talim.left')}</T></Spot>
+      <Spot x={R.x} y={R.y} r={20}><T w={600} size={12} color={colors.g200}>{t('talim.right')}</T></Spot>
       {taps.map((a, i) => <Ripple key={i} p={p} x={i % 2 ? R.x : L.x} y={i % 2 ? R.y : L.y} at={a} />)}
       <Hand
         p={p}
@@ -254,10 +254,10 @@ function MacSutDemo() {
       </Mover>
       <Ripple p={p} x={corner.x} y={corner.y} at={0.14} />
       <Mover p={p} x={[[0.58, 0.7], [ball.x, corner.x]]} y={[[0.58, 0.7], [ball.y, corner.y]]} scale={[[0.58, 0.7], [1, 0.6]]} opacity={[[0, 0.86, 0.9], [1, 1, 0]]} size={{ w: 24, h: 24 }}>{img(ICONS.ball, 24)}</Mover>
-      <Btn x={btn.x} y={btn.y} lime><T w={700} size={13} color={colors.ink} style={{ fontStyle: 'italic' }}>{t('m3.shoot')}</T></Btn>
+      <Btn x={btn.x} y={btn.y} lime><T w={600} size={13} color={colors.ink} style={{ fontStyle: 'italic' }}>{t('m3.shoot')}</T></Btn>
       <RingDots p={p} x={btn.x} y={btn.y} from={0.32} step={0.025} lit={10} />
       <Mover p={p} x={140} y={104} size={{ w: 120, h: 40 }} opacity={[[0.72, 0.74, 0.88, 0.92], [0, 1, 1, 0]]} scale={[[0.72, 0.78], [0.5, 1]]}>
-        <T w={700} size={30} color={colors.l600} style={{ textAlign: 'center', fontStyle: 'italic' }}>{t('m3.big.goal')}</T>
+        <T w={600} size={30} color={colors.l600} style={{ textAlign: 'center', fontStyle: 'italic' }}>{t('m3.big.goal')}</T>
       </Mover>
       <Hand
         p={p}
@@ -280,8 +280,8 @@ function MacPasDemo() {
       <View style={{ position: 'absolute', left: L.x - 30, top: L.y - 30, width: 60, height: 60, borderRadius: 30, borderWidth: 2.5, borderColor: colors.bad }} />
       <Mover p={p} x={R.x} y={R.y} size={{ w: 30, h: 44 }}>{img(ICONS.oyuncu, 30, 44)}</Mover>
       <Mover p={p} x={[[0.46, 0.62], [140, R.x]]} y={[[0.46, 0.62], [120, R.y + 18]]} opacity={[[0, 0.86, 0.9], [1, 1, 0]]} size={{ w: 20, h: 20 }}>{img(ICONS.ball, 20)}</Mover>
-      <Btn x={bL.x} y={bL.y}><T w={700} size={11}>CAN</T></Btn>
-      <Btn x={bR.x} y={bR.y}><T w={700} size={11}>MERT</T></Btn>
+      <Btn x={bL.x} y={bL.y}><T w={600} size={11}>CAN</T></Btn>
+      <Btn x={bR.x} y={bR.y}><T w={600} size={11}>MERT</T></Btn>
       <RingDots p={p} x={bR.x} y={bR.y} from={0.12} step={0.03} lit={9} />
       <Ripple p={p} x={bR.x} y={bR.y} at={0.42} />
       <Hand
@@ -303,12 +303,12 @@ function MacSavunmaDemo() {
       <Mover p={p} x={[[0, 0.1, 0.36, 0.5, 0.62], [140, 140, 156, 156, 182]]} y={64} rotate={[[0, 0.1, 0.36, 0.62], [0, 0, 14, 14]]} size={{ w: 76, h: 100 }}>
         {img(KEREM, 76, 100)}
       </Mover>
-      <Btn x={bL.x} y={bL.y}><T w={700} size={12}>{t('m3.left')}</T></Btn>
-      <Btn x={bR.x} y={bR.y}><T w={700} size={12}>{t('m3.right')}</T></Btn>
+      <Btn x={bL.x} y={bL.y}><T w={600} size={12}>{t('m3.left')}</T></Btn>
+      <Btn x={bR.x} y={bR.y}><T w={600} size={12}>{t('m3.right')}</T></Btn>
       <RingDots p={p} x={bR.x} y={bR.y} from={0.12} step={0.03} lit={9} />
       <Ripple p={p} x={bR.x} y={bR.y} at={0.42} />
       <Mover p={p} x={140} y={110} size={{ w: 160, h: 40 }} opacity={[[0.46, 0.48, 0.8, 0.86], [0, 1, 1, 0]]} scale={[[0.46, 0.52], [0.5, 1]]}>
-        <T w={700} size={26} color={colors.l600} style={{ textAlign: 'center', fontStyle: 'italic' }}>{t('m3.big.stopped')}</T>
+        <T w={600} size={26} color={colors.l600} style={{ textAlign: 'center', fontStyle: 'italic' }}>{t('m3.big.stopped')}</T>
       </Mover>
       <Hand
         p={p}
@@ -329,11 +329,12 @@ export function HowToSteps({ drill }: { drill: HowToKind }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
       {Array.from({ length: STEPS[drill] }, (_, i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 6, paddingRight: 14, borderRadius: 20, backgroundColor: colors.s2 }}>
-          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.l600, alignItems: 'center', justifyContent: 'center' }}>
-            <T w={700} size={14} color={colors.ink}>{i + 1}</T>
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 6, paddingRight: 16, borderRadius: 20, backgroundColor: colors.s2 }}>
+          {/* Grey step numbers: the lime belongs to the start button under them. */}
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
+            <T w={600} size={14} color={colors.g100}>{i + 1}</T>
           </View>
-          <T w={700} size={15}>{t(`howto.${drill}.${i + 1}` as Key)}</T>
+          <T w={600} size={15}>{t(`howto.${drill}.${i + 1}` as Key)}</T>
         </View>
       ))}
     </View>
@@ -344,20 +345,20 @@ export function HowToSteps({ drill }: { drill: HowToKind }) {
 export function HowTo({ drill, name, onDone, style }: { drill: HowToKind; name: string; onDone(): void; style?: ViewStyle }) {
   const Demo = DEMOS[drill];
   return (
-    <View style={[{ alignItems: 'center', gap: 18, paddingHorizontal: 20 }, style]}>
+    <View style={[{ alignItems: 'center', gap: 16, paddingHorizontal: 20 }, style]}>
       <View style={{ alignItems: 'center', gap: 4 }}>
-        <T w={600} size={13} color={colors.l600} style={{ letterSpacing: 1.2 }}>{t('howto.title').toLocaleUpperCase('tr')}</T>
-        <T w={700} size={24} accessibilityRole="header">{name}</T>
+        <T w={600} size={14} color={colors.l600}>{t('howto.title')}</T>
+        <T w={600} size={24} accessibilityRole="header">{name}</T>
       </View>
       <View
         accessible accessibilityRole="image" accessibilityLabel={t(`howto.${drill}` as Key)}
-        style={{ width: W, height: H, borderRadius: 22, overflow: 'hidden', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
+        style={{ width: W, height: H, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line }}
       >
         <Demo />
       </View>
       <HowToSteps drill={drill} />
-      <Cta style={{ alignSelf: 'stretch', marginTop: 6 }} onPress={onDone} accessibilityLabel={t('howto.ok')}>
-        <T w={700} size={17} color={colors.ink}>{t('howto.ok')}</T>
+      <Cta style={{ alignSelf: 'stretch', marginTop: 8 }} onPress={onDone} accessibilityLabel={t('howto.ok')}>
+        <T w={600} size={17} color={colors.ink}>{t('howto.ok')}</T>
       </Cta>
     </View>
   );

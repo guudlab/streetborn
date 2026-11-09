@@ -96,7 +96,7 @@ export function Flash({ text, color = colors.l600, x, y }: { text: string | null
   if (!text) return null;
   return (
     <View pointerEvents="none" style={{ position: 'absolute', left: x - 90, top: y - 14, width: 180, alignItems: 'center' }}>
-      <T w={700} size={18} color={color} accessibilityLiveRegion="polite">{text}</T>
+      <T w={600} size={18} color={color} accessibilityLiveRegion="polite">{text}</T>
     </View>
   );
 }

@@ -118,7 +118,7 @@ export const finishMatch = (matchId: string, inputs: ChanceInput[], durationMs: 
 export type MahalleEmblem = 'shield' | 'circle' | 'diamond';
 export type MahalleColor = 'lime' | 'blue' | 'red' | 'purple' | 'teal' | 'white';
 
-export interface MahalleMember { playerId: string; nick: string | null; level: number; joinedAt: string }
+export interface MahalleMember { playerId: string; nick: string | null; level: number; joinedAt: string; /** Yaşam items bought (ids). */ life?: string[] }
 export interface MahalleInfo {
   id: string; name: string; emblem: MahalleEmblem; color: MahalleColor; code: string; isOpen: boolean;
   captainId: string | null; members: MahalleMember[];
@@ -166,16 +166,33 @@ export interface MahalleContribution {
   rating: number;
   cheers: number; cheered: boolean;
 }
+/** The day's opponent: an NPC mahalle, or the Mahalle Ligi rival (with its crest; bot for a bot mahalle). */
+export interface MahalleOpponent { name: string; emblem?: MahalleEmblem; color?: MahalleColor; bot?: boolean }
 export interface MahalleLastDay {
-  day: string; opponent: { name: string }; ourGoals: number; theirGoals: number; result: 'W' | 'D' | 'L';
+  day: string; opponent: MahalleOpponent; ourGoals: number; theirGoals: number; result: 'W' | 'D' | 'L';
   summary: {
     motm: string | null; turnout: boolean; fills: number;
     payouts: { player: string; coin: number; xp: number; respect: number }[];
+    /** League days: [us, them] in our members' matches and in the rival's. */
+    halves?: { ours: [number, number]; theirs: [number, number] };
   };
 }
+export interface MahalleLigTeam { slot: number; name: string; emblem: MahalleEmblem; color: MahalleColor; level: number; bot: boolean }
+/** The week's Mahalle Ligi group of the caller's mahalle. */
+export interface MahalleLig {
+  week: string;
+  /** Today's round, 0 (Monday) .. 6. */
+  round: number;
+  slot: number;
+  teams: MahalleLigTeam[];
+  results: { round: number; home: number; away: number; homeGoals: number; awayGoals: number }[];
+  /** Live score of today's rival's own matches (their best 7): goals for us, goals for them. */
+  rivalHalf: { played: number; us: number; them: number };
+}
 export interface MahalleToday {
-  me: string; day: string; opponent: { name: string } | null; played: boolean;
+  me: string; day: string; opponent: MahalleOpponent | null; played: boolean;
   contributions: MahalleContribution[]; cheersLeft: number; respect: number; last: MahalleLastDay | null;
+  lig?: MahalleLig | null;
 }
 
 /** Today's mahalle match (live contributions) and the last settled day. Null without a mahalle. */
@@ -193,6 +210,25 @@ export type ReportReason = 'abuse' | 'harassment' | 'spam' | 'other';
 export const reportPlayer = (to: string, reason: ReportReason) => call<{ ok: true }>('mahalle', { action: 'report', to, reason });
 export const blockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'block', to });
 export const unblockPlayer = (to: string) => call<{ ok: true }>('mahalle', { action: 'unblock', to });
+
+/** Another player's public profile (oyuncu Edge Function). No coin, gems or ledger; only the Yaşam items, which are meant to be seen. */
+export interface PlayerProfile {
+  id: string; kod: string; nick: string | null; level: number; character: Partial<Character> | null; me: boolean; mate: boolean;
+  stats: { sut: number; pas: number; hiz: number; fizik: number };
+  totals: { matches: number; goals: number; assists: number };
+  /** Last five match ratings (tenths), oldest first. */
+  ratings: number[];
+  club: string | null;
+  mahalle: { id: string; name: string; emblem: MahalleEmblem; color: MahalleColor } | null;
+  trophies: string[]; trophyCount: number;
+  /** Yaşam items bought (ids), for the showcase. Missing before the server update. */
+  life?: string[];
+}
+export interface PlayerHit { id: string; kod: string; nick: string | null; level: number; character: Partial<Character> | null; mahalle: string | null }
+
+export const loadPlayer = (who: { id?: string; kod?: string }) => call<{ ok: true; player: PlayerProfile }>('oyuncu', { action: 'profil', ...who }).then(r => r.player);
+export const searchPlayers = (q: string) => call<{ ok: true; players: PlayerHit[] }>('oyuncu', { action: 'ara', q }).then(r => r.players);
+export const setSearchable = (value: boolean) => call<{ ok: true; value: boolean }>('oyuncu', { action: 'aranabilir', value });
 
 /** Ids of the players the caller blocked. */
 export async function loadBlocked(): Promise<string[]> {
@@ -290,6 +326,10 @@ export async function loadTrainingToday(): Promise<TrainingToday> {
 export const refillEnergy = () => call<{ gem: number; energy: { energy: number; updatedAt: number } }>('shop', { action: 'refill' });
 export const buyItem = (itemId: string) => call<{ currency: 'coin' | 'gem'; price: number; balance: number }>('shop', { action: 'buy', itemId });
 export const equipItem = (itemId: string, on: boolean) => call<{ ok: true }>('shop', { action: 'equip', itemId, on });
+/** Buys a Yaşam item at its config price (coin). */
+export const buyLife = (itemId: string) => call<{ price: number; balance: number }>('shop', { action: 'life', itemId });
+/** Collects the halısaha income waiting since the last collection. */
+export const claimHalisaha = () => call<{ coin: number; days: number; balance: number }>('shop', { action: 'halisaha' });
 /** Buys a pair of krampon at its config price (coin). */
 export const buyBoots = (itemId: string) => call<{ price: number; balance: number; usesLeft: number }>('shop', { action: 'boots', itemId });
 
@@ -298,7 +338,7 @@ export const syncPurchases = () => call<{ paid: number; gem: number }>('iap', {}
 
 export interface OwnedItem { id: string; equipped: boolean; /** Boots only: talim left. */ usesLeft?: number | null }
 export interface CatalogItem { id: string; kind: string; priceGem: number | null; priceCoin: number | null }
-export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[] }
+export interface ShopToday { refills: number; adEnergy: number; adDouble: number; items: OwnedItem[]; catalog: CatalogItem[]; /** Whole days since the halısaha last paid (uncapped). */ halisahaDays?: number }
 
 /** Today's refills and rewarded ads, the caller's items and the price list. */
 export async function loadShopToday(): Promise<ShopToday> {

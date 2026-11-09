@@ -10,7 +10,7 @@ export function MatchStrip({ pins, goals }: { pins: Pin[]; goals: number }) {
   const mine = pins.filter(p => p.kind === 'mine' || p.kind === 'mineGood').length;
   return (
     <View accessible accessibilityLabel={`${t('post.story')}: ${t('post.storyA11y', { n: mine, g: goals })}`} style={{ gap: 6 }}>
-      <T w={600} size={12} color={colors.g300} style={{ letterSpacing: 1.2 }}>{t('post.story').toLocaleUpperCase('tr')}</T>
+      <T w={500} size={13} color={colors.g300}>{t('post.story')}</T>
       <View style={{ height: 22, justifyContent: 'center' }}>
         <View style={{ height: 2, borderRadius: 1, backgroundColor: colors.s3 }} />
         <View style={{ position: 'absolute', left: '50%', top: 4, bottom: 4, width: 1, backgroundColor: colors.g400 }} />

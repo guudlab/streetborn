@@ -11,7 +11,7 @@ import { create } from 'zustand';
 
 import {
   ApiError, blockPlayer, cheerMate, createMahalle as apiCreateMahalle, finishMatch as apiFinish, joinMahalleByCode, joinMahalleById, leaveMahalle as apiLeaveMahalle,
-  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount, ensureSession, syncPurchases,
+  acceptOffer as apiAcceptOffer, buyItem as apiBuyItem, buyBoots as apiBuyBoots, buyLife as apiBuyLife, claimHalisaha as apiClaimHalisaha, careerStatus, equipItem, finishDrill as apiFinishDrill, loadShopToday, refillEnergy, loadTrainingToday, startDrill as apiStartDrill, trainPrivate, loadBlocked, loadCareer, loadMahalle, loadMahalleToday, loadProfile, reportPlayer, unblockPlayer, saveProfile, startMatch as apiStart, storedPlayerId, kariyerDurum, kariyerMasaj, kariyerSec, kariyerTelefon, deleteAccount as apiDeleteAccount, ensureSession, syncPurchases,
   type MahalleColor, type MahalleEmblem, type MahalleInfo, type MahalleToday, type MatchKind, type ServerStat, type TrainResponse, type Boots, type Profile, type ReportReason, type Career, type CatalogItem, type Choice, type GemGrant, type InjuryKind, type Kariyer, type OwnedItem,
 } from '../net/api.ts';
 import { loadAccount, signOutAll, type Account } from '../net/auth.ts';
@@ -161,6 +161,8 @@ interface GameState {
   /** Items the player owns and the price list (online). */
   owned: OwnedItem[];
   catalog: CatalogItem[];
+  /** Whole days of halısaha income waiting (uncapped; the payout caps it). */
+  halisahaDays: number;
   match: LiveMatch | null;
   post: PostMatch | null;
 
@@ -220,6 +222,10 @@ interface GameState {
   gemRefill(): Promise<'ok' | 'no_gem' | 'limit' | 'full' | 'error'>;
   refreshShop(): Promise<void>;
   buyItem(id: string): Promise<'ok' | 'no_gem' | 'no_coin' | 'owned' | 'error'>;
+  /** Buys a Yaşam item for coin (server price). */
+  buyLife(id: string): Promise<'ok' | 'no_coin' | 'owned' | 'locked' | 'needs' | 'error'>;
+  /** Collects the halısaha income; returns the coin paid, or null when it failed. */
+  claimHalisaha(): Promise<number | null>;
   equip(id: string, on: boolean): Promise<void>;
   /** Store price labels of the gem packs (iOS/Android with RevenueCat), by pack id. */
   gemPrices: Record<string, string>;
@@ -404,6 +410,7 @@ export const useGame = create<GameState>()((set, get) => ({
   adsLeft: 2,
   refillsLeft: config.shop.refillsPerDay,
   owned: [],
+  halisahaDays: 0,
   catalog: [],
   gemPrices: {},
   assisted: false,
@@ -441,7 +448,7 @@ export const useGame = create<GameState>()((set, get) => ({
 
   async signedIn() {
     // Whatever was cached belonged to the session before; the server has the truth.
-    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null, owned: [], character: null, drillStars: {}, drillRecords: {}, boots: null, drill: null, trainStreak: false });
+    set({ mahalle: null, mahalleReady: false, mahalleToday: null, career: null, kariyer: null, careerTried: false, kariyerTried: false, account: null, owned: [], halisahaDays: 0, character: null, drillStars: {}, drillRecords: {}, boots: null, drill: null, trainStreak: false });
     await connect(true);
     await get().refreshMahalle();
     set({ auth: 'in' });
@@ -608,7 +615,7 @@ export const useGame = create<GameState>()((set, get) => ({
       careerNews: null, kariyerNews: null, seasonSummary: null, pendingInvite: null, club: t('club.home'), level: 1, xp: 0, coins: 0, gems: 0,
       stats: { sut: 40, pas: 40, hiz: 40, fizik: 40 }, drillProgress: { sut: 0, pas: 0, hiz: 0, fizik: 0 }, form: [],
       drillStars: {}, drillRecords: {}, boots: null, drill: null, trainStreak: false,
-      owned: [], catalog: [], match: null, post: null,
+      owned: [], catalog: [], halisahaDays: 0, match: null, post: null,
     });
   },
 
@@ -982,7 +989,7 @@ export const useGame = create<GameState>()((set, get) => ({
     if (get().mode !== 'online') return;
     try {
       const today = await loadShopToday();
-      set({ refillsLeft: Math.max(0, config.shop.refillsPerDay - today.refills), owned: today.items, catalog: today.catalog });
+      set({ refillsLeft: Math.max(0, config.shop.refillsPerDay - today.refills), owned: today.items, catalog: today.catalog, halisahaDays: today.halisahaDays ?? 0 });
     } catch (e) {
       console.warn('Could not load the shop', e);
     }
@@ -1002,6 +1009,37 @@ export const useGame = create<GameState>()((set, get) => ({
       }
       console.warn('buy failed', e);
       return 'error';
+    }
+  },
+
+  async buyLife(id) {
+    if (get().mode !== 'online') return 'error';
+    try {
+      const r = await apiBuyLife(id);
+      set({ coins: r.balance, owned: [...get().owned.filter(o => o.id !== id), { id, equipped: false }] });
+      void get().refreshShop();
+      void get().refreshMahalle();
+      return 'ok';
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'no_coin' || e.code === 'owned' || e.code === 'locked' || e.code === 'needs')) {
+        void get().refreshShop();
+        return e.code;
+      }
+      console.warn('lifestyle purchase failed', e);
+      return 'error';
+    }
+  },
+
+  async claimHalisaha() {
+    if (get().mode !== 'online') return null;
+    try {
+      const r = await apiClaimHalisaha();
+      set({ coins: r.balance, halisahaDays: 0 });
+      return r.coin;
+    } catch (e) {
+      console.warn('halısaha claim failed', e);
+      void get().refreshShop();
+      return null;
     }
   },
 

@@ -113,7 +113,7 @@ export default function Talim() {
   const Game = GAMES[key];
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, paddingTop: insets.top + 8 }}>
-      <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 10 }}>
+      <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
           <PressableScale
             accessibilityRole="button" accessibilityLabel={t('talim.close')} onPress={quit} disabled={phase === 'saving'} hitSlop={8}
@@ -121,13 +121,13 @@ export default function Talim() {
           >
             <Icon name="x" size={20} color={colors.g100} />
           </PressableScale>
-          <T w={700} size={17} accessibilityRole="header" style={{ flex: 1 }}>{DRILLS[key].name}</T>
+          <T w={600} size={17} accessibilityRole="header" style={{ flex: 1 }}>{DRILLS[key].name}</T>
           {phase === 'count' && (
             <PressableScale
               accessibilityRole="button" accessibilityLabel={t('howto.help')} onPress={() => setPhase('howto')} hitSlop={8}
               style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s2, alignItems: 'center', justifyContent: 'center' }}
             >
-              <T w={700} size={20} color={colors.g100}>?</T>
+              <T w={600} size={20} color={colors.g100}>?</T>
             </PressableScale>
           )}
         </View>
@@ -142,7 +142,7 @@ export default function Talim() {
         <Game key={round} ref={game} seed={drill.seed} tier={drill.tier} running={phase === 'play'} onScore={setScore} onDone={i => void finish(i)} />
         {phase === 'count' && (
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 18, backgroundColor: 'rgba(13,13,13,.55)', paddingHorizontal: 24 }}>
-            <Pop key={count}><T w={700} size={72} color={colors.l600}>{Math.max(1, count)}</T></Pop>
+            <Pop key={count}><T w={600} size={72} color={colors.l600}>{Math.max(1, count)}</T></Pop>
             <HowToSteps drill={key} />
           </View>
         )}
@@ -211,7 +211,7 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
   }, [r]);
   const xp = (
     <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' }}>
-      <T w={700} size={14} color={colors.l500}>XP</T>
+      <T w={600} size={14} color={colors.l500}>XP</T>
     </View>
   );
 
@@ -227,15 +227,15 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
         ))}
         {r.stars >= 3 && <Sparkles />}
       </View>
-      <View style={{ alignItems: 'center', gap: 10 }}>
+      <View style={{ alignItems: 'center', gap: 12 }}>
         <H1 accessibilityRole="header" style={{ fontSize: 34, lineHeight: 38 }}>{t(GRADE_KEY[r.grade])}</H1>
-        <View style={{ backgroundColor: newRecord ? colors.l900 : colors.s2, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
-          <T w={700} size={14} color={newRecord ? colors.l500 : colors.g200}>{chip}</T>
+        <View style={{ backgroundColor: newRecord ? colors.l900 : colors.s2, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 12 }}>
+          <T w={600} size={14} color={newRecord ? colors.l500 : colors.g200}>{chip}</T>
         </View>
       </View>
 
       {/* What the drill paid, as cards: the stat and its steps to the next point, XP, then the extras. */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 4 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 4 }}>
         {!omuz && (
           <RewardCard
             icon={<Ico name={DRILL_ICON[r.key]} size={44} />} value={r.statUp ? `+${r.statUp}` : `${r.after}`}
@@ -255,11 +255,11 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
           medal={<Ico name={DRILL_ICON[r.key]} size={40} />}
         />
       )}
-      {r.ups > 0 && <T w={700} size={15} color={colors.l600}>{t('post.level', { n: g.level })}</T>}
+      {r.ups > 0 && <T w={600} size={15} color={colors.l600}>{t('post.level', { n: g.level })}</T>}
 
       <View style={{ flex: 1 }} />
       <Bubble text={line} style={{ alignSelf: 'stretch' }} />
-      <View style={{ alignSelf: 'stretch', flexDirection: 'row', gap: 10 }}>
+      <View style={{ alignSelf: 'stretch', flexDirection: 'row', gap: 8 }}>
         <PressableScale
           accessibilityRole="button" onPress={onOk}
           style={{ flex: 1, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}
@@ -267,12 +267,12 @@ function Result({ r, insets, busy, onOk, onAgain }: { r: DrillOutcome; insets: {
           <T w={600} size={17}>{t('common.ok')}</T>
         </PressableScale>
         <Cta style={{ flex: 1.4 }} busy={busy} disabled={!can} off={!can} onPress={onAgain} accessibilityLabel={can ? t('train.again') : t('train.noEnergy')}>
-          <T w={700} size={17} color={can ? colors.ink : colors.g200}>{can ? t('train.again') : t('train.noEnergy')}</T>
+          <T w={600} size={17} color={can ? colors.ink : colors.g200}>{can ? t('train.again') : t('train.noEnergy')}</T>
           {can && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingHorizontal: 8 }}>
               {g.trainFree > 0
-                ? <T w={700} size={13} color={colors.ink}>{t('train.freeShort', { n: g.trainFree })}</T>
-                : <><Icon name="bolt" size={15} color={colors.ink} /><T w={700} size={14} color={colors.ink}>1</T></>}
+                ? <T w={600} size={13} color={colors.ink}>{t('train.freeShort', { n: g.trainFree })}</T>
+                : <><Icon name="bolt" size={15} color={colors.ink} /><T w={600} size={14} color={colors.ink}>1</T></>}
             </View>
           )}
         </Cta>

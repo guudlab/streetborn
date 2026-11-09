@@ -1,7 +1,7 @@
 import { Model3D, preloadModels } from '../../ui/Model3D.tsx';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
@@ -11,14 +11,14 @@ import { leagueToday, multiplierLabel } from '../../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_IMAGE, HERO_MODEL, jerseyTint } from '../../game/character.ts';
 import { ovr } from '../../game/rules.ts';
 import { useGame } from '../../game/store.ts';
-import { colors, TAB_BAR_SPACE } from '../../theme.ts';
+import { colors, radius, TAB_BAR_SPACE } from '../../theme.ts';
 import { Emblem } from '../../ui/emblem.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { openEnergySheet } from '../../ui/energy.tsx';
 import { Hud } from '../../ui/hud.tsx';
 import { Caps, Cta, T, useNow } from '../../ui/kit.tsx';
 import { JobsPips, useJobs } from '../../ui/hint.tsx';
-import { Amount, Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
+import { Bubble, Dot, Ico, Tile } from '../../ui/sade.tsx';
 import { toast } from '../../ui/overlay.tsx';
 import { ProfileButton, SoundButton } from '../../ui/settings.tsx';
 import { PressableScale, Skeleton } from '../../ui/motion.tsx';
@@ -104,7 +104,7 @@ export default function Hub() {
     <View style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: TAB_BAR_SPACE + insets.bottom }}>
       <Hud />
       {g.offlineReason && (
-        <T w={500} size={12} color={colors.g200} style={{ textAlign: 'center', marginTop: 6 }}>
+        <T w={500} size={12} color={colors.g200} style={{ textAlign: 'center', marginTop: 8 }}>
           {t('hub.offline.progress', { reason: g.offlineReason })}
         </T>
       )}
@@ -126,52 +126,59 @@ export default function Hub() {
         />
 
         {/* A waiting phone message takes Burak abi's place; answered, his line comes back. */}
-        <View pointerEvents={phone ? 'box-none' : 'none'} style={{ position: 'absolute', left: 16, right: 76, top: 14 }}>
+        <View pointerEvents={phone ? 'box-none' : 'none'} style={{ position: 'absolute', left: 16, right: 76, top: 16 }}>
           {phone ? <PhoneRow p={phone} /> : <><Bubble text={line} size={36} /><JobsPips /></>}
         </View>
-        <View style={{ position: 'absolute', right: 16, top: 14, gap: 10 }}><ProfileButton /><SoundButton /></View>
+        <View style={{ position: 'absolute', right: 16, top: 16, gap: 8 }}><ProfileButton /><SoundButton /></View>
         <PressableScale
           accessibilityRole="button" accessibilityLabel={t('hub.ovrA11y', { n: ovr(g.stats) })} onPress={() => router.navigate('/gelisim')}
           style={{ position: 'absolute', right: 20, bottom: 24, alignItems: 'flex-end' }}
         >
-          <T w={700} size={44} style={{ lineHeight: 46, letterSpacing: -1 }}>{ovr(g.stats)}</T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Caps>{t('hub.ovr')}</Caps><Icon name="chev" size={14} color={colors.g200} /></View>
+          <T w={600} size={44} style={{ lineHeight: 46, letterSpacing: -1 }}>{ovr(g.stats)}</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Caps>{t('hub.ovr')}</Caps><Icon name="chev" size={16} color={colors.g200} /></View>
         </PressableScale>
       </View>
 
-      <View style={{ paddingHorizontal: 16, gap: 10 }}>
+      <View style={{ paddingHorizontal: 16, gap: 12 }}>
         <FormStrip />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        {/* Chips share the row and end flush with the form card; when the names are too long
+            to fit, the row scrolls instead, so names are never cut. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, flexGrow: 0 }} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, gap: 8 }}>
           {g.mahalle && (
             <Chip
               label={t('mahalle.card.a11y', { name: g.mahalle.name })} onPress={() => router.push('/mahalle')} dot={mahalleReady}
-              icon={<Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={34} />}
-            >
-              <Amount icon="oyuncu" size={22}>{g.mahalle.members.length}</Amount>
-            </Chip>
+              icon={<Emblem shape={g.mahalle.emblem} color={g.mahalle.color} name={g.mahalle.name} size={32} />}
+              title={g.mahalle.name} sub={t('hub.chip.members', { n: g.mahalle.members.length })}
+            />
           )}
-          <Chip label={offers ? t('hub.offersBannerN', { n: offers }) : t('offers.title')} onPress={() => router.push('/teklifler')} dot={offers > 0} icon={<Ico name="kulup" size={38} />}>
-            {online && !g.career && !g.careerTried ? <Skeleton width={28} height={16} radius={6} style={{ backgroundColor: colors.s3 }} />
-              : contract ? <T w={700} size={15}>{multiplierLabel(contract.tier)}</T> : <T w={700} size={15}>{offers}</T>}
-          </Chip>
-          {online && !g.kariyer && !g.kariyerTried && <Skeleton width="auto" height={58} radius={18} style={{ flex: 1 }} />}
+          {online && !g.career && !g.careerTried
+            ? <Skeleton width={128} height={56} radius={radius.card} />
+            : (
+              <Chip
+                label={offers ? t('hub.offersBannerN', { n: offers }) : t('offers.title')} onPress={() => router.push('/teklifler')} dot={offers > 0}
+                icon={<Ico name="kulup" size={32} />}
+                title={contract ? contract.clubName : offers ? t('hub.chip.offersN', { n: offers }) : t('offers.title')}
+                sub={contract ? t('hub.chip.contractMult', { mult: multiplierLabel(contract.tier) }) : offers ? t('hub.chip.new') : t('hub.chip.none')}
+              />
+            )}
+          {online && !g.kariyer && !g.kariyerTried && <Skeleton width={128} height={56} radius={radius.card} />}
           {duel && (
             <Chip
-              label={t('duel.chipA11y', { me: duel.me.score, them: duel.them.score, name: duel.rival.kind === 'npc' ? t('duel.npc') : duel.rival.nick ?? t('duel.friend') })}
-              onPress={() => router.push('/rakip')} icon={<Ico name="oyuncuKosu" size={30} />}
-            >
-              <T w={700} size={14} numberOfLines={1} color={duel.me.score > duel.them.score ? colors.l500 : colors.g100}>{duel.me.score}–{duel.them.score}</T>
-            </Chip>
+              label={t('duel.chipA11y', { me: duel.me.score, them: duel.them.score, name: rivalName(duel.rival) })}
+              onPress={() => router.push('/rakip')} icon={<Ico name="oyuncuKosu" size={32} />}
+              title={`${duel.me.score}–${duel.them.score}`} titleColor={duel.me.score > duel.them.score ? colors.l500 : colors.g100}
+              sub={rivalName(duel.rival)}
+            />
           )}
-        </View>
+        </ScrollView>
 
         <Cta off={empty || injured} busy={starting} onPress={() => void play()} accessibilityLabel={label}>
           {empty && !injured ? <EnergyCountdown /> : <>
           <Ico name="ball" size={28} dim={dim} />
-          <T w={700} size={17} color={dim ? colors.g200 : colors.ink}>{label}</T></>}
-          {!(empty && !injured) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 3, paddingLeft: 4, paddingRight: 8 }}>
+          <T w={600} size={17} color={dim ? colors.g200 : colors.ink}>{label}</T></>}
+          {!(empty && !injured) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(13,13,13,.12)', borderRadius: 12, paddingVertical: 2, paddingLeft: 4, paddingRight: 8 }}>
             <Icon name="bolt" size={16} color={dim ? colors.g200 : colors.ink} />
-            <T w={700} size={14} color={dim ? colors.g200 : colors.ink}>1</T>
+            <T w={600} size={14} color={dim ? colors.g200 : colors.ink}>1</T>
           </View>}
         </Cta>
       </View>
@@ -193,19 +200,30 @@ function EnergyCountdown() {
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.l600} strokeWidth={stroke} fill="none" strokeLinecap="round"
           strokeDasharray={`${c * p} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </Svg>
-      <T w={700} size={18} color={colors.g100} style={{ fontVariant: ['tabular-nums'] }}>{mmss(left)}</T>
+      <T w={600} size={18} color={colors.g100} style={{ fontVariant: ['tabular-nums'] }}>{mmss(left)}</T>
       <Icon name="bolt" size={16} color={colors.l600} />
     </View>
   );
 }
 
-/** Small icon card above the play button: an icon, a number and a lime dot when something waits. */
-function Chip({ icon, children, dot, label, onPress }: { icon: React.ReactNode; children: React.ReactNode; dot?: boolean; label: string; onPress: () => void }) {
+const rivalName = (r: { kind: string; nick?: string | null }) => (r.kind === 'npc' ? t('duel.npc') : r.nick ?? t('duel.friend'));
+
+/**
+ * Small card above the play button: an icon, a value and what the value is ("Teklifler · Henüz yok"),
+ * so no bare number is left on the hub; a lime dot when something waits.
+ */
+function Chip({ icon, title, titleColor = colors.g100, sub, dot, label, onPress }: {
+  icon: React.ReactNode; title: string; titleColor?: string; sub: string; dot?: boolean; label: string; onPress: () => void;
+}) {
   return (
-    <Tile row label={label} onPress={onPress} style={{ flex: 1, minHeight: 58, paddingVertical: 6, paddingHorizontal: 10, gap: 8, borderRadius: 18 }}>
+    <Tile row label={label} onPress={onPress} style={{ flexGrow: 1, minHeight: 56, paddingVertical: 8, paddingLeft: 8, paddingRight: 12, gap: 8, borderRadius: radius.card }}>
       {icon}
-      <View style={{ flex: 1 }}>{children}</View>
-      {dot && <Dot />}
+      <View>
+        <T w={600} size={15} color={titleColor} numberOfLines={1}>{title}</T>
+        <T w={500} size={12} color={colors.g200} numberOfLines={1}>{sub}</T>
+      </View>
+      {/* On the icon's corner, so the dot never widens the chip or covers its name. */}
+      {dot && <Dot style={{ position: 'absolute', top: 6, left: 6 }} />}
     </Tile>
   );
 }

@@ -149,7 +149,7 @@ export const DuvarPasi = forwardRef<DrillGameHandle, DrillGameProps>(function Du
           </View>
 
           <View style={{ position: 'absolute', right: 12, top: WALL + 14, alignItems: 'flex-end', gap: 2 }}>
-            <T w={700} size={22} color={mult > 1 ? colors.l600 : colors.g200}>×{mult}</T>
+            <T w={600} size={22} color={mult > 1 ? colors.l600 : colors.g200}>×{mult}</T>
             <T w={600} size={12} color={colors.g200}>{Math.min(idx, PAS_BEATS)} / {PAS_BEATS}</T>
           </View>
           {flash && <Flash text={flash.text} color={flash.color} x={foot(flash.side).x} y={footY - 64} />}

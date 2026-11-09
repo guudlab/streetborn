@@ -6,7 +6,7 @@ import { num } from '../game/format.ts';
 import { useGame } from '../game/store.ts';
 import { colors, MAX_FONT_SCALE } from '../theme.ts';
 import { Icon, type IconName } from '../ui/Icon.tsx';
-import { buzz, Caps, Danger, Ghost, T } from '../ui/kit.tsx';
+import { buzz, Danger, Ghost, Section, T } from '../ui/kit.tsx';
 import { Shell } from '../ui/mahalle.tsx';
 import { toast } from '../ui/overlay.tsx';
 import { Bubble } from '../ui/sade.tsx';
@@ -57,7 +57,7 @@ export default function HesapSil() {
           <>
             <View style={{ gap: 8, marginBottom: 4 }}>
               <T w={600} size={14}>{t('delete.type', { word: t('delete.word') })}</T>
-              <View style={{ height: 52, borderRadius: 14, backgroundColor: colors.s2, borderWidth: 1, borderColor: ok ? colors.bad : colors.line, justifyContent: 'center', paddingHorizontal: 14 }}>
+              <View style={{ height: 52, borderRadius: 12, backgroundColor: colors.s2, borderWidth: 1, borderColor: ok ? colors.bad : colors.line, justifyContent: 'center', paddingHorizontal: 14 }}>
                 <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
                   value={word} onChangeText={setWord} autoCorrect={false} autoCapitalize="characters" autoComplete="off"
                   maxLength={12} returnKeyType="done" onSubmitEditing={() => void run()} editable={!busy}
@@ -74,19 +74,19 @@ export default function HesapSil() {
           </>
         }
       >
-        <View style={{ alignItems: 'center', gap: 10, paddingTop: 8 }}>
-          <View style={{ width: 80, height: 80, borderRadius: 26, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ alignItems: 'center', gap: 12, paddingTop: 8 }}>
+          <View style={{ width: 80, height: 80, borderRadius: 24, backgroundColor: '#3A1D19', borderWidth: 2, borderColor: colors.bad, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trash" size={38} color={colors.bad} />
           </View>
-          <T w={700} size={22} style={{ textAlign: 'center' }} accessibilityRole="header">{t('delete.headline')}</T>
+          <T w={600} size={22} style={{ textAlign: 'center' }} accessibilityRole="header">{t('delete.headline')}</T>
           <T size={14} color={colors.g200} style={{ textAlign: 'center', lineHeight: 20 }}>{t('delete.sub')}</T>
         </View>
 
-        <View style={{ gap: 10 }}>
-          <Caps>{t('delete.lostTitle')}</Caps>
-          <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
+        <View style={{ gap: 12 }}>
+          <Section>{t('delete.lostTitle')}</Section>
+          <View style={{ borderRadius: 20, backgroundColor: colors.s1, borderWidth: 1, borderColor: colors.line, paddingVertical: 4 }}>
             {lost.map((l, i) => (
-              <View key={l.icon} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: colors.line }}>
+              <View key={l.icon} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderTopColor: colors.line }}>
                 <Icon name={l.icon} size={20} color={colors.g200} />
                 <T w={500} size={14} style={{ flex: 1, lineHeight: 19 }}>{l.text}</T>
               </View>

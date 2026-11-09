@@ -39,14 +39,14 @@ export default function MahalleKur() {
 
   return (
     <Shell title={t('mahalle.create.title')} footer={<Cta off={!ready} disabled={!ready} busy={busy} onPress={submit}>{t('mahalle.create.cta')}</Cta>}>
-      <View style={{ alignItems: 'center', gap: 6 }}>
+      <View style={{ alignItems: 'center', gap: 8 }}>
         <Emblem shape={emblem} color={color} name={name} size={104} />
-        <T w={700} size={22} numberOfLines={1}>{name.trim() || t('mahalle.create.namePlaceholder')}</T>
+        <T w={600} size={22} numberOfLines={1}>{name.trim() || t('mahalle.create.namePlaceholder')}</T>
         <Amount icon="oyuncu" size={20} color={colors.g200} textSize={13}>1 / 12</Amount>
       </View>
 
-      <View style={{ gap: 6 }}>
-        <View style={{ height: 56, borderRadius: 18, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: error ? colors.bad : colors.l600, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 8 }}>
+      <View style={{ gap: 8 }}>
+        <View style={{ height: 56, borderRadius: 16, backgroundColor: colors.s2, borderWidth: 1.5, borderColor: error ? colors.bad : colors.l600, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 8 }}>
           <TextInput maxFontSizeMultiplier={MAX_FONT_SCALE}
             value={name} onChangeText={(s) => { setName(s.slice(0, MAX)); setError(null); }} maxLength={MAX}
             autoCorrect={false} autoCapitalize="words" returnKeyType="done" onSubmitEditing={submit}
@@ -60,7 +60,7 @@ export default function MahalleKur() {
         {error && <T w={500} size={12} color={colors.bad} accessibilityLiveRegion="polite">{error}</T>}
       </View>
 
-      <View accessibilityRole="radiogroup" accessibilityLabel={t('mahalle.create.emblem')} style={{ flexDirection: 'row', gap: 10 }}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t('mahalle.create.emblem')} style={{ flexDirection: 'row', gap: 8 }}>
         {MAHALLE_EMBLEM_LIST.map((e) => (
           <Tile key={e} role="radio" selected={emblem === e} label={t(`mahalle.emblem.${e}` as Key)} onPress={() => setEmblem(e)} style={{ flex: 1, height: 72 }}>
             <Emblem shape={e} color={color} size={44} />
@@ -80,11 +80,11 @@ export default function MahalleKur() {
         ))}
       </View>
 
-      <View accessibilityRole="radiogroup" accessibilityLabel={t('mahalle.create.who')} style={{ flexDirection: 'row', gap: 10 }}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t('mahalle.create.who')} style={{ flexDirection: 'row', gap: 8 }}>
         {([[false, 'mahalle.create.invite', 'davet'], [true, 'mahalle.create.public', 'mahalleBul']] as const).map(([v, k, icon]) => (
           <Tile key={k} row role="radio" selected={open === v} label={t(k)} onPress={() => setOpen(v)} style={{ flex: 1, minHeight: 60, gap: 8 }}>
             <Ico name={icon} size={36} />
-            <T w={700} size={15}>{t(k)}</T>
+            <T w={600} size={15}>{t(k)}</T>
           </Tile>
         ))}
       </View>

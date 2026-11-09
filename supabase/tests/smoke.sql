@@ -630,3 +630,272 @@ do $$ begin
   raise notice 'gem purchase rls: ok';
 end $$;
 reset role;
+
+-- Mahalle Ligi: candidates, groups, a settled round, the live rival half, privacy.
+reset role;
+insert into auth.users select ('00000000-0000-0000-0000-000000000' || g)::uuid from generate_series(981, 984) g;
+insert into players (id, nick, level) select ('00000000-0000-0000-0000-000000000' || g)::uuid, 'L' || g, 5 from generate_series(981, 984) g
+  on conflict (id) do update set level = 5;
+set role service_role;
+select id as la, code as lacode from create_mahalle('00000000-0000-0000-0000-000000000981', 'Ligalti', 'shield', 'blue', false) \gset
+select id as lb, code as lbcode from create_mahalle('00000000-0000-0000-0000-000000000983', 'Ligustu', 'circle', 'red', false) \gset
+select join_mahalle('00000000-0000-0000-0000-000000000982', :'lacode', null);
+select join_mahalle('00000000-0000-0000-0000-000000000984', :'lbcode', null);
+reset role;
+update mahalle_uye set joined_at = now() - interval '30 days' where player_id::text like '%00000000098_';
+insert into matches (player_id, seed, chances, opponent_goalkeeping, expires_at, status, finished_at)
+  select ('00000000-0000-0000-0000-000000000' || g)::uuid, 1, 3, 40, now(), 'finished', now() from generate_series(981, 984) g, generate_series(1, 3);
+select lig_week(mahalle_today()) as wk, lig_week(mahalle_today()) - 7 as pw \gset
+-- Active: both mahalleler played in the days before the previous week (for its groups) and this week (for this week's).
+insert into mahalle_katki (mahalle_id, day, player_id, match_id, goals, assists, opponent_goals, rating)
+select u.mahalle_id, d, u.player_id, (select id from matches m where m.player_id = u.player_id limit 1), 1, 0, 0, 60
+  from mahalle_uye u, (values (:'pw'::date - 1), (:'wk'::date - 1)) as v(d)
+ where u.player_id in ('00000000-0000-0000-0000-000000000981', '00000000-0000-0000-0000-000000000983');
+set role service_role;
+do $$
+declare
+  wk date := lig_week(mahalle_today());
+  pw date := wk - 7;
+  rt integer := mahalle_today() - wk;
+  la uuid := (select mahalle_id from mahalle_uye where player_id = '00000000-0000-0000-0000-000000000981');
+  lb uuid := (select mahalle_id from mahalle_uye where player_id = '00000000-0000-0000-0000-000000000983');
+  teams jsonb;
+  fixtures jsonb;
+  shift integer;
+  w integer;
+  r integer;
+  rest integer[];
+  g uuid;
+  pending jsonb;
+  coin0 bigint;
+begin
+  if (select count(*) from lig_adaylari(pw, 24, 3, 2, 7) where mahalle_id in (la, lb)) <> 2 then raise exception 'league candidates missing'; end if;
+  if (select level from lig_adaylari(pw, 24, 3, 2, 7) where mahalle_id = la) <> 5 then raise exception 'candidate level wrong'; end if;
+  if exists (select 1 from lig_adaylari(pw, 24, 3, 3, 7) where mahalle_id in (la, lb)) then raise exception 'too few real members accepted'; end if;
+  if exists (select 1 from lig_adaylari(pw + 21, 24, 3, 2, 7) where mahalle_id in (la, lb)) then raise exception 'inactive mahalle accepted'; end if;
+  raise notice 'mahalle ligi candidates: ok';
+
+  teams := jsonb_build_array(
+    jsonb_build_object('slot', 0, 'mahalleId', la, 'name', 'Ligalti', 'emblem', 'shield', 'color', 'blue', 'level', 5),
+    jsonb_build_object('slot', 1, 'mahalleId', lb, 'name', 'Ligustu', 'emblem', 'circle', 'color', 'red', 'level', 5))
+    || (select jsonb_agg(jsonb_build_object('slot', s, 'botKey', 'bot' || s, 'name', 'Bot ' || s, 'emblem', 'diamond', 'color', 'teal', 'level', 4))
+          from generate_series(2, 7) s);
+  -- Two weeks of fixtures: last week slots 0 and 1 meet in round 0, this week in today's round.
+  -- Loop over the week, not the shift: on a Monday today's round is 0 too.
+  for w in 0..1 loop
+    shift := case when w = 0 then 0 else rt end;
+    fixtures := '[]'::jsonb;
+    for r in 0..6 loop
+      rest := array(select s from generate_series(1, 7) s where s <> ((r - shift + 7) % 7) + 1);
+      fixtures := fixtures
+        || jsonb_build_object('round', r, 'home', 0, 'away', ((r - shift + 7) % 7) + 1)
+        || jsonb_build_object('round', r, 'home', rest[1], 'away', rest[2])
+        || jsonb_build_object('round', r, 'home', rest[3], 'away', rest[4])
+        || jsonb_build_object('round', r, 'home', rest[5], 'away', rest[6]);
+    end loop;
+    if lig_kur(case when w = 0 then pw else wk end, jsonb_build_array(jsonb_build_object('no', 0, 'teams', teams, 'fixtures', fixtures))) <> 1 then
+      raise exception 'group not created';
+    end if;
+  end loop;
+  if lig_kur(pw, '[]') <> 0 then raise exception 'week grouped twice'; end if;
+  begin perform lig_kur(pw + 1, '[]'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_monday' then raise; end if; end;
+  if (select count(*) from lig_mac m join lig_grup x on x.id = m.grup_id where x.week = pw) <> 28 then raise exception 'fixtures missing'; end if;
+  if exists (select 1 from lig_adaylari(pw, 24, 3, 2, 7) where mahalle_id in (la, lb)) then raise exception 'grouped mahalle offered again'; end if;
+  raise notice 'mahalle ligi groups: ok';
+
+  g := (select id from lig_grup where week = pw);
+  pending := lig_to_settle(24, 3, 100);
+  if (select count(*) from jsonb_array_elements(pending) e where (e->>'grup')::uuid = g) <> 7 then raise exception 'last week should have 7 rounds to settle'; end if;
+  if jsonb_array_length((select e from jsonb_array_elements(pending) e where (e->>'grup')::uuid = g and (e->>'round')::int = 0)->'members') <> 4 then
+    raise exception 'round members missing';
+  end if;
+  -- A league day never settles against the NPC mahalle.
+  insert into mahalle_gun (mahalle_id, day, opponent) values (la, pw, '{"name":"Ligustu"}');
+  insert into mahalle_katki (mahalle_id, day, player_id, match_id, goals, assists, opponent_goals, rating)
+  values (la, pw, '00000000-0000-0000-0000-000000000981', (select id from matches where player_id = '00000000-0000-0000-0000-000000000981' limit 1), 3, 1, 1, 80);
+  if exists (select 1 from mahalle_to_settle(24, 3) where mahalle_id = la) then raise exception 'league day offered to the NPC settlement'; end if;
+
+  coin0 := (select coin from wallets where player_id = '00000000-0000-0000-0000-000000000981');
+  begin
+    perform settle_lig_tur(g, 0::smallint, '[{"home":0,"away":1,"homeGoals":9,"awayGoals":6}]', '[]');
+    raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'round_incomplete' then raise; end if; end;
+  if exists (select 1 from lig_mac where grup_id = g and round = 0 and home_goals is not null) then raise exception 'incomplete round partly saved'; end if;
+  if not settle_lig_tur(g, 0::smallint,
+       (select jsonb_agg(jsonb_build_object('home', home, 'away', away, 'homeGoals', 9, 'awayGoals', case when home = 0 then 6 else 9 end,
+                                            'detail', '{"home":[5,2],"away":[4,4]}'::jsonb))
+          from lig_mac where grup_id = g and round = 0),
+       jsonb_build_array(
+         jsonb_build_object('mahalle', la, 'opponent', '{"name":"Ligustu"}'::jsonb, 'our', 9, 'their', 6, 'result', 'W',
+           'summary', '{"halves":{"ours":[5,2],"theirs":[4,4]}}'::jsonb,
+           'payouts', '[{"player":"00000000-0000-0000-0000-000000000981","coin":60,"xp":40,"level":5,"respect":9}]'::jsonb),
+         jsonb_build_object('mahalle', lb, 'opponent', '{"name":"Ligalti"}'::jsonb, 'our', 6, 'their', 9, 'result', 'L',
+           'summary', '{}'::jsonb, 'payouts', '[]'::jsonb))) then
+    raise exception 'round should settle';
+  end if;
+  if settle_lig_tur(g, 0::smallint, '[]', jsonb_build_array(jsonb_build_object('mahalle', la, 'opponent', '{}'::jsonb, 'our', 0, 'their', 9,
+       'result', 'L', 'summary', '{}'::jsonb, 'payouts', '[{"player":"00000000-0000-0000-0000-000000000981","coin":999,"xp":0,"level":5,"respect":0}]'::jsonb))) then
+    raise exception 'round settled twice';
+  end if;
+  if (select coin from wallets where player_id = '00000000-0000-0000-0000-000000000981') <> coin0 + 60 then raise exception 'league bonus paid wrong'; end if;
+  if (select result from mahalle_gun where mahalle_id = lb and day = pw) <> 'L' or (select status from mahalle_gun where mahalle_id = lb and day = pw) <> 'closed' then
+    raise exception 'rival day without players not closed';
+  end if;
+  if (select count(*) from jsonb_array_elements(lig_to_settle(24, 3, 100)) e where (e->>'grup')::uuid = g) <> 6 then raise exception 'settled round offered again'; end if;
+  raise notice 'mahalle ligi settlement: ok';
+end $$;
+reset role;
+-- The rival plays today: our side sees their half live, without names.
+insert into mahalle_katki (mahalle_id, day, player_id, match_id, goals, assists, opponent_goals, rating)
+select mahalle_id, mahalle_today(), player_id, (select id from matches m where m.player_id = u.player_id limit 1), 2, 1, 1, 70
+  from mahalle_uye u where player_id = '00000000-0000-0000-0000-000000000983';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000981';
+do $$ declare l jsonb := mahalle_bugun()->'lig'; begin
+  if l is null then raise exception 'mahalle_bugun has no league'; end if;
+  if jsonb_array_length(l->'teams') <> 8 or (l->>'slot')::int <> 0 then raise exception 'league teams wrong'; end if;
+  if not (l->'teams'->2->>'bot')::boolean or (l->'teams'->1->>'bot')::boolean then raise exception 'bot flag wrong'; end if;
+  if (l->'rivalHalf'->>'played')::int <> 1 or (l->'rivalHalf'->>'them')::int <> 3 or (l->'rivalHalf'->>'us')::int <> 1 then
+    raise exception 'rival half wrong: %', l->'rivalHalf';
+  end if;
+  if (select count(*) from lig_takim) <> 0 or (select count(*) from lig_mac) <> 0 or (select count(*) from lig_grup) <> 0 then
+    raise exception 'RLS leak: league tables readable';
+  end if;
+  begin perform lig_kur(lig_week(mahalle_today()) + 7, '[]'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform settle_lig_tur(gen_random_uuid(), 0::smallint, '[]', '[]'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'mahalle ligi rls: ok';
+end $$;
+reset role;
+
+-- Player profiles and search.
+set role service_role;
+do $$
+declare
+  a constant uuid := '00000000-0000-0000-0000-000000000103';
+  b constant uuid := '00000000-0000-0000-0000-000000000102';
+  c constant uuid := '00000000-0000-0000-0000-000000000104';
+  p jsonb; hits jsonb; code text;
+begin
+  update players set nick = 'Çağlar' where id = b;
+  update players set nick = 'Cemil' where id = c;
+  code := (select kod from players where id = b);
+  if code !~ '^[A-HJ-NP-Z2-9]{6}$' then raise exception 'bad player code %', code; end if;
+
+  p := oyuncu_profil(a, b, null);
+  if p->>'nick' <> 'Çağlar' or p->'stats' is null or p->'totals' is null then raise exception 'profile incomplete: %', p; end if;
+  if p ? 'coin' or p ? 'gem' or p ? 'xp' or p ? 'inventory' or p::text like '%wallet%' then raise exception 'profile leaks private fields'; end if;
+  if oyuncu_profil(a, null, code)->>'id' <> b::text then raise exception 'profile by code failed'; end if;
+  if oyuncu_profil(a, gen_random_uuid(), null) is not null then raise exception 'unknown player should be null'; end if;
+  -- a blocked pair cannot see each other, in either direction
+  if oyuncu_profil(a, c, null) is not null or oyuncu_profil(c, a, null) is not null then raise exception 'block ignored by profile'; end if;
+
+  begin perform oyuncu_ara(a, 'ca'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'short' then raise; end if; end;
+  hits := oyuncu_ara(a, 'ÇAĞ');
+  if jsonb_array_length(hits) <> 1 or hits->0->>'id' <> b::text then raise exception 'prefix search wrong: %', hits; end if;
+  if jsonb_array_length(oyuncu_ara(a, 'cag')) <> 1 then raise exception 'accent-free search failed'; end if;
+  if jsonb_array_length(oyuncu_ara(a, lower(code))) <> 1 then raise exception 'code search failed'; end if;
+  if jsonb_array_length(oyuncu_ara(a, '%%%')) <> 0 then raise exception 'wildcard not escaped'; end if;
+  if jsonb_array_length(oyuncu_ara(a, 'cem')) <> 0 then raise exception 'blocked player in search'; end if;
+
+  perform oyuncu_aranabilir(b, false);
+  if jsonb_array_length(oyuncu_ara(a, 'cag')) <> 0 then raise exception 'private player in search'; end if;
+  perform oyuncu_aranabilir(b, true);
+
+  -- three different reporters hide a player from search
+  insert into reports (reporter_id, target_id, reason, nick)
+  select ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid, b, 'spam', 'x' from generate_series(5, 7) g;
+  if not oyuncu_gizli(b) or jsonb_array_length(oyuncu_ara(a, 'cag')) <> 0 then raise exception 'reported player not hidden'; end if;
+  delete from reports where nick = 'x';
+
+  -- rate limit: 60 searches a day
+  delete from oyuncu_sorgu;
+  for i in 1..60 loop perform oyuncu_ara(a, 'cag'); end loop;
+  begin perform oyuncu_ara(a, 'cag'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'too_many' then raise; end if; end;
+  raise notice 'player profile and search: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000103';
+do $$ begin
+  begin perform oyuncu_ara('00000000-0000-0000-0000-000000000103', 'cag'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform oyuncu_profil('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000102', null); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  if (select count(*) from oyuncu_sorgu) <> 0 then raise exception 'RLS leak: oyuncu_sorgu readable'; end if;
+  if (select count(*) from players) <> 1 then raise exception 'RLS leak: players readable'; end if;
+  raise notice 'player profile rls: ok';
+end $$;
+reset role;
+
+-- Yaşam: buying with coin, the arsa before the halısaha, the halısaha income, the showcase.
+set role service_role;
+do $$
+declare
+  a constant uuid := '00000000-0000-0000-0000-000000000103';
+  b constant uuid := '00000000-0000-0000-0000-000000000102';
+  r jsonb;
+  coin0 bigint;
+begin
+  update players set level = 10 where id = b;
+  begin perform buy_lifestyle(b, 'arsa', 6000, 15, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'locked' then raise; end if; end;
+  begin perform buy_lifestyle(b, 'forma_sonbahar', 10, 1, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  begin perform buy_lifestyle(b, 'arsa', 0, 1, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_for_sale' then raise; end if; end;
+  update players set level = 20 where id = b;
+  begin perform buy_lifestyle(b, 'halisaha', 15000, 18, 'arsa'); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'needs' then raise; end if; end;
+  coin0 := (select coin from wallets where player_id = b);
+  perform grant_currency(b, 'coin', 21000 - coin0, 'test', 'x', 'test:yasam');
+  begin perform buy_lifestyle(b, 'ev_villa', 40000, 1, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'no_coin' then raise; end if; end;
+  r := buy_lifestyle(b, 'arsa', 6000, 15, null);
+  if r->>'balance' <> '15000' then raise exception 'arsa price wrong: %', r; end if;
+  begin perform buy_lifestyle(b, 'arsa', 6000, 15, null); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'owned' then raise; end if; end;
+  r := buy_lifestyle(b, 'halisaha', 15000, 18, 'arsa');
+  if r->>'balance' <> '0' then raise exception 'halisaha price wrong: %', r; end if;
+  if exists (select 1 from inventory where player_id = b and item_id in ('arsa', 'halisaha') and source <> 'coin') then
+    raise exception 'lifestyle source not coin';
+  end if;
+  if (select count(*) from ledger where player_id = b and reason = 'lifestyle') <> 2 then raise exception 'lifestyle ledger wrong'; end if;
+
+  -- Income: nothing on the day it is bought, a day's worth per whole day, capped, once a day.
+  if halisaha_days(b) <> 0 or (claim_halisaha(b, 200, 3)->>'coin')::int <> 0 then raise exception 'halisaha paid on day one'; end if;
+  update inventory set acquired_at = now() - interval '2 days' where player_id = b and item_id = 'halisaha';
+  r := claim_halisaha(b, 200, 3);
+  if r->>'coin' <> '400' or r->>'balance' <> '400' then raise exception 'halisaha two days wrong: %', r; end if;
+  if (claim_halisaha(b, 200, 3)->>'coin')::int <> 0 or halisaha_days(b) <> 0 then raise exception 'halisaha paid twice a day'; end if;
+  begin perform claim_halisaha(a, 200, 3); raise exception 'should have failed';
+  exception when raise_exception then if sqlerrm <> 'not_owned' then raise; end if; end;
+  if halisaha_days(a) <> 0 then raise exception 'halisaha days without a halisaha'; end if;
+
+  -- The showcase is public: other players see the ids, never coin.
+  if not (oyuncu_profil(a, b, null)->'life' @> '["arsa", "halisaha"]'::jsonb) or jsonb_array_length(oyuncu_profil(a, b, null)->'life') <> 2 then raise exception 'profile life wrong: %', oyuncu_profil(a, b, null)->'life'; end if;
+  if yasam_ids(a) <> '[]'::jsonb then raise exception 'empty life wrong'; end if;
+
+  -- Days count from the last payout, and a long absence pays only up to the cap.
+  insert into inventory (player_id, item_id, source, acquired_at) values (a, 'halisaha', 'coin', now() - interval '7 days');
+  if halisaha_days(a) <> 7 then raise exception 'halisaha days from purchase wrong: %', halisaha_days(a); end if;
+  perform grant_currency(a, 'coin', 1, 'halisaha', (mahalle_today() - 5)::text, 'test:halisaha-old');
+  if halisaha_days(a) <> 5 then raise exception 'halisaha days from last payout wrong: %', halisaha_days(a); end if;
+  if (claim_halisaha(a, 200, 3)->>'coin')::int <> 600 then raise exception 'halisaha cap wrong'; end if;
+  raise notice 'yasam: ok';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000102';
+do $$ begin
+  if (dukkan_bugun()->>'halisahaDays')::int <> 0 then raise exception 'shop read halisaha days wrong'; end if;
+  begin perform buy_lifestyle('00000000-0000-0000-0000-000000000102', 'bisiklet', 1, 1, null); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform claim_halisaha('00000000-0000-0000-0000-000000000102', 99999, 99); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  begin perform yasam_ids('00000000-0000-0000-0000-000000000103'); raise exception 'should have failed';
+  exception when insufficient_privilege then null; end;
+  raise notice 'yasam rls: ok';
+end $$;
+reset role;

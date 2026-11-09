@@ -10,9 +10,9 @@ import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audi
 import { crestCode } from '../game/career.ts';
 import { DEFAULT_CHARACTER, HERO_MODEL, JERSEYS, jerseyTint, STARTERS, type Hero } from '../game/character.ts';
 import { markHint, useHints } from '../game/hints.ts';
-import { myLine, sideMate } from '../game/live.ts';
+import { eventsBetween, myLine, sideMate } from '../game/live.ts';
 import type { HowToKind } from '../game/rules.ts';
-import { liveScore, useGame } from '../game/store.ts';
+import { liveScore, useGame, type LiveMatch } from '../game/store.ts';
 import { colors } from '../theme.ts';
 import { AssistToggle } from '../ui/AssistToggle.tsx';
 import { HowTo } from '../ui/drills/HowTo.tsx';
@@ -24,6 +24,7 @@ import { Commentary, feedLine, type FeedLine } from '../ui/live/Commentary.tsx';
 import { Decision, Halftime } from '../ui/live/Picks.tsx';
 import { Bubble } from '../ui/sade.tsx';
 import { SoundToggles } from '../ui/settings.tsx';
+import { arrivalLine } from '../ui/yasam.tsx';
 import { t, type Key } from '../i18n/index.ts';
 import { assembleG } from './assemble.ts';
 import type { SceneBridge } from './bridgeTypes.ts';
@@ -300,6 +301,8 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     kickoff: () => {
       const m = useGame.getState().match;
       if (!m) return;
+      const arrival = arrivalLine();
+      if (arrival) addLine(arrival);
       addLine(feedLine(0, t('live.kickoff'), 'info', 'whistle'));
       scene.current?.setPaused(true);
       setBetween({ from: 0, to: m.plan.moments[0]!.minute });
@@ -462,10 +465,10 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
             <Commentary
               key={`${between.from}-${between.to}`} match={m} from={between.from} to={between.to}
               next={m.plan.moments[m.i] ?? null} feed={feed} paused={sheetOpen}
-              onLine={addLine} onClock={setClock} onArrive={arrive}
+              onLine={addLine} onClock={setClock} onArrive={arrive} codes={[homeCode, awayCode]}
             />
           ) : pickMode === 'halftime' ? (
-            <Halftime us={score.us} them={score.them} onPick={halftime} />
+            <Halftime us={score.us} them={score.them} codes={[homeCode, awayCode]} shots={halfShots(m)} onPick={halftime} />
           ) : moment ? (
             <Decision
               key={m.i} moment={moment} mate={sideMate(m.names, moment, moment.openSide ?? 'left')}
@@ -485,9 +488,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
           </Pressable>
           <View pointerEvents="none" style={{ flex: 1, alignItems: 'center' }}>
             <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(21,21,21,.78)', borderWidth: 1, borderColor: 'rgba(255,255,255,.08)' }}>
-              <T w={700} size={15} color={colors.l600}>{homeCode}</T>
-              <T w={700} size={19}>{score.us} – {score.them}</T>
-              <T w={700} size={15} color={colors.g200}>{awayCode}</T>
+              <T w={600} size={15} color={colors.l600}>{homeCode}</T>
+              <T w={600} size={19} style={{ fontVariant: ['tabular-nums'] }}>{score.us} – {score.them}</T>
+              <T w={600} size={15} color={colors.g200}>{awayCode}</T>
               <View style={{ width: 1, height: 16, backgroundColor: colors.g400 }} />
               <T w={600} size={15} color={colors.l600}>{minute}'</T>
             </View>
@@ -545,7 +548,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
                   onFire={() => (playKind === 'defense' ? slide(side) : pass(side))}
                 >
                   {playKind === 'defense' && <Icon name={side === 'left' ? 'back' : 'chev'} size={26} color={colors.g100} />}
-                  <T w={700} size={18}>{playKind === 'defense' ? t(side === 'left' ? 'm3.left' : 'm3.right') : sideMate(m?.names ?? [], moment, side).toLocaleUpperCase('tr')}</T>
+                  <T w={600} size={17}>{playKind === 'defense' ? t(side === 'left' ? 'm3.left' : 'm3.right') : sideMate(m?.names ?? [], moment, side)}</T>
                 </RingButton>
               ))}
             </View>
@@ -582,6 +585,12 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   );
 }
 
+/** Shots of each side in the first half, for the half-time summary. */
+function halfShots(m: LiveMatch): [number, number] {
+  const shots = eventsBetween(m.plan, 0, 46).filter(e => e.kind === 'goal' || e.kind === 'save' || e.kind === 'miss' || e.kind === 'post');
+  return [shots.filter(e => e.team === 'us').length, shots.filter(e => e.team === 'them').length];
+}
+
 /** Moments the player plays (the half-time call is not one). */
 const plays = (moments: readonly Moment[]) => moments.filter(mo => mo.kind !== 'halftime').length;
 
@@ -616,7 +625,7 @@ function Banner({ text, def }: { text: string; def: boolean }) {
   return (
     <Animated.View pointerEvents="none" style={{ alignSelf: 'center', marginTop: 12, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }}>
       <View style={{ paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999, backgroundColor: def ? colors.bad : colors.l600 }}>
-        <T w={700} size={13} color={colors.ink} style={{ letterSpacing: 1.8 }}>{text}</T>
+        <T w={600} size={14} color={colors.ink}>{text}</T>
       </View>
     </Animated.View>
   );

@@ -12,15 +12,41 @@ export { matchReward, type MatchReward, type RewardInput } from './rewards.ts';
 export { currentEnergy, spendEnergy, type EnergyState } from './energy.ts';
 export { checkName, normalizeName, NAME_LIMITS, type NameKind, type NameProblem } from './naming.ts';
 export {
+  dayPayouts,
+  halfScore,
   istanbulDay,
   mahalleOpponent,
+  NPC_MAHALLE_NAMES,
+  rankContributions,
+  resultOf,
   settleMahalleDay,
+  type HalfScore,
   type DayContribution,
   type DayMember,
   type DayPayout,
   type DaySettlement,
   type MahalleOpponent,
 } from './mahalle.ts';
+export {
+  LIG_ROUNDS,
+  LIG_TEAMS,
+  formLigGroups,
+  ligFixtures,
+  ligOpponent,
+  ligRival,
+  ligRound,
+  ligTable,
+  settleLigMatch,
+  type LigEntry,
+  type LigFixture,
+  type LigGroup,
+  type LigMatchSettlement,
+  type LigResult,
+  type LigRow,
+  type LigSide,
+  type LigSideSettlement,
+  type LigTeam,
+} from './lig.ts';
 export {
   CLUBS,
   clampTrust,
@@ -177,3 +203,13 @@ export {
   type PhoneSender,
   type PhoneStage,
 } from './telefon.ts';
+export {
+  halisahaPayout,
+  lifeBuyCheck,
+  lifeShowcase,
+  lifeTop,
+  ownedLifestyle,
+  type LifeBuyCheck,
+  type LifeGroup,
+  type LifeShowcase,
+} from './yasam.ts';

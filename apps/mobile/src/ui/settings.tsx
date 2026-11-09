@@ -28,7 +28,7 @@ export function openSettingsSheet() {
   openSheet(<><H3>{t('settings.title')}</H3><SoundToggles /><ProfileRow /><AccountRow /></>);
 }
 
-/** Opens the profile screen, where the account and the sign-out button live. */
+/** Opens the profile screen; its gear leads to Ayarlar, where the account and sign-out live. */
 function ProfileRow() {
   const name = useGame(s => s.name);
   const online = useGame(s => s.mode === 'online');
@@ -49,7 +49,7 @@ function ProfileRow() {
 export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.l900, borderWidth: 1.5, borderColor: colors.l700, alignItems: 'center', justifyContent: 'center' }}>
-      <T w={700} size={size * 0.42} color={colors.l500}>{name.trim().charAt(0).toLocaleUpperCase('tr') || '?'}</T>
+      <T w={600} size={size * 0.42} color={colors.l500}>{name.trim().charAt(0).toLocaleUpperCase('tr') || '?'}</T>
     </View>
   );
 }
@@ -83,9 +83,9 @@ function Toggle({ icon, label, on, onPress }: { icon: IconName; label: string; o
   return (
     <PressableScale
       accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on }} onPress={onPress}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.s2 }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, borderRadius: 16, backgroundColor: colors.s2 }}
     >
-      <Icon name={icon} color={on ? colors.l600 : colors.g400} />
+      <Icon name={icon} color={on ? colors.g200 : colors.g400} />
       <T w={600} size={15} style={{ flex: 1 }}>{label}</T>
       <View style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: on ? colors.l600 : colors.s3, justifyContent: 'center', paddingHorizontal: 3 }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: on ? colors.ink : colors.g100, alignSelf: on ? 'flex-end' : 'flex-start' }} />

@@ -102,7 +102,7 @@ export const Merdiven = forwardRef<DrillGameHandle, DrillGameProps>(function Mer
               </View>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <T w={700} size={28} accessibilityLabel={t('talim.seconds', { n: left })}>{left}</T>
+              <T w={600} size={28} accessibilityLabel={t('talim.seconds', { n: left })}>{left}</T>
               <T w={600} size={12} color={colors.g200}>{run.steps}</T>
             </View>
           </View>
@@ -118,7 +118,7 @@ export const Merdiven = forwardRef<DrillGameHandle, DrillGameProps>(function Mer
                   backgroundColor: colors.s2, borderWidth: 1.5, borderColor: nextFoot === s ? colors.l600 : colors.line,
                 }}
               >
-                <T w={700} size={18} color={nextFoot === s ? colors.l600 : colors.g100}>{t(s ? 'talim.right' : 'talim.left')}</T>
+                <T w={600} size={18} color={nextFoot === s ? colors.l600 : colors.g100}>{t(s ? 'talim.right' : 'talim.left')}</T>
               </Pressable>
             ))}
           </View>

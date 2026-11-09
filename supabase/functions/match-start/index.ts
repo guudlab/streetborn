@@ -5,8 +5,11 @@ import {
   dailyDrill,
   istanbulDay,
   leagueSchedule,
+  ligOpponent,
+  ligRound,
   shootingBonus,
   mahalleOpponent,
+  weekStart,
   playerOpponent,
   spendEnergy,
   type LeagueTeam,
@@ -59,9 +62,12 @@ Deno.serve(handle(async (req) => {
   if (!spent) throw new HttpError(409, 'no_energy');
 
   // Energy matches use a placeholder opponent strength until the league table drives it.
-  let opponent = { name: '', goalkeeping: Math.min(95, 35 + player.level * 2), attack: Math.min(95, 30 + player.level * 2) };
+  let opponent: { name: string; goalkeeping: number; attack: number; emblem?: string; color?: string; bot?: boolean } =
+    { name: '', goalkeeping: Math.min(95, 35 + player.level * 2), attack: Math.min(95, 30 + player.level * 2) };
   if (mahalleMatch) {
-    // The whole mahalle faces the same NPC mahalle today; its strength follows the average member level.
+    // The whole mahalle faces the same opponent today: the day's rival in its Mahalle Ligi group
+    // (strength from the rival's level, frozen for the week), or else an NPC mahalle whose
+    // strength follows the average member level. The first match of the day stores it.
     const { data: membership, error: membershipError } = await admin
       .from('mahalle_uye').select('mahalle_id').eq('player_id', playerId).maybeSingle();
     if (membershipError) throw membershipError;
@@ -70,8 +76,21 @@ Deno.serve(handle(async (req) => {
     const { data: gun, error: gunError } = await admin
       .from('mahalle_gun').select('opponent').eq('mahalle_id', membership.mahalle_id).eq('day', day).maybeSingle();
     if (gunError) throw gunError;
+    const week = weekStart(day);
+    const { data: team, error: teamError } = gun ? { data: null, error: null } : await admin
+      .from('lig_takim').select('grup_id, slot').eq('mahalle_id', membership.mahalle_id).eq('week', week).maybeSingle();
+    if (teamError) throw teamError;
+    const round = ligRound(week, day);
     if (gun) {
       opponent = gun.opponent;
+    } else if (team && round >= 0) {
+      const { data: fixture, error: fixtureError } = await admin.from('lig_mac').select('home, away')
+        .eq('grup_id', team.grup_id).eq('round', round).or(`home.eq.${team.slot},away.eq.${team.slot}`).single();
+      if (fixtureError) throw fixtureError;
+      const { data: rival, error: rivalError } = await admin.from('lig_takim').select('name, emblem, color, level, mahalle_id')
+        .eq('grup_id', team.grup_id).eq('slot', fixture.home === team.slot ? fixture.away : fixture.home).single();
+      if (rivalError) throw rivalError;
+      opponent = { ...ligOpponent(rival), emblem: rival.emblem, color: rival.color, bot: rival.mahalle_id === null };
     } else {
       const { data: members, error: membersError } = await admin
         .from('mahalle_uye').select('player_id').eq('mahalle_id', membership.mahalle_id);

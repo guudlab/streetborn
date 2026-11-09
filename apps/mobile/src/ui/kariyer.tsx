@@ -80,21 +80,22 @@ export function FormStrip() {
   return (
     <Tile
       row label={t('form.a11y', { form: label, morale: c.morale })} onPress={openFormSheet}
-      style={{ minHeight: 56, paddingVertical: 6, paddingRight: 8, gap: 10, borderRadius: 18 }}
+      style={{ minHeight: 56, paddingVertical: 8, paddingRight: 8, gap: 12, borderRadius: 16 }}
     >
       <FormMark level={c.form.level} size={34} />
-      <View style={{ flex: 1, gap: 5 }}>
+      <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <T w={700} size={13} color={FORM_COLOR[c.form.level]} numberOfLines={1}>{label}</T>
-          <T w={700} size={13} color={low ? colors.bad : colors.g100}>{c.morale}</T>
+          <T w={600} size={13} color={FORM_COLOR[c.form.level]} numberOfLines={1}>{label}</T>
+          <T w={500} size={13} color={low ? colors.bad : colors.g200}>{t('form.moraleShort', { n: c.morale })}</T>
         </View>
         <Track value={c.morale / 100} height={5} color={low ? colors.bad : colors.l600} />
       </View>
       {!c.choseToday
         ? (
-          // Lime on dark, not solid lime: the play button stays the one loud thing on the hub.
-          <View style={{ height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.l900, borderWidth: 1, borderColor: colors.l700, alignItems: 'center', justifyContent: 'center' }}>
-            <T w={700} size={13} color={colors.l500}>{t('choice.pill')}</T>
+          // Lime words, not a pill: the play button stays the one loud thing on the hub.
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, minHeight: 32 }}>
+            <T w={600} size={14} color={colors.l600}>{t('choice.pill')}</T>
+            <Icon name="chev" size={14} color={colors.l600} />
           </View>
         )
         : c.choice
@@ -109,16 +110,16 @@ function InjuryStrip({ c }: { c: Kariyer }) {
   return (
     <Tile
       row label={t('injury.stripA11y', { kind: injuryName(c.injury!.kind), t: left })} onPress={() => router.push('/sakatlik')}
-      style={{ minHeight: 56, paddingVertical: 6, gap: 12, borderRadius: 18, borderColor: colors.bad, backgroundColor: 'rgba(58,29,25,.5)' }}
+      style={{ minHeight: 56, paddingVertical: 8, gap: 12, borderRadius: 16, borderColor: colors.bad, backgroundColor: 'rgba(58,29,25,.5)' }}
     >
       <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#3A1D19', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="plus" size={22} color={colors.bad} />
       </View>
       <View style={{ flex: 1 }}>
-        <T w={700} size={15} color={colors.bad}>{t('injury.strip')}</T>
+        <T w={600} size={15} color={colors.bad}>{t('injury.strip')}</T>
         <T w={500} size={13} color={colors.g200} numberOfLines={1}>{injuryName(c.injury!.kind)}</T>
       </View>
-      <T w={700} size={14}>{left}</T>
+      <T w={600} size={14}>{left}</T>
     </Tile>
   );
 }
@@ -139,17 +140,17 @@ function FormSheet() {
   return (
     <>
       <H3>{t('form.title')}</H3>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
         <StatCard label={t('form.formLabel')}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <FormMark level={c.form.level} size={30} />
-            <T w={700} size={20} color={FORM_COLOR[c.form.level]} numberOfLines={1} style={{ flexShrink: 1 }}>{t(`form.${c.form.level}` as Key)}</T>
+            <T w={600} size={20} color={FORM_COLOR[c.form.level]} numberOfLines={1} style={{ flexShrink: 1 }}>{t(`form.${c.form.level}` as Key)}</T>
           </View>
           <RatingBars ratings={c.form.ratings} />
         </StatCard>
         <StatCard label={t('form.moraleLabel')}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
-            <T w={700} size={26} color={low ? colors.bad : colors.g100} style={{ lineHeight: 30 }}>{c.morale}</T>
+            <T w={600} size={26} color={low ? colors.bad : colors.g100} style={{ lineHeight: 30 }}>{c.morale}</T>
             <T w={600} size={13} color={colors.g300}>/100</T>
           </View>
           <Track value={c.morale / 100} height={6} color={low ? colors.bad : colors.l600} />
@@ -157,10 +158,10 @@ function FormSheet() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{
-          paddingHorizontal: 10, height: 28, borderRadius: 14, justifyContent: 'center',
+          paddingHorizontal: 12, height: 28, borderRadius: 14, justifyContent: 'center',
           backgroundColor: shoot > 0 ? colors.l900 : shoot < 0 ? '#3A1D19' : colors.s3,
         }}>
-          <T w={700} size={13} color={shoot > 0 ? colors.l500 : shoot < 0 ? colors.bad : colors.g200}>
+          <T w={600} size={13} color={shoot > 0 ? colors.l500 : shoot < 0 ? colors.bad : colors.g200}>
             {shoot === 0 ? t('form.effect.none') : t(shoot > 0 ? 'form.effect.up' : 'form.effect.down')}
           </T>
         </View>
@@ -175,8 +176,8 @@ function FormSheet() {
 
 function StatCard({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={{ flex: 1, gap: 8, padding: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.04)', borderWidth: 1, borderColor: colors.line }}>
-      <Caps style={{ fontSize: 10 }}>{label}</Caps>
+    <View style={{ flex: 1, gap: 8, padding: 12, borderRadius: 16, backgroundColor: 'rgba(255,255,255,.04)', borderWidth: 1, borderColor: colors.line }}>
+      <Caps>{label}</Caps>
       {children}
     </View>
   );
@@ -223,8 +224,8 @@ function Prep({ c, picked, setPicked }: { c: Kariyer; picked: Choice | null; set
   return (
     <>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <T w={700} size={16}>{t('choice.title')}</T>
-        <Caps style={{ fontSize: 10 }}>{t('choice.onceADay')}</Caps>
+        <T w={600} size={16}>{t('choice.title')}</T>
+        <Caps>{t('choice.onceADay')}</Caps>
       </View>
       <View style={{ gap: 8 }} accessibilityRole="radiogroup">
         {(['rest', 'work', 'hang'] as const).map(choice => (
@@ -236,7 +237,7 @@ function Prep({ c, picked, setPicked }: { c: Kariyer; picked: Choice | null; set
       </View>
       {picked
         ? (
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: 12 }}>
             <T w={600} size={14} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">{t('choice.confirm', { choice: choiceName(picked) })}</T>
             <Cta busy={busy} onPress={() => void confirm()}>{t('choice.confirmYes')}</Cta>
             <Ghost onPress={() => setPicked(null)}>{t('common.cancel')}</Ghost>
@@ -253,12 +254,12 @@ function ChoiceCard({ choice, state, onPress }: { choice: Choice; state: 'open' 
   return (
     <Tile
       row role="radio" selected={on} onPress={onPress} label={`${choiceName(choice)}. ${fxLabel(CHOICE_FX[choice]())}`}
-      style={{ minHeight: 76, paddingVertical: 10, gap: 12, opacity: state === 'dim' ? 0.55 : 1 }}
+      style={{ minHeight: 76, paddingVertical: 12, gap: 12, opacity: state === 'dim' ? 0.55 : 1 }}
     >
       <Ico name={CHOICE_ICON[choice]} size={44} />
-      <View style={{ flex: 1, gap: 6 }}>
+      <View style={{ flex: 1, gap: 8 }}>
         <View>
-          <T w={700} size={16}>{choiceName(choice)}</T>
+          <T w={600} size={16}>{choiceName(choice)}</T>
           <T w={500} size={12} color={colors.g200}>{t(`choice.${choice}.flavor` as Key)}</T>
         </View>
         <FxChips fx={CHOICE_FX[choice]()} />

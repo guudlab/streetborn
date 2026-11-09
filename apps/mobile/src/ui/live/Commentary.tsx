@@ -16,7 +16,9 @@ import { useReduceMotion } from '../motion.tsx';
 // it three times faster or jump to his next moment.
 
 export interface FeedLine {
-  id: number; minute: number; text: string; tone: 'us' | 'them' | 'me' | 'info'; icon: IconName | 'card';
+  id: number; minute: number; text: string; tone: 'us' | 'them' | 'me' | 'info';
+  /** Only lines that change something carry an icon (goal, save, miss, card, whistle); build-up lines have none. */
+  icon: IconName | 'card' | null;
   /** Who had the attack, for the momentum bar. */
   team?: 'us' | 'them';
 }
@@ -34,8 +36,8 @@ export const feedLine = (minute: number, text: string, tone: FeedLine['tone'], i
   ({ id: ++lineId, minute, text, tone, icon, team });
 
 const EVENT_ICON: Record<MatchEvent['kind'], FeedLine['icon']> = {
-  goal: 'ball', save: 'shield', miss: 'x', post: 'x', corner: 'chev', card: 'card', offside: 'whistle',
-  win: 'chev', counter: 'bolt', attack: 'chev', foul: 'whistle', penalty: 'whistle', run: 'chev', space: 'chev', lost: 'x',
+  goal: 'ball', save: 'shield', miss: 'x', post: 'x', corner: null, card: 'card', offside: 'whistle',
+  win: null, counter: 'bolt', attack: null, foul: 'whistle', penalty: 'whistle', run: null, space: null, lost: null,
 };
 /** Steps of an attack, not finishes: they move the ball but not the momentum bar of engine 4. */
 const STEP: ReadonlySet<MatchEvent['kind']> = new Set(['card', 'offside', 'win', 'counter', 'attack', 'foul', 'penalty', 'run', 'space', 'lost']);
@@ -55,11 +57,13 @@ export interface CommentaryProps {
   feed: FeedLine[];
   paused: boolean;
   onLine(line: FeedLine): void;
+  /** Short names of the two sides, at the ends of the momentum bar. */
+  codes?: [string, string];
   onClock(minute: number): void;
   onArrive(): void;
 }
 
-export function Commentary({ match, from, to, next, feed, paused, onLine, onClock, onArrive }: CommentaryProps) {
+export function Commentary({ match, from, to, next, feed, paused, onLine, onClock, onArrive, codes }: CommentaryProps) {
   const reduce = useReduceMotion();
   const [speed, setSpeed] = useState<1 | 3>(speedPref);
   const [arrived, setArrived] = useState(false);
@@ -157,7 +161,7 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
   }, [feed, clock, match.plan.momentum]);
 
   const pick = (s: 1 | 3) => { speedPref = s; setSpeed(s); buzz('select'); };
-  const recent = feed.slice(-6);
+  const recent = feed.slice(-12);
 
   return (
     <View style={{ flex: 1, gap: 14 }}>
@@ -175,13 +179,14 @@ export function Commentary({ match, from, to, next, feed, paused, onLine, onCloc
           <Radar ball={ball} owner={owner} reduce={reduce} duration={MINUTE_MS / speed} height={RADAR_H} />
         </Animated.View>
       </View>
-      <Momentum value={momentum} />
-      <View accessibilityLiveRegion="polite" style={{ flex: 1, gap: 10, overflow: 'hidden' }}>
-        {recent.map((l, i) => <Line key={l.id} line={l} old={i < recent.length - 1} />)}
+      <Momentum value={momentum} codes={codes} />
+      {/* The feed fills the screen from the bottom: the newest line sits right above the controls, older ones fade upward. */}
+      <View accessibilityLiveRegion="polite" style={{ flex: 1, gap: 8, overflow: 'hidden', justifyContent: 'flex-end' }}>
+        {recent.map((l, i) => <Line key={l.id} line={l} age={recent.length - 1 - i} />)}
       </View>
       {arrived && next ? (
         <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-          <T w={700} size={32} color={next.kind === 'defense' ? colors.bad : colors.l600} style={{ letterSpacing: 1, textShadowColor: 'rgba(207,253,92,.45)', textShadowRadius: 22 }}>
+          <T w={600} size={32} color={next.kind === 'defense' ? colors.bad : colors.l600} style={{ letterSpacing: 1, textShadowColor: 'rgba(207,253,92,.45)', textShadowRadius: 22 }}>
             {next.kind === 'defense' ? t('live.yoursDefense') : next.kind === 'halftime' ? t('live.halftime').toLocaleUpperCase('tr') : t('live.yours')}
           </T>
         </View>
@@ -203,12 +208,12 @@ function Seg({ on, label, a11y, icon, onPress }: { on: boolean; label: string; a
       style={{ flex: 1, height: 40, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.l600 : 'transparent' }}
     >
       <Icon name={icon} size={16} color={on ? colors.ink : colors.g200} />
-      <T w={700} size={14} color={on ? colors.ink : colors.g200}>{label}</T>
+      <T w={600} size={14} color={on ? colors.ink : colors.g200}>{label}</T>
     </Pressable>
   );
 }
 
-function Line({ line, old }: { line: FeedLine; old: boolean }) {
+function Line({ line, age }: { line: FeedLine; age: number }) {
   const a = useRef(new Animated.Value(0)).current;
   const reduce = useReduceMotion();
   useEffect(() => {
@@ -216,20 +221,23 @@ function Line({ line, old }: { line: FeedLine; old: boolean }) {
     else Animated.timing(a, { toValue: 1, duration: 220, useNativeDriver: true }).start();
   }, [a, reduce]);
   const tint = line.tone === 'us' || line.tone === 'me' ? colors.l600 : line.tone === 'them' ? colors.bad : colors.g200;
+  const newest = age === 0;
+  // Older lines fade step by step instead of all at half strength.
+  const fade = newest ? 1 : Math.max(0.2, 0.62 - age * 0.06);
   return (
-    <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: Animated.multiply(a, old ? 0.5 : 1), transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
-      <View style={{ width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.s2 }}>
+    <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28, opacity: Animated.multiply(a, fade), transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
+      <T size={12} color={colors.g300} style={{ width: 28, fontVariant: ['tabular-nums'] }}>{line.minute}'</T>
+      <View style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: line.icon ? colors.s2 : 'transparent' }}>
         {line.icon === 'card'
-          ? <View style={{ width: 10, height: 14, borderRadius: 2, backgroundColor: '#FFC94D' }} />
-          : <Icon name={line.icon} size={15} color={tint} />}
+          ? <View style={{ width: 9, height: 13, borderRadius: 2, backgroundColor: '#FFC94D' }} />
+          : line.icon ? <Icon name={line.icon} size={14} color={tint} /> : null}
       </View>
-      <T size={12} color={colors.g300} style={{ width: 28 }}>{line.minute}'</T>
-      <T w={line.tone === 'info' ? 400 : 600} size={15} color={line.tone === 'info' ? colors.g200 : colors.g100} style={{ flex: 1 }}>{line.text}</T>
+      <T w={newest || line.tone !== 'info' ? 600 : 400} size={newest ? 16 : 15} color={newest || line.tone !== 'info' ? colors.g100 : colors.g200} style={{ flex: 1 }}>{line.text}</T>
     </Animated.View>
   );
 }
 
-function Momentum({ value }: { value: number }) {
+function Momentum({ value, codes }: { value: number; codes?: [string, string] }) {
   const pct = Math.max(22, Math.min(78, 50 + value * 7));
   const label = value > 1 ? t('live.momentum.us') : value < -1 ? t('live.momentum.them') : t('live.momentum.even');
   return (
@@ -237,7 +245,11 @@ function Momentum({ value }: { value: number }) {
       <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.awayCrest, overflow: 'hidden' }}>
         <View style={{ width: `${pct}%`, height: '100%', backgroundColor: colors.l600 }} />
       </View>
-      <T w={600} size={11} color={colors.g300} style={{ letterSpacing: 0.8 }}>{label.toLocaleUpperCase('tr')}</T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <T w={600} size={12} color={colors.l600}>{codes?.[0] ?? ''}</T>
+        <T w={500} size={12} color={colors.g200}>{label}</T>
+        <T w={600} size={12} color={colors.g200}>{codes?.[1] ?? ''}</T>
+      </View>
     </View>
   );
 }
