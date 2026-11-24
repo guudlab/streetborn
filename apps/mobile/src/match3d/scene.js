@@ -34,6 +34,12 @@ const PASS_PERIOD = 1.6;     // seconds for the pass ring 0 → 1 → 0
 // are further out, past a wall. Looking at the goal, screen left is +x.
 const SHOT_SPOTS = [[0, 0], [-3.1, -1.2], [2.7, -0.8]];
 const FREEKICK_SPOTS = [[-2.2, -10.5], [2.4, -11]];
+// Swipe controls. K: how far the stroke carries from the ball; MIN / SIDE: the shortest stroke
+// (px) that is a shot / a pass or a slide; V0: the finger speed (px/s) that is the perfect
+// power, OCT: power units per doubling of that speed; LAST: ms of the stroke read as its
+// release speed; WINDOW: seconds the player has to draw a shot; RUN: metres our player runs
+// meanwhile; DOLLY: metres the camera closes in with him.
+const SWIPE = { K: 1.15, MIN: 26, SIDE: 28, V0: 1400, OCT: 260, LAST: 110, WINDOW: 3.2, RUN: 2.7, DOLLY: 0.9 };
 const SHOT_LANE = { center: [0, 0], right: [-3.1, -1.2], left: [2.7, -0.8] };
 const FREEKICK_LANE = { center: [0.3, -11.2], right: [-2.2, -10.5], left: [2.4, -11] };
 const PENALTY_SPOT = [0, 0.5];   // straight on, nobody but the keeper
@@ -331,6 +337,9 @@ export function createMatch(env) {
     reticle.position.set(1.4, 1.3, GOAL_Z - 0.05); reticle.visible = false; scene.add(reticle);
   }
   const aim = V2(1.4, 1.3);
+  // swipe controls: the ring takes the colour of the power the stroke has right now
+  const RETICLE_TONE = { weak: 0x9BBF43, good: 0xffffff, perfect: 0xffffff, over: 0xFF7A66 };
+  function toneReticle(q) { const c = q ? RETICLE_TONE[q] : 0xCFFD5C; reticle.children[0].material.color.setHex(c); reticle.children[2].material.color.setHex(c); }
 
   // -------------------------------------------------------------- models
   const prep = (o, shadow = true) => o.traverse((m) => {
@@ -534,7 +543,8 @@ export function createMatch(env) {
     fans.forEach((f, i) => { if (f.a.cur !== f.a.A.idle) { f.a.snap('idle', { from: i % 4, speed: 0.8 + (i % 3) * 0.12 }); f.feet.reset(); } });
     resetScene();
     const first = S.first; S.first = false;
-    if (m.kind === 'shot' || m.kind === 'freekick' || m.kind === 'penalty') setupShot(m, first);
+    S.swipe = !!m.swipe; S.swiped = false; S.early = null; S.shotKind = m.kind === 'shot' || m.kind === 'freekick' || m.kind === 'penalty'; S.run = null; stroke = null; ghost = null; toneReticle(null);
+    if (S.shotKind) setupShot(m, first);
     else if (m.kind === 'pass') setupPass(m);
     else setupDefense(m);
   }
@@ -544,6 +554,26 @@ export function createMatch(env) {
     ball.rotation.set(0, 0, 0); D.active = false; P.active = false; S.star = null;
     mates.forEach((x) => { x.m.visible = false; x.feet.reset(); }); mateRings.forEach((r) => (r.visible = false)); markRing.visible = false;
     wall.forEach((x) => (x.m.visible = false)); S.wall = false; S.passFrom = null;
+  }
+  // the finger's stroke (swipe controls), drawn over the scene
+  const ink = document.createElement('canvas');
+  ink.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+  host.appendChild(ink);
+  const ictx = ink.getContext('2d'), INK_DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let inkOn = false;
+  function sizeInk() { ink.width = Math.round(W * INK_DPR); ink.height = Math.round(H * INK_DPR); }
+  sizeInk();
+  function drawInk(rdt) {
+    if (!stroke && ghost && (ghost.a -= rdt * 4) <= 0) ghost = null;
+    const s = stroke || ghost;
+    if (!s) { if (inkOn) { ictx.setTransform(1, 0, 0, 1, 0, 0); ictx.clearRect(0, 0, ink.width, ink.height); inkOn = false; } return; }
+    inkOn = true;
+    ictx.setTransform(INK_DPR, 0, 0, INK_DPR, 0, 0); ictx.clearRect(0, 0, W, H);
+    const pts = s.pts, n = pts.length, a = stroke ? 1 : ghost.a;
+    if (n < 2) return;
+    ictx.lineCap = 'round'; ictx.lineJoin = 'round'; ictx.lineWidth = 9; ictx.strokeStyle = `rgba(${s.rgb || '255,255,255'},${(0.55 * a).toFixed(3)})`;
+    ictx.beginPath(); ictx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < n; i++) ictx.lineTo(pts[i].x, pts[i].y); ictx.stroke();
+    ictx.fillStyle = `rgba(255,255,255,${(0.3 * a).toFixed(3)})`; ictx.beginPath(); ictx.arc(pts[n - 1].x, pts[n - 1].y, 16, 0, 7); ictx.fill();
   }
   // TV-style cut: fade to black, reset the scene, fade back (game clock, so tests stay in step)
   const cutEl = document.createElement('div');
@@ -572,13 +602,15 @@ export function createMatch(env) {
     shot.yaw = Math.atan2(shot.dir.x, shot.dir.z);
     const off = heroFoot.clone().applyAxisAngle(V(0, 1, 0), shot.yaw); off.y = 0;
     shot.R.copy(B0).sub(off).setY(0);
-    shot.start.copy(shot.R).addScaledVector(shot.dir, -1.8).addScaledVector(shot.right, -0.32);
-    shot.ctrl.copy(shot.R).addScaledVector(shot.dir, -0.9).addScaledVector(shot.right, -0.08);
+    // swipe controls: he is already on his way to the ball, in slow motion, while the player draws the shot
+    const back = S.swipe ? SWIPE.RUN : 1.8;
+    shot.start.copy(shot.R).addScaledVector(shot.dir, -back).addScaledVector(shot.right, S.swipe ? -0.8 : -0.32);
+    shot.ctrl.copy(shot.R).addScaledVector(shot.dir, -back / 2).addScaledVector(shot.right, -0.08);
     ballHolder.position.copy(B0);
     heroM.position.copy(shot.start); heroM.rotation.set(0, Math.atan2(B0.x - shot.start.x, B0.z - shot.start.z) * 0.5 + shot.yaw * 0.5, 0);
     hero.snap('idle', { from: Math.random() * 3 });
     rivalM.visible = false;
-    keeper.reset(B0.x * 0.12, GOAL_Z - 0.35, B0);
+    S.keeperAt = [B0.x * 0.12, GOAL_Z - 0.35, B0.clone()]; keeper.reset(...S.keeperAt);
     aim.set(B0.x < -1 ? 1.4 : B0.x > 1 ? -1.4 : 1.4, 1.3); reticle.position.set(aim.x, aim.y, GOAL_Z - 0.05);
     reticle.scale.setScalar(freekick ? 1.7 : 1); S.reticleScale = freekick ? 1.7 : 1;
     S.aimed = false;
@@ -597,17 +629,22 @@ export function createMatch(env) {
     if (first) { camPos.set(B0.x + 7, 2.2, B0.z + 2.5); camLook.set(0, 1, GOAL_Z); }
     else { camPos.copy(camAim.pos).addScaledVector(shot.dir, -1.4).add(V(0, 0.35, 0)); camLook.copy(camAim.look); }
     camTo(camAim.pos, camAim.look, 1.8);
-    later(first ? 1.5 : 1.1, () => { sfx('whistle_start', 0.6); setPhase('aim'); reticle.visible = true; });
+    later(first ? 1.5 : 1.1, () => { sfx('whistle_start', 0.6); setPhase('aim'); if (S.swipe) { beginRun(true); const e = S.early && readStroke(S.early.s, S.early.t); S.early = null; if (e) emitShot(e, false); } else reticle.visible = true; });
   }
   function shotCam() {
-    const far = S.wall ? 1.6 : 0;
-    const pos = shot.B0.clone().addScaledVector(shot.dir, -5.0 - far).addScaledVector(shot.right, 0.05).setY(2.0 + far * 0.25);
+    // swipe controls: starts further back and closes in with him as the time runs down
+    const far = S.wall ? 1.6 : 0, back = S.swipe && (S.phase === 'intro' || S.phase === 'aim') ? SWIPE.DOLLY * (S.run ? 1 - S.run.s / S.run.hold : 1) : 0;
+    const pos = shot.B0.clone().addScaledVector(shot.dir, -5.0 - far - back).addScaledVector(shot.right, 0.05 + back * 0.45).setY(2.0 + far * 0.25 + back * 0.2);
     if (camera.aspect < 0.7) pos.addScaledVector(shot.dir, -0.4);
     const look = shot.B0.clone().lerp(V(0, 0, GOAL_Z), 0.6).setY(0.85);
     return { pos, look };
   }
 
-  // input: tap/drag on the goal to aim
+  // input. Swipe controls (m.swipe): one stroke per moment. A shot is drawn from anywhere on
+  // the screen toward the goal: the stroke, carried over from the ball, points at the spot,
+  // its length lifts the ball, the speed of the finger as it lets go is the power and its bow
+  // the curl. A pass or a slide is a stroke to one side. Tap controls (assisted shots, screen
+  // readers): tap or drag on the goal to aim, the buttons of the screen do the rest.
   const ray = new THREE.Raycaster(), ndc = V2(), goalPlane = new THREE.Plane(V(0, 0, -1), GOAL_Z - 0.05), hit = V();
   function aimAt(ev) {
     if (S.phase !== 'aim' || S.charging) return;
@@ -618,18 +655,84 @@ export function createMatch(env) {
       if (!S.aimed) { S.aimed = true; on.aimed(); }
     }
   }
-  let dragging = false;
-  const onDown = (e) => { dragging = true; aimAt(e); };
-  const onMove = (e) => { if (dragging) aimAt(e); };
-  const onUp = () => (dragging = false);
+  let stroke = null, ghost = null, dragging = false;
+  const INK = { weak: '155,191,67', good: '255,255,255', perfect: '255,255,255', over: '255,122,102' };
+  const at = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; };
+  /** A shot stroke as { x, y } on the goal plane, power 0..1000 and curl; null for a tap or a stroke away from the goal. */
+  function readStroke(s, now) {
+    const a = s.pts[0], b = s.pts[s.pts.length - 1], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+    if (len < SWIPE.MIN || dy > -SWIPE.MIN * 0.6) return null;
+    const bs = tmp.copy(shot.B0).project(camera), bx = (bs.x * 0.5 + 0.5) * W, by = (-bs.y * 0.5 + 0.5) * H;
+    ndc.set(((bx + dx * SWIPE.K) / W) * 2 - 1, -((by + dy * SWIPE.K) / H) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const ok = ray.ray.intersectPlane(goalPlane, hit);
+    const x = clamp(ok ? hit.x : -Math.sign(ndc.x) * GW, -GW / 2, GW / 2), y = clamp(ok ? hit.y : GH, 0.15, GH);
+    // power: how fast the finger is going as it lets go (a stroke that stops before it lifts is a weak one)
+    let p = a; for (const q of s.pts) if (q.t >= now - SWIPE.LAST) { p = q; break; }
+    const moved = s.pts.find((q) => Math.hypot(q.x - a.x, q.y - a.y) > 6) || a;
+    const v = Math.max(Math.hypot(b.x - p.x, b.y - p.y) / Math.max(0.03, (now - p.t) / 1000), 0.8 * len / Math.max(0.06, (now - moved.t) / 1000));
+    const power = clamp(Math.round(750 + SWIPE.OCT * Math.log2(Math.max(v, 1) / SWIPE.V0)), 80, 1000);
+    const m = s.pts[s.pts.length >> 1], bow = ((m.x - a.x) * dy - (m.y - a.y) * dx) / len;
+    return { x, y, power, curl: clamp(bow / 55, -1.3, 1.3) };
+  }
+  function previewShot() {
+    const r = readStroke(stroke, performance.now());
+    if (!r) { reticle.visible = false; stroke.rgb = null; return; }
+    const q = timingGrade(r.power / 1000);
+    aim.set(r.x, r.y); if (!reticle.visible) { reticle.position.set(r.x, r.y, GOAL_Z - 0.05); reticle.visible = true; }
+    toneReticle(q); stroke.rgb = INK[q];
+  }
+  /** Hands the shot to the screen (it asks the engine and calls shoot()). `late`: the time ran out. */
+  function emitShot(r, late) {
+    S.swiped = true; aim.set(r.x, r.y);
+    const a = api.aim();
+    on.swipe({ kind: 'shot', aim: a.aim, lift: a.lift, power: r.power, curl: r.curl, late: !!late });
+  }
+  function expireShot() {
+    if (S.swiped) return;
+    const s = stroke, r = s ? readStroke(s, performance.now()) : null;
+    if (s) { ghost = { pts: s.pts, rgb: s.rgb, a: 1 }; stroke = null; }
+    emitShot(r || { x: clamp(shot.B0.x * 0.1, -1, 1), y: 0.5, power: 300, curl: 0 }, true);
+  }
+  function sideSwipe() {
+    const a = stroke.pts[0], b = stroke.pts[stroke.pts.length - 1], dx = b.x - a.x, dy = b.y - a.y;
+    if (stroke.sent || Math.abs(dx) < SWIPE.SIDE || Math.abs(dx) < Math.abs(dy) * 0.35) return;
+    stroke.sent = true;
+    on.swipe({ kind: 'side', side: dx < 0 ? 'left' : 'right', timing: api.timing() });
+  }
+  const onDown = (e) => {
+    if (S.phase === 'replay') { done(); return; }                // a tap skips the replay
+    if (!S.swipe) { dragging = true; aimAt(e); return; }
+    // a shot may be drawn while the moment is still opening: it is kept and goes off at the whistle
+    const early = S.phase === 'intro' && S.shotKind;
+    if (stroke || S.swiped || (!early && S.phase !== 'aim' && S.phase !== 'pass' && S.phase !== 'defend')) return;
+    S.early = null;
+    stroke = { id: e.pointerId, pts: [at(e)], sent: false, rgb: null }; ghost = null;
+  };
+  const onMove = (e) => {
+    if (!S.swipe) { if (dragging) aimAt(e); return; }
+    if (!stroke || e.pointerId !== stroke.id) return;
+    stroke.pts.push(at(e)); if (stroke.pts.length > 240) stroke.pts.splice(1, 1);
+    if (S.phase === 'aim') previewShot(); else if (S.phase === 'pass' || S.phase === 'defend') sideSwipe();
+  };
+  const onUp = (e) => {
+    dragging = false;
+    if (!stroke || e.pointerId !== stroke.id) return;
+    const s = stroke; stroke = null; ghost = { pts: s.pts, rgb: s.rgb, a: 1 };
+    if (e.type === 'pointerup' && S.phase === 'intro') { S.early = { s, t: performance.now() }; return; }
+    if (e.type !== 'pointerup' || S.phase !== 'aim' || S.swiped) { if (!S.swiped) reticle.visible = false; return; }
+    const r = readStroke(s, performance.now());
+    if (r) emitShot(r, false); else reticle.visible = false;
+  };
   canvas.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 
   /** The player's shot, as told by the engine: power 0..1, outcome and where the ball went. */
-  function shoot({ power, outcome, x, y, perfect, assisted }) {
+  function shoot({ power, outcome, x, y, perfect, assisted, curl }) {
     if (S.phase !== 'aim') return;
-    setPhase('runup'); reticle.visible = false;
+    setPhase('runup'); reticle.visible = false; toneReticle(null);
+    if (stroke) { ghost = { pts: stroke.pts, rgb: stroke.rgb, a: 1 }; stroke = null; }
     let q = timingGrade(power);
     if (assisted) q = 'good';
     else if (perfect) q = 'perfect';
@@ -638,25 +741,39 @@ export function createMatch(env) {
     const t = shotTarget(outcome, x, y);
     S.central = Math.abs(t.at.x - keeper.root.position.x) < 1.2;
     S.perfect = !!perfect;
-    launch({ from: shot.B0, target: t.at, power, q, outcome: t.kind, by: 'us' });
-    // run-up: three quick strides into the kick. He moves along the curve at the speed his
-    // boots push the turf back (arc length, not curve parameter), so they never skate
+    launch({ from: shot.B0, target: t.at, power, q, outcome: t.kind, by: 'us', curl });
+    if (!S.run) beginRun(false);
+    keeper.hop();
+  }
+  // run-up: three quick strides into the kick. He moves along the curve at the speed his
+  // boots push the turf back (arc length, not curve parameter), so they never skate.
+  // slow (swipe controls): he runs while the player draws the shot, the world slowed so that
+  // he is a stride from the ball when the time is up; the shot lets him run on at full speed
+  function beginRun(slow) {
     const lut = [0]; let pp = shot.start.clone();
     for (let i = 1; i <= 40; i++) { const q2 = runPoint(i / 40); lut.push(lut[i - 1] + q2.distanceTo(pp)); pp = q2; }
-    S.run = { t: 0, s: 0, lut }; S.stride = null;
+    S.run = { t: 0, s: 0, lut, hold: Infinity, scale: 1, win: 0, real: 0 }; S.stride = null;
+    if (slow) {
+      const vmax = heroRun.ground * 1.35, hold = Math.max(0.3, lut[40] - strideLen(vmax) - 0.06);
+      let t = 0, d = 0; while (d < hold && t < 3) { d += vmax * Math.min(1, 0.25 + t / 0.32) / 120; t += 1 / 120; }
+      const win = SWIPE.WINDOW * (reduced ? 1.6 : 1);
+      Object.assign(S.run, { hold, scale: t / win, win });
+    }
     hero.play('run', { fade: 0.12, speed: 0.4 }); heroFeet.stepNow(0.16, 0.05);   // first step: both boots leave the stance, none drags
-    keeper.hop();
   }
   function runPoint(u) { const a = 1 - u; return V().addScaledVector(shot.start, a * a).addScaledVector(shot.ctrl, 2 * a * u).addScaledVector(shot.R, u * u); }
   function updateRunup(dt) {
     const r = S.run; r.t += dt;
     const v = heroRun.ground * 1.35 * Math.min(1, 0.25 + r.t / 0.32);   // first stride accelerates
     r.s += v * dt; if (hero.cur === hero.A.run) hero.A.run.timeScale = v / heroRun.ground;
+    const waiting = S.phase === 'aim';            // still the player's turn: he does not start the last stride
+    if (waiting) r.s = Math.min(r.s, r.hold);
     const L = r.lut, total = L[L.length - 1]; let i = 1; while (i < L.length - 1 && L[i] < r.s) i++;
     const u = r.s >= total ? 1 : (i - 1 + (r.s - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1])) / (L.length - 1);
     const a = 1 - u, p = runPoint(u);
     const tan = V().addScaledVector(shot.ctrl.clone().sub(shot.start), 2 * a).addScaledVector(shot.R.clone().sub(shot.ctrl), 2 * u);
     heroM.position.copy(p); heroM.rotation.y = Math.atan2(tan.x, tan.z);
+    if (waiting) { if (r.s >= r.hold) expireShot(); return; }
     if (total - r.s <= strideLen(v) || u >= 1) { // last stride into the ball
       S.stride = Object.assign(lastStride(p, tan.normalize().multiplyScalar(v), shot.R), { y0: heroM.rotation.y, y1: heroM.rotation.y + wrapAngle(shot.yaw - heroM.rotation.y) });
       hero.play('kick', { fade: 0.08, loop: false, from: KICK_FROM, speed: KICK_STEP, then: 'idle' }); heroFeet.stepNow(STRIDE_A, 0.08, 'Left');
@@ -666,13 +783,14 @@ export function createMatch(env) {
   }
 
   // generic shot flight (ours, a teammate's or theirs) + keeper plan
-  function launch({ from, target, power, q, outcome, by }) {
+  function launch({ from, target, power, q, outcome, by, curl: drawn }) {
     flight.outcome = outcome; flight.q = q; flight.by = by; flight.power = power;
     const dist = from.distanceTo(V(target.x, target.y, GOAL_Z));
     const D = lerp(0.95, 0.5, clamp(power, 0, 1)) * (q === 'weak' ? 1.15 : 1) * (dist / 7.5) ** 0.8;
     flight.D = D; flight.u = 0; flight.mode = 'curve'; flight.resolved = false; flight.held = false;
     flight.p0.copy(from); flight.p1.set(target.x, target.y, GOAL_Z);
-    const curl = (Math.random() - 0.5) * 0.8 + Math.sign(target.x - from.x) * 0.25;
+    // a drawn shot bends the way the stroke bowed; otherwise a little either way
+    const curl = (drawn === undefined || drawn === null ? (Math.random() - 0.5) * 0.8 : drawn) + Math.sign(target.x - from.x) * 0.25;
     flight.c.copy(from).lerp(flight.p1, 0.5); flight.c.x += curl; flight.c.y = Math.max(target.y, 0.3) * 0.55 + 0.35 + (q === 'over' ? 0.6 : 0);
     if (S.wall && by === 'us') { // over the wall: high enough where the curve passes it
       const u = S.wallFrac, need = (WALL_H - (1 - u) ** 2 * flight.p0.y - u * u * flight.p1.y) / (2 * u * (1 - u));
@@ -697,6 +815,11 @@ export function createMatch(env) {
 
   function resolve(kind) {
     if (flight.resolved) return; flight.resolved = true; trailFade = 0.999;
+    if (S.phase === 'replay') { // the same goal again: only the net and the ball, no second result
+      net.x = ballHolder.position.x; net.y = ballHolder.position.y; net.vel = 2.6; sfx('net', 0.6);
+      later(0.5, done);
+      return;
+    }
     const by = flight.by, ours = by !== 'them';
     const goal = kind === 'goal';
     setPhase('resolved');
@@ -735,7 +858,23 @@ export function createMatch(env) {
     } else {
       sfx(ours ? 'crowd_groan' : 'crowd_cheer', 0.6);
     }
-    later(goal ? 3.4 : 2.6, done);
+    if (goal && ours) later(3.0, () => cutTo(startReplay)); else later(goal ? 3.4 : 2.6, done);
+  }
+  // Our goal once more from beside the goal, in slow motion: the same flight and the same
+  // dive, run again from the moment the keeper sets off. A tap skips it.
+  const REPLAY_SLOW = 0.4;   // real speed until the ball is at the goal, then slow
+  function startReplay() {
+    if (S.phase !== 'celebrate' && S.phase !== 'resolved') return;
+    setPhase('replay');
+    keeper.reset(...S.keeperAt);
+    flight.active = true; flight.mode = 'curve'; flight.resolved = false; flight.held = false;
+    flight.u = clamp(flight.keeper.delay / flight.D, 0, 0.3);
+    bez(flight.u, ballHolder.position); trailPts.length = 0; trailFade = 1; net.amp = 0; net.vel = 0;
+    keeperGo();
+    // from the side the ball is not going to, so it comes across the picture into the far side of the net
+    const side = flight.p1.x > 0.2 ? -1 : 1;
+    camTo(V(side * 5.2, 1.5, GOAL_Z - 3.9), V(flight.p1.x * 0.3 - side * 0.4, 1.1, GOAL_Z - 0.1), 2);
+    camPos.copy(camTarget.pos); camLook.copy(camTarget.look); fovTarget = 46; shake = 0;
   }
 
   // a loose ball (cleared, overhit, won in a tackle): it drops, a bounce scrubs speed, then it
@@ -773,7 +912,7 @@ export function createMatch(env) {
     ballHolder.position.copy(B0);
     heroM.position.copy(shot.R).addScaledVector(shot.dir, -strideLen(STRIDE_V)); heroM.rotation.set(0, 0, 0);
     hero.snap('idle', { from: Math.random() * 3 });
-    keeper.reset(0, GOAL_Z - 0.35, B0);
+    S.keeperAt = [0, GOAL_Z - 0.35, B0.clone()]; keeper.reset(...S.keeperAt);
     // everything from the last pass moment goes: a leftover roll kept the next pass from ever leaving the boot
     Object.assign(P, { active: true, t: 0, open: m.openSide, mates: {}, roll: null, kickIn: undefined, cutIn: undefined, kicked: false, cutKick: false, loose: null, side: null, outcome: null, x: null, to: null });
     // each mate stands so his right boot meets a ball rolled to his spot, facing the goal
@@ -1091,7 +1230,7 @@ export function createMatch(env) {
   function bezD(u, out) { return out.copy(flight.c).sub(flight.p0).multiplyScalar(2 * (1 - u)).addScaledVector(tmp2.copy(flight.p1).sub(flight.c), 2 * u); }
 
   function updateKick(dt) {
-    if (S.phase === 'runup') updateRunup(dt);
+    if (S.phase === 'runup' || (S.phase === 'aim' && S.run)) updateRunup(dt);
     else if (S.phase === 'kick') {
       S.kickT += dt;
       if (S.stride) strideMove(heroM, hero, S.stride, S.kickT);
@@ -1186,7 +1325,13 @@ export function createMatch(env) {
   }
   function step(rdt) {
     simTime += rdt; const time = simTime;
-    if (slowTimer > 0) { slowTimer -= rdt; worldScale = lerp(worldScale, 0.3, 0.25); if (slowTimer <= 0) slowTimer = -1; } else worldScale = lerp(worldScale, 1, 0.08);
+    const drawing = S.phase === 'aim' && S.run;   // swipe controls: the world waits for the stroke in slow motion
+    if (S.phase === 'replay') { slowTimer = 0; worldScale = lerp(worldScale, flight.resolved || ballHolder.position.z > GOAL_Z - 1.8 ? REPLAY_SLOW : 1, 0.3); }
+    else if (drawing) {
+      worldScale = lerp(worldScale, S.run.scale, 0.25);
+      if (!S.swiped) { S.run.real += rdt; on.ring(clamp(1 - S.run.real / S.run.win, 0, 1)); if (S.run.real >= S.run.win) expireShot(); }
+    } else if (slowTimer > 0) { slowTimer -= rdt; worldScale = lerp(worldScale, 0.3, 0.25); if (slowTimer <= 0) slowTimer = -1; }
+    else worldScale = lerp(worldScale, 1, S.phase === 'runup' ? 0.4 : 0.08);
     if (S.phase === 'aim' || S.phase === 'intro' || S.phase === 'defend-intro' || S.phase === 'pass') slowTimer = 0;
     const dt = rdt * worldScale;
     worldTime += dt; runTimers(); updateCut(rdt);
@@ -1214,7 +1359,7 @@ export function createMatch(env) {
     ballShadow.position.set(ballHolder.position.x, 0.005, ballHolder.position.z); ballShadow.material.opacity = 0.4 / (1 + ballHolder.position.y * 1.5);
 
     if (S.phase === 'celebrate') celebrateCam(time);
-    if (S.phase === 'aim') { fovTarget = 46; const c = shotCam(); camTarget.pos.copy(c.pos).add(tmp.set(Math.sin(time * 0.5) * 0.05, Math.sin(time * 0.8) * 0.02, 0)); camTarget.look.copy(c.look).add(tmp.set((aim.x - shot.B0.x * 0.25) * 0.12, (aim.y - 1.1) * 0.08, 0)); }
+    if (S.phase === 'aim') { fovTarget = 46; const c = shotCam(); camTarget.pos.copy(c.pos).add(tmp.set(Math.sin(time * 0.5) * 0.05, Math.sin(time * 0.8) * 0.02, 0)); camTarget.look.copy(c.look); if (!S.swipe) camTarget.look.add(tmp.set((aim.x - shot.B0.x * 0.25) * 0.12, (aim.y - 1.1) * 0.08, 0)); }
     if (S.phase === 'menu') { const a = time * 0.12; camTarget.pos.set(Math.sin(a) * 9, 3.2, GOAL_Z - Math.cos(a) * 9 + 1); camTarget.look.set(0, 1, GOAL_Z - 2); camTarget.k = 1; }
     if (S.phase === 'defend' || S.phase === 'defend-intro') fovTarget = 50;
     if (S.phase === 'pass' || S.phase === 'pass-intro') fovTarget = 52;
@@ -1229,19 +1374,21 @@ export function createMatch(env) {
       if (flight.active && !flight.resolved && d < 2.6) camPos.y = Math.max(camPos.y, 1.55 + (1 - Math.max(d, CAM_CLEAR) / 2.6) * 1.2);
     }
     // chasing a free kick: over the wall, not through their faces
-    if (S.wall && flight.active && !flight.resolved) for (const x of wall) {
+    if (S.wall && flight.active && !flight.resolved && S.phase !== 'replay') for (const x of wall) {
       const d = Math.hypot(camPos.x - x.m.position.x, camPos.z - x.m.position.z);
       camPos.y = Math.max(camPos.y, 3.6 - smooth(1.5, 5, d) * 1.9);
     }
     camera.position.copy(camPos); if (shake > 0.001) { camera.position.add(tmp.set((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake, 0)); shake *= Math.pow(0.02, rdt); }
     camera.lookAt(camLook);
     camera.fov += (fovTarget - camera.fov) * Math.min(1, rdt * 4); camera.updateProjectionMatrix();
+    drawInk(rdt);
   }
 
   function resize() {
     ({ w: W, h: H } = size());
     renderer.setSize(W, H); canvas.style.width = '100%'; canvas.style.height = '100%';
     composer.setSize(W, H); bloom.setSize(W / 2, H / 2); camera.aspect = W / H; camera.updateProjectionMatrix();
+    sizeInk();
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : null;
   ro?.observe(host);
@@ -1268,7 +1415,7 @@ export function createMatch(env) {
     clock.getDelta(); frame();
   });
 
-  return {
+  const api = {
     /** Sets up a moment: { kind, attackSide?, openSide?, skip? }. The first one opens without a cut. */
     start(m) { if (S.phase === 'menu') startMoment(m); else cutTo(() => startMoment(m)); },
     phase: () => S.phase,
@@ -1289,9 +1436,10 @@ export function createMatch(env) {
     stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, programs: renderer.info.programs.length, textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries }),
     dispose() {
       disposed = true; cancelAnimationFrame(raf); ro?.disconnect();
-      canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
       composer.dispose(); renderer.dispose(); renderer.forceContextLoss();
-      canvas.remove(); cutEl.remove();
+      canvas.remove(); cutEl.remove(); ink.remove();
     },
   };
+  return api;
 }

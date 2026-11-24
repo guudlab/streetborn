@@ -2,8 +2,8 @@ import { skippedDefense, TIMED_WINDOW, TIMING_TARGET, type ChanceOutcome, type M
 import { BlurView } from 'expo-blur';
 import { Redirect, router } from 'expo-router';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, View } from 'react-native';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { duckMusic, preloadSfx, setAmbience, setMusic, sfx } from '../audio/audio.ts';
@@ -30,11 +30,14 @@ import { assembleG } from './assemble.ts';
 import type { SceneBridge } from './bridgeTypes.ts';
 import { NativeSceneView } from './nativeScene';
 import { RingButton, type RingHandle } from './RingButton.tsx';
-import type { DefenseGrade, Gltf, MatchEnv, MatchScene, SceneMoment, SceneResult, ScenePhase, ShotGrade } from './scene.d.ts';
+import type { DefenseGrade, Gltf, MatchEnv, MatchScene, SceneMoment, SceneResult, ScenePhase, SceneSwipe, ShotGrade } from './scene.d.ts';
 
 // The 3D match screen (web, and iOS/Android through a WebView). The scene (scene.js) acts each moment out; this screen
 // owns the HUD and the engine: it sends the player's input to the engine through the
 // store, then tells the scene the outcome. The scene never decides anything.
+// Controls: every moment is one stroke of the finger on the pitch (the scene reads it and
+// reports a `swipe`): a shot is drawn toward the goal, a pass or a slide to one side. The
+// buttons stay for the assisted shot, for screen readers and for the keyboard on the web.
 
 const MODELS = {
   keeper: require('../../assets/models/mac/keeper.glb'),
@@ -103,6 +106,13 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const host = useRef<React.ComponentRef<typeof View>>(null);
   const scene = useRef<MatchScene | null>(null);
   const shootRing = useRef<RingHandle>(null);
+  const sideRing = useRef<RingHandle>(null);
+  const timeBar = useRef<BarHandle>(null);
+  const reader = useScreenReader();
+  const readerRef = useRef(reader);
+  readerRef.current = reader;
+  // The player ran out of time on a drawn shot: the coach says so if it does not go in.
+  const lateShot = useRef(false);
   const leftRing = useRef<RingHandle>(null);
   const rightRing = useRef<RingHandle>(null);
   // The moment the player already acted in: one input per moment, however fast the taps.
@@ -174,7 +184,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     if (!m || !sc || ended.current) return;
     const mo = m.plan.moments[m.i]!;
     // The first shot, pass and defense moment of a player's life opens with a short hand demo.
-    const howto: HowToKind = kind === 'pass' ? 'mPass' : kind === 'defense' ? 'mDefense' : 'mShot';
+    const howto: HowToKind = kind === 'pass' ? 'mSwipePass' : kind === 'defense' ? 'mSwipeSlide' : 'mSwipeShot';
     if (!useHints.getState().seen[`howto_${howto}`]) {
       sc.setPaused(true);
       setDemo({ howto, kind });
@@ -182,7 +192,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     }
     sc.setPaused(false);
     setPlayKind(kind);
-    acted.current = -1; lastSide.current = null; lastTiming.current = 0; lastShown.current = null;
+    acted.current = -1; lastSide.current = null; lastTiming.current = 0; lastShown.current = null; lateShot.current = false;
     setAimed(false); setNudge(false);
     setBanner({ text: t(BANNER[mo.kind], { minute: mo.minute }), def: kind === 'defense', id: Date.now() });
     const shots = m.plan.moments.slice(0, m.i).filter(x => x.kind === 'shot').length;
@@ -196,6 +206,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     sc.start({
       kind, attackSide: mo.attackSide, openSide: mo.openSide, spot: mo.spot,
       skip: kind === 'defense' ? skippedDefense(m.setup, m.i) : undefined,
+      swipe: !readerRef.current && !((kind === 'shot' || kind === 'freekick' || kind === 'penalty') && useGame.getState().assisted),
     });
   }, [say]);
 
@@ -269,7 +280,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       lastShown.current = r.kind;
       mark(i, r.kind === 'goal' ? 'good' : 'bad');
       if (r.kind === 'goal') { pop('m3.big.goal', 'lime'); duckMusic(2400); say(r.perfect ? 'm3.coach.goalPerfect' : 'm3.coach.goal'); }
-      else if (r.kind === 'save') { pop('m3.big.save', 'white'); say(r.central ? 'm3.coach.saveCentral' : 'm3.coach.saveTiming'); }
+      else if (r.kind === 'save') { pop('m3.big.save', 'white'); say(lateShot.current ? 'm3.coach.shotLate' : r.central ? 'm3.coach.saveCentral' : 'm3.coach.saveTiming'); }
       else if (r.kind === 'post') { pop('m3.big.post', 'white'); say('m3.coach.post'); }
       else { pop('m3.big.miss', 'red'); say(r.q === 'over' ? 'm3.coach.missOver' : 'm3.coach.miss'); }
       if (r.kind !== 'goal' && !useGame.getState().assisted && r.q !== 'perfect') setNudge(true);
@@ -294,9 +305,9 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   // Load the models, build the scene, kick off. Once: the scene lives as long as the screen.
   // The browser draws into a canvas here; iOS and Android host the same scene in a WebView
   // (nativeScene.native.tsx), which hands over its bridge once its page is ready.
-  const handlers = useRef({ next, onResult, kickoff: () => {} });
+  const handlers = useRef({ next, onResult, onSwipe: (_s: SceneSwipe) => {}, kickoff: () => {} });
   handlers.current = {
-    next, onResult,
+    next, onResult, onSwipe: handlers.current.onSwipe,
     // The match opens with the commentary up to the player's first moment.
     kickoff: () => {
       const m = useGame.getState().match;
@@ -331,7 +342,8 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
       const on: MatchEnv['on'] = {
         phase: setPhase,
         aimed: () => setAimed(true),
-        ring: (p) => { leftRing.current?.set(p); rightRing.current?.set(p); },
+        ring: (p) => { leftRing.current?.set(p); rightRing.current?.set(p); sideRing.current?.set(p); timeBar.current?.set(p); },
+        swipe: (s) => handlers.current.onSwipe(s),
         grade: (q: ShotGrade | DefenseGrade) => {
           const tone: Tone = q in SHOT_GRADE ? SHOT_GRADE[q as ShotGrade] : q === 'perfect' || q === 'timed' ? 'lime' : 'muted';
           setGrade({ text: t(`m3.grade.${q}` as Key), tone, id: Date.now() });
@@ -372,38 +384,40 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const live = !!moment && finishing === 'no' && !between && !pickMode && !!playKind;
 
   // --- inputs: each goes to the engine first, then the scene acts out the outcome
-  const shoot = useCallback((power: number) => {
+  const shoot = useCallback((power: number, drawn?: Extract<SceneSwipe, { kind: 'shot' }>) => {
     const m = useGame.getState().match, sc = scene.current;
     if (!m || !sc || ended.current || sc.phase() !== 'aim' || acted.current === m.i) return;
     acted.current = m.i;
     sc.setCharging(false);
-    const helped = useGame.getState().assisted;
-    const { aim, lift } = sc.aim();
+    // A drawn shot carries its own aim and power; the button reads the aim the player tapped.
+    const helped = !drawn && useGame.getState().assisted;
+    const { aim, lift } = drawn ?? sc.aim();
+    lateShot.current = !!drawn?.late;
     const o = useGame.getState().play({
       chance: m.i,
       shot: { aim, lift, ...(helped ? { power: TIMING_TARGET, assisted: true } : { power: Math.round(power * 1000) }) },
     });
     if (o.kind !== 'shot' && o.kind !== 'freekick' && o.kind !== 'penalty') return;
     setNudge(false);
-    sc.shoot({ power: helped ? TIMING_TARGET / 1000 : power, outcome: o.outcome, x: o.x, y: o.y, perfect: !!o.perfect, assisted: helped });
+    sc.shoot({ power: helped ? TIMING_TARGET / 1000 : power, outcome: o.outcome, x: o.x, y: o.y, perfect: !!o.perfect, assisted: helped, curl: drawn?.curl });
   }, []);
 
-  const pass = useCallback((side: Side) => {
+  const pass = useCallback((side: Side, at?: number) => {
     const m = useGame.getState().match, sc = scene.current;
     if (!m || !sc || ended.current || sc.phase() !== 'pass' || acted.current === m.i) return;
     acted.current = m.i;
-    const timing = sc.timing();
+    const timing = at ?? sc.timing();
     lastSide.current = side; lastTiming.current = timing;
     const o = useGame.getState().play({ chance: m.i, pass: side, timing });
     if (o.kind !== 'pass') return;
     sc.passTo(side, o.outcome);
   }, []);
 
-  const slide = useCallback((side: Side) => {
+  const slide = useCallback((side: Side, at?: number) => {
     const m = useGame.getState().match, sc = scene.current;
     if (!m || !sc || ended.current || sc.phase() !== 'defend' || acted.current === m.i) return;
     acted.current = m.i;
-    const timing = sc.timing();
+    const timing = at ?? sc.timing();
     lastSide.current = side; lastTiming.current = timing;
     const o = useGame.getState().play({ chance: m.i, defense: side, timing });
     if (o.kind !== 'defense') return;
@@ -412,6 +426,12 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
 
   const kindRef = useRef(playKind);
   kindRef.current = playKind;
+  // The stroke the scene read: a drawn shot, or a side for the pass or the slide.
+  handlers.current.onSwipe = (s) => {
+    if (s.kind === 'shot') shoot(s.power / 1000, s);
+    else if (kindRef.current === 'defense') slide(s.side, s.timing);
+    else if (kindRef.current === 'pass') pass(s.side, s.timing);
+  };
   // Keyboard on the web: space charges the shot, arrows slide or pass.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -428,6 +448,15 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
     window.addEventListener('keyup', up);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
   }, [pass, slide]);
+
+  // The assisted shot has its own controls (tap a corner, tap the button), so the switch sets the moment up again.
+  const switchAssist = () => {
+    const m = useGame.getState().match;
+    if (!m || !playKind || (phase !== 'aim' && phase !== 'intro') || acted.current === m.i) return;
+    setNudge(false);
+    useGame.getState().setAssisted(!assisted);
+    startScene(playKind);
+  };
 
   const pause = () => openSheet(
     <>
@@ -449,8 +478,12 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
   const homeCode = homeName ? crestCode(homeName) : t('club.home.code');
   const awayCode = m?.opponentName ? crestCode(m.opponentName) : t('club.away.code');
   const shooting = playKind === 'shot' || playKind === 'freekick' || playKind === 'penalty';
-  const hint = !live ? '' : phase === 'aim' ? (assisted ? t('m3.hint.assisted') : aimed ? t('m3.hint.charge') : t('m3.hint.aim'))
-    : phase === 'pass' ? t('m3.hint.pass') : phase === 'defend' ? t('m3.hint.defend') : '';
+  // Drawn controls, unless the buttons are needed: the assisted shot, a screen reader.
+  const drawnShot = shooting && !assisted && !reader;
+  const drawnSide = (playKind === 'defense' || playKind === 'pass') && !reader;
+  const hint = !live ? '' : phase === 'replay' ? t('m3.hint.replay')
+    : phase === 'aim' ? (drawnShot ? t('m3.hint.swipe') : assisted ? t('m3.hint.assisted') : aimed ? t('m3.hint.charge') : t('m3.hint.aim'))
+    : phase === 'pass' ? t(drawnSide ? 'm3.hint.swipePass' : 'm3.hint.pass') : phase === 'defend' ? t(drawnSide ? 'm3.hint.swipeSlide' : 'm3.hint.defend') : '';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, overflow: 'hidden' }}>
@@ -515,6 +548,11 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
         )}
 
         {banner && <Banner key={banner.id} text={banner.text} def={banner.def} />}
+        {live && phase === 'replay' && (
+          <View pointerEvents="none" style={{ alignSelf: 'center', marginTop: 12, paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(13,13,13,.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,.18)' }}>
+            <T w={600} size={14}>{t('m3.replay')}</T>
+          </View>
+        )}
         {coach && live && <Coach key={coach.id} text={coach.text} />}
 
         <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -529,7 +567,16 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
               <T w={600} size={13} color={colors.g200}>{hint}</T>
             </View>
           ) : null}
-          {live && ready && shooting && (
+          {live && ready && drawnShot && phase === 'aim' && <TimeBar ref={timeBar} />}
+          {live && ready && drawnSide && (phase === 'pass' || phase === 'defend') && (
+            <RingButton ref={sideRing} passive mode="tap" size={84} dark enabled label="" onFire={() => {}}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <Icon name="back" size={20} color={colors.g100} />
+                <Icon name="chev" size={20} color={colors.g100} />
+              </View>
+            </RingButton>
+          )}
+          {live && ready && shooting && !drawnShot && (
             <RingButton
               ref={shootRing} mode={assisted ? 'tap' : 'charge'} enabled={phase === 'aim'}
               label={assisted ? t('m3.shootAssistedA11y') : t('m3.shootA11y')}
@@ -538,7 +585,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
               <T w={700} size={24} color={colors.ink} style={{ fontStyle: 'italic' }}>{t('m3.shoot')}</T>
             </RingButton>
           )}
-          {live && ready && (playKind === 'defense' || playKind === 'pass') && (
+          {live && ready && (playKind === 'defense' || playKind === 'pass') && !drawnSide && (
             <View style={{ flexDirection: 'row', gap: 28 }}>
               {(['left', 'right'] as const).map(side => (
                 <RingButton
@@ -555,7 +602,7 @@ export function Match3D({ onFail }: { onFail(e: unknown): void }) {
           )}
           {live && ready && shooting && (
             <View style={{ alignSelf: 'flex-start' }}>
-              <AssistToggle on={assisted} nudge={nudge} onPress={() => { if (phase !== 'aim' && phase !== 'intro') return; setNudge(false); useGame.getState().setAssisted(!assisted); }} />
+              <AssistToggle on={assisted} nudge={nudge} onPress={switchAssist} />
             </View>
           )}
         </View>
@@ -593,6 +640,31 @@ function halfShots(m: LiveMatch): [number, number] {
 
 /** Moments the player plays (the half-time call is not one). */
 const plays = (moments: readonly Moment[]) => moments.filter(mo => mo.kind !== 'halftime').length;
+
+/** A screen reader is on (never on the web, where react-native-web always says yes): the match keeps its buttons. */
+function useScreenReader() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let alive = true;
+    AccessibilityInfo.isScreenReaderEnabled().then(v => { if (alive) setOn(v); }, () => {});
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', setOn);
+    return () => { alive = false; sub.remove(); };
+  }, []);
+  return on;
+}
+
+interface BarHandle { set(p: number): void }
+/** The time left to draw a shot, 1 → 0. The scene sets it every frame. */
+const TimeBar = forwardRef<BarHandle>(function TimeBar(_props, ref) {
+  const [p, setP] = useState(1);
+  useImperativeHandle(ref, () => ({ set: setP }), []);
+  return (
+    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 200, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,.22)', alignItems: 'center' }}>
+      <View style={{ width: 200 * p, height: 4, borderRadius: 2, backgroundColor: p < 0.3 ? colors.bad : colors.l600 }} />
+    </View>
+  );
+});
 
 function Loading({ progress }: { progress: number }) {
   return (

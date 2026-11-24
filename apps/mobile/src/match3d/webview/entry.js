@@ -61,7 +61,7 @@ async function go(cfg) {
     host, G: assembleG(byKey), board: cfg.board, kit: cfg.kit, away: cfg.away,
     tint: tintOf,
     sfx: ev('sfx'),
-    on: { phase: ev('phase'), aimed: ev('aimed'), ring: ev('ring'), grade: ev('grade'), result: ev('result'), skipped: ev('skipped'), done: ev('done') },
+    on: { phase: ev('phase'), aimed: ev('aimed'), ring: ev('ring'), swipe: ev('swipe'), grade: ev('grade'), result: ev('result'), skipped: ev('skipped'), done: ev('done') },
   });
   await scene.ready;
 

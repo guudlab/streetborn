@@ -11,7 +11,7 @@ export type Stats = Record<StatKey, number>;
 /** The mini games: one per stat, plus omuz oku (defense), which trains no stat. */
 export type DrillKey = StatKey | 'omuz';
 /** What a "nasıl oynanır" demo can teach: the mini games and the match's three moments. */
-export type HowToKind = DrillKey | 'mShot' | 'mPass' | 'mDefense';
+export type HowToKind = DrillKey | 'mSwipeShot' | 'mSwipePass' | 'mSwipeSlide';
 
 const drill = (k: DrillKey) => ({ stat: t(`drill.${k}.stat`), name: t(`drill.${k}.name`), place: t(`drill.${k}.place`) });
 export const DRILLS: Record<DrillKey, { stat: string; name: string; place: string }> = {

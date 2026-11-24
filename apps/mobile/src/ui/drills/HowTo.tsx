@@ -19,7 +19,7 @@ import { ICONS } from '../sade.tsx';
 const W = 280;
 const H = 200;
 const KEREM = require('../../../assets/meshy/hero-street-red.webp');
-const STEPS: Record<HowToKind, number> = { sut: 3, pas: 2, hiz: 2, fizik: 2, omuz: 2, mShot: 3, mPass: 2, mDefense: 2 };
+const STEPS: Record<HowToKind, number> = { sut: 3, pas: 2, hiz: 2, fizik: 2, omuz: 2, mSwipeShot: 3, mSwipePass: 2, mSwipeSlide: 2 };
 
 type Frames = [number[], number[]];
 /** Piecewise-linear keyframes over the loop (p runs 0 → 1). */
@@ -234,94 +234,114 @@ function RingDots({ p, x, y, from, step, lit }: { p: SharedValue<number>; x: num
   );
 }
 
-const Btn = ({ x, y, r = 22, lime, children }: { x: number; y: number; r?: number; lime?: boolean; children: ReactNode }) => (
+const Btn = ({ x, y, r = 22, lime, children }: { x: number; y: number; r?: number; lime?: boolean; children?: ReactNode }) => (
   <View style={{ position: 'absolute', left: x - r, top: y - r, width: r * 2, height: r * 2, borderRadius: r, backgroundColor: lime ? colors.l600 : colors.s3, alignItems: 'center', justifyContent: 'center' }}>
     {children}
   </View>
 );
 
-// Match shot: tap a corner of the goal, hold ŞUT while the ring fills, let go on white.
+/** The finger's stroke: dots that light up along it and fade once it has let go. */
+function Stroke({ p, from, to, at, until, bow = 0 }: { p: SharedValue<number>; from: { x: number; y: number }; to: { x: number; y: number }; at: number; until: number; bow?: number }) {
+  return (
+    <>
+      {[0.1, 0.3, 0.5, 0.7, 0.9].map((f, i) => {
+        const on = at + (until - at) * f;
+        return (
+          <Mover key={i} p={p} x={from.x + (to.x - from.x) * f + bow * Math.sin(Math.PI * f)} y={from.y + (to.y - from.y) * f} size={{ w: 8, h: 8 }} opacity={[[on - 0.001, on, until + 0.06, until + 0.12], [0, 0.85, 0.85, 0]]}>
+            <View style={{ flex: 1, borderRadius: 4, backgroundColor: colors.g100 }} />
+          </Mover>
+        );
+      })}
+    </>
+  );
+}
+
+// Match shot: one stroke toward the goal. Where it points is the aim, how fast it goes is the power.
 function MacSutDemo() {
-  const p = useLoop(3800);
-  const corner = { x: 88, y: 34 }, ball = { x: 104, y: 136 }, btn = { x: 206, y: 150 };
+  const p = useLoop(3600);
+  const corner = { x: 88, y: 34 }, ball = { x: 150, y: 132 }, down = { x: 190, y: 184 }, up = { x: 138, y: 104 };
   return (
     <>
       <View style={{ position: 'absolute', left: 66, top: 18, width: 148, height: 62, borderWidth: 3, borderBottomWidth: 0, borderColor: colors.g100, backgroundColor: 'rgba(255,255,255,.04)' }} />
       {[0, 1, 2, 3].map(i => <View key={i} style={{ position: 'absolute', left: 69, top: 32 + i * 12, width: 142, height: 1, backgroundColor: 'rgba(255,255,255,.12)' }} />)}
-      <Mover p={p} x={[[0, 0.62, 0.72], [140, 140, 166]]} y={58} rotate={[[0.62, 0.72], [0, 40]]} size={{ w: 26, h: 40 }}>{img(ICONS.oyuncu, 26, 40)}</Mover>
-      <Mover p={p} x={corner.x} y={corner.y} size={{ w: 26, h: 26 }} opacity={[[0.13, 0.14, 0.86, 0.9], [0, 1, 1, 0]]}>
+      <Mover p={p} x={[[0, 0.56, 0.66], [140, 140, 166]]} y={58} rotate={[[0.56, 0.66], [0, 40]]} size={{ w: 26, h: 40 }}>{img(ICONS.oyuncu, 26, 40)}</Mover>
+      <Mover p={p} x={[[0.24, 0.42], [128, corner.x]]} y={[[0.24, 0.42], [62, corner.y]]} size={{ w: 26, h: 26 }} opacity={[[0.23, 0.24, 0.86, 0.9], [0, 1, 1, 0]]}>
         <View style={{ flex: 1, borderRadius: 13, borderWidth: 3, borderColor: colors.l600 }} />
       </Mover>
-      <Ripple p={p} x={corner.x} y={corner.y} at={0.14} />
-      <Mover p={p} x={[[0.58, 0.7], [ball.x, corner.x]]} y={[[0.58, 0.7], [ball.y, corner.y]]} scale={[[0.58, 0.7], [1, 0.6]]} opacity={[[0, 0.86, 0.9], [1, 1, 0]]} size={{ w: 24, h: 24 }}>{img(ICONS.ball, 24)}</Mover>
-      <Btn x={btn.x} y={btn.y} lime><T w={600} size={13} color={colors.ink} style={{ fontStyle: 'italic' }}>{t('m3.shoot')}</T></Btn>
-      <RingDots p={p} x={btn.x} y={btn.y} from={0.32} step={0.025} lit={10} />
-      <Mover p={p} x={140} y={104} size={{ w: 120, h: 40 }} opacity={[[0.72, 0.74, 0.88, 0.92], [0, 1, 1, 0]]} scale={[[0.72, 0.78], [0.5, 1]]}>
+      {/* the time left to draw the shot */}
+      <View style={{ position: 'absolute', left: 100, top: 92, width: 80, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,.2)' }} />
+      <Mover p={p} x={[[0.1, 0.46], [140, 118]]} y={93.5} size={{ w: 80, h: 3 }} opacity={[[0.09, 0.1, 0.46, 0.5], [0, 1, 1, 0]]}>
+        <View style={{ width: 36, height: 3, borderRadius: 2, backgroundColor: colors.l600 }} />
+      </Mover>
+      <Stroke p={p} from={down} to={up} at={0.2} until={0.42} />
+      <Mover p={p} x={[[0.5, 0.62], [ball.x, corner.x]]} y={[[0.5, 0.62], [ball.y, corner.y]]} scale={[[0.5, 0.62], [1, 0.6]]} opacity={[[0, 0.86, 0.9], [1, 1, 0]]} size={{ w: 24, h: 24 }}>{img(ICONS.ball, 24)}</Mover>
+      <Mover p={p} x={140} y={150} size={{ w: 120, h: 40 }} opacity={[[0.64, 0.66, 0.88, 0.92], [0, 1, 1, 0]]} scale={[[0.64, 0.7], [0.5, 1]]}>
         <T w={600} size={30} color={colors.l600} style={{ textAlign: 'center', fontStyle: 'italic' }}>{t('m3.big.goal')}</T>
       </Mover>
+      <Ripple p={p} x={down.x} y={down.y} at={0.16} />
       <Hand
         p={p}
-        x={[[0, 0.12, 0.16, 0.28, 0.56, 0.66], [140, corner.x, corner.x, btn.x, btn.x, btn.x + 10]]}
-        y={[[0, 0.1, 0.14, 0.18, 0.28, 0.3, 0.56, 0.66], [180, 50, corner.y, 50, 166, btn.y, btn.y, 176]]}
-        opacity={[[0, 0.06, 0.6, 0.68], [0, 1, 1, 0]]}
+        x={[[0, 0.14, 0.2, 0.42, 0.52], [210, down.x, down.x, up.x, up.x - 8]]}
+        y={[[0, 0.14, 0.2, 0.42, 0.52], [200, down.y, down.y, up.y, up.y - 14]]}
+        opacity={[[0, 0.08, 0.44, 0.54], [0, 1, 1, 0]]}
       />
     </>
   );
 }
 
-// Match pass: the red ring is the marked mate; tap the free one while the ring is white.
+// Match pass: the red ring is the marked mate; swipe toward the free one while the ring is white.
 function MacPasDemo() {
   const p = useLoop(3200);
-  const L = { x: 76, y: 64 }, R = { x: 204, y: 64 }, bL = { x: 76, y: 156 }, bR = { x: 204, y: 156 };
+  const L = { x: 76, y: 60 }, R = { x: 204, y: 60 }, ring = { x: 70, y: 156 }, down = { x: 170, y: 178 }, up = { x: 222, y: 136 };
   return (
     <>
       <Mover p={p} x={L.x} y={L.y} size={{ w: 30, h: 44 }}>{img(ICONS.oyuncu, 30, 44)}</Mover>
       <Mover p={p} x={L.x + 22} y={L.y + 4} size={{ w: 28, h: 40 }}>{img(KEREM, 28, 40)}</Mover>
       <View style={{ position: 'absolute', left: L.x - 30, top: L.y - 30, width: 60, height: 60, borderRadius: 30, borderWidth: 2.5, borderColor: colors.bad }} />
       <Mover p={p} x={R.x} y={R.y} size={{ w: 30, h: 44 }}>{img(ICONS.oyuncu, 30, 44)}</Mover>
-      <Mover p={p} x={[[0.46, 0.62], [140, R.x]]} y={[[0.46, 0.62], [120, R.y + 18]]} opacity={[[0, 0.86, 0.9], [1, 1, 0]]} size={{ w: 20, h: 20 }}>{img(ICONS.ball, 20)}</Mover>
-      <Btn x={bL.x} y={bL.y}><T w={600} size={11}>CAN</T></Btn>
-      <Btn x={bR.x} y={bR.y}><T w={600} size={11}>MERT</T></Btn>
-      <RingDots p={p} x={bR.x} y={bR.y} from={0.12} step={0.03} lit={9} />
-      <Ripple p={p} x={bR.x} y={bR.y} at={0.42} />
+      <Mover p={p} x={[[0.52, 0.68], [140, R.x]]} y={[[0.52, 0.68], [116, R.y + 18]]} opacity={[[0, 0.86, 0.9], [1, 1, 0]]} size={{ w: 20, h: 20 }}>{img(ICONS.ball, 20)}</Mover>
+      <Btn x={ring.x} y={ring.y} />
+      <RingDots p={p} x={ring.x} y={ring.y} from={0.12} step={0.03} lit={9} />
+      <Stroke p={p} from={down} to={up} at={0.4} until={0.5} />
+      <Ripple p={p} x={down.x} y={down.y} at={0.38} />
       <Hand
         p={p}
-        x={[[0, 0.2, 0.6], [150, bR.x, bR.x]]}
-        y={[[0, 0.2, 0.38, 0.42, 0.48], [196, 176, 176, bR.y, 174]]}
-        opacity={[[0, 0.12, 0.6, 0.7], [0, 1, 1, 0]]}
+        x={[[0, 0.2, 0.4, 0.5, 0.6], [160, down.x, down.x, up.x, up.x + 6]]}
+        y={[[0, 0.2, 0.4, 0.5, 0.6], [200, down.y, down.y, up.y, up.y - 8]]}
+        opacity={[[0, 0.12, 0.54, 0.64], [0, 1, 1, 0]]}
       />
     </>
   );
 }
 
-// Match defense: the attacker drops a shoulder; slide that way while the ring is white.
+// Match defense: the attacker drops a shoulder; swipe that way while the ring is white.
 function MacSavunmaDemo() {
   const p = useLoop(3200);
-  const bL = { x: 76, y: 156 }, bR = { x: 204, y: 156 };
+  const ring = { x: 70, y: 156 }, down = { x: 160, y: 170 }, up = { x: 230, y: 166 };
   return (
     <>
       <Mover p={p} x={[[0, 0.1, 0.36, 0.5, 0.62], [140, 140, 156, 156, 182]]} y={64} rotate={[[0, 0.1, 0.36, 0.62], [0, 0, 14, 14]]} size={{ w: 76, h: 100 }}>
         {img(KEREM, 76, 100)}
       </Mover>
-      <Btn x={bL.x} y={bL.y}><T w={600} size={12}>{t('m3.left')}</T></Btn>
-      <Btn x={bR.x} y={bR.y}><T w={600} size={12}>{t('m3.right')}</T></Btn>
-      <RingDots p={p} x={bR.x} y={bR.y} from={0.12} step={0.03} lit={9} />
-      <Ripple p={p} x={bR.x} y={bR.y} at={0.42} />
-      <Mover p={p} x={140} y={110} size={{ w: 160, h: 40 }} opacity={[[0.46, 0.48, 0.8, 0.86], [0, 1, 1, 0]]} scale={[[0.46, 0.52], [0.5, 1]]}>
+      <Btn x={ring.x} y={ring.y} />
+      <RingDots p={p} x={ring.x} y={ring.y} from={0.12} step={0.03} lit={9} />
+      <Stroke p={p} from={down} to={up} at={0.4} until={0.5} />
+      <Ripple p={p} x={down.x} y={down.y} at={0.38} />
+      <Mover p={p} x={140} y={116} size={{ w: 160, h: 40 }} opacity={[[0.54, 0.56, 0.82, 0.88], [0, 1, 1, 0]]} scale={[[0.54, 0.6], [0.5, 1]]}>
         <T w={600} size={26} color={colors.l600} style={{ textAlign: 'center', fontStyle: 'italic' }}>{t('m3.big.stopped')}</T>
       </Mover>
       <Hand
         p={p}
-        x={[[0, 0.2, 0.6], [150, bR.x, bR.x]]}
-        y={[[0, 0.2, 0.38, 0.42, 0.48], [196, 176, 176, bR.y, 174]]}
-        opacity={[[0, 0.12, 0.6, 0.7], [0, 1, 1, 0]]}
+        x={[[0, 0.2, 0.4, 0.5, 0.6], [150, down.x, down.x, up.x, up.x + 6]]}
+        y={[[0, 0.2, 0.4, 0.5, 0.6], [200, down.y, down.y, up.y, up.y]]}
+        opacity={[[0, 0.12, 0.54, 0.64], [0, 1, 1, 0]]}
       />
     </>
   );
 }
 
 const DEMOS: Record<HowToKind, () => ReactNode> = {
-  sut: TenekeDemo, pas: PasDemo, hiz: KosDemo, fizik: MerdivenDemo, omuz: OmuzDemo, mShot: MacSutDemo, mPass: MacPasDemo, mDefense: MacSavunmaDemo,
+  sut: TenekeDemo, pas: PasDemo, hiz: KosDemo, fizik: MerdivenDemo, omuz: OmuzDemo, mSwipeShot: MacSutDemo, mSwipePass: MacPasDemo, mSwipeSlide: MacSavunmaDemo,
 };
 
 /** The game's two or three steps as numbered chips (the demo card and the countdown show them). */

@@ -7,7 +7,7 @@ import type { Tint } from '../ui/Model3D.tsx';
 export interface Gltf { scene: Group; animations: AnimationClip[] }
 
 export type ScenePhase =
-  | 'menu' | 'intro' | 'aim' | 'runup' | 'kick' | 'flight' | 'resolved' | 'celebrate' | 'done'
+  | 'menu' | 'intro' | 'aim' | 'runup' | 'kick' | 'flight' | 'resolved' | 'celebrate' | 'replay' | 'done'
   | 'pass-intro' | 'pass' | 'passing' | 'defend-intro' | 'defend' | 'tackle';
 
 export type ShotGrade = 'perfect' | 'good' | 'over' | 'weak';
@@ -18,6 +18,16 @@ export type SceneResult =
   | { kind: 'stopped'; by: 'us' }
   | { kind: 'lost'; by: 'us'; marked: boolean };
 
+/**
+ * A stroke the scene read (swipe controls). A shot comes in engine units: aim −1000..1000,
+ * lift 0..1000 and power 0..1000 (the speed of the finger as it let go), with the bow of
+ * the stroke as the curl of the flight; `late` when the time ran out before the player let
+ * go. A side is a pass or a slide, with the ring timing at that instant (0..1000).
+ */
+export type SceneSwipe =
+  | { kind: 'shot'; aim: number; lift: number; power: number; curl: number; late: boolean }
+  | { kind: 'side'; side: 'left' | 'right'; timing: number };
+
 export interface SceneMoment {
   /** A penalty is a shot from the spot with nobody but the keeper. */
   kind: 'shot' | 'freekick' | 'pass' | 'defense' | 'penalty';
@@ -27,6 +37,8 @@ export interface SceneMoment {
   spot?: 'left' | 'center' | 'right';
   /** Defense only: what happens if the player never slides. */
   skip?: 'stopped' | 'conceded' | 'survived';
+  /** Swipe controls for this moment: the scene reads the stroke and reports `on.swipe`. Left out: tap to aim, the screen's buttons do the rest. */
+  swipe?: boolean;
 }
 
 export interface MatchEnv {
@@ -54,8 +66,10 @@ export interface MatchEnv {
     phase(p: ScenePhase): void;
     /** The player touched the goal for the first time in this moment. */
     aimed(): void;
-    /** The defense or pass ring, 0..1. */
+    /** The defense or pass ring, 0..1; while a shot is being drawn, the time left (1 → 0). */
     ring(p: number): void;
+    /** Swipe controls: the player's stroke. The screen asks the engine, then calls shoot, passTo or tackle. */
+    swipe(s: SceneSwipe): void;
     grade(q: ShotGrade | DefenseGrade): void;
     result(r: SceneResult): void;
     /** A defense moment ran out without a slide. */
@@ -72,7 +86,7 @@ export interface MatchScene {
   /** The aim in engine units. */
   aim(): { aim: number; lift: number };
   setCharging(v: boolean): void;
-  shoot(s: { power: number; outcome: 'goal' | 'saved' | 'wide' | 'over'; x: number; y: number; perfect: boolean; assisted: boolean }): void;
+  shoot(s: { power: number; outcome: 'goal' | 'saved' | 'wide' | 'over'; x: number; y: number; perfect: boolean; assisted: boolean; curl?: number }): void;
   /** Timing of the defense or pass ring right now, 0..1000. */
   timing(): number;
   tackle(side: 1 | -1, timing: number, outcome: 'stopped' | 'conceded' | 'survived'): void;
