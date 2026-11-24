@@ -32,6 +32,8 @@ interface Props {
   enabled: boolean;
   size?: number;
   dark?: boolean;
+  /** Only shows a timing (the drawn pass and slide): nothing to press. */
+  passive?: boolean;
   label: string;
   children: ReactNode;
   onCharge?(): void;
@@ -40,7 +42,7 @@ interface Props {
 }
 
 export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
-  { mode, enabled, size = 132, dark, label, children, onCharge, onFire }, ref,
+  { mode, enabled, size = 132, dark, passive, label, children, onCharge, onFire }, ref,
 ) {
   // State, not setNativeProps: react-native-svg on the web ignores setNativeProps, and the
   // ring stood still while the button was held.
@@ -87,7 +89,7 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
   latest.current = { press, release };
   useEffect(() => {
     const el = host.current as unknown as HTMLElement | null;
-    if (Platform.OS !== 'web' || !el) return;
+    if (Platform.OS !== 'web' || !el || passive) return;
     const down = (e: PointerEvent) => {
       if (e.button > 0) return;
       e.preventDefault();
@@ -106,20 +108,12 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
       el.removeEventListener('pointercancel', up);
       el.removeEventListener('contextmenu', menu);
     };
-  }, []);
+  }, [passive]);
   const web = Platform.OS === 'web';
 
   const inset = size * (dark ? 0.09 : 0.106);
-  return (
-    <Pressable
-      accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !enabled }}
-      // Native: no press delay, the timing is read when the finger lands.
-      ref={host} disabled={!enabled} {...({ delayPressIn: 0, unstable_pressDelay: 0 } as object)}
-      onPressIn={web ? undefined : press} onPressOut={web || mode !== 'charge' ? undefined : release}
-      // Keyboard activation on the web (Enter/Space on the focused button) for tap buttons.
-      onPress={web && mode === 'tap' ? press : undefined}
-      style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.3, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { touchAction: 'none' } : null) } as object)}
-    >
+  const face = (
+    <>
       <Svg width={size} height={size} viewBox="0 0 132 132" style={{ position: 'absolute' }}>
         <G rotation={-90} origin="66, 66">
           <Circle cx={66} cy={66} r={R} fill="none" stroke="rgba(13,13,13,0.6)" strokeWidth={10} />
@@ -142,6 +136,20 @@ export const RingButton = forwardRef<RingHandle, Props>(function RingButton(
       >
         {children}
       </View>
+    </>
+  );
+  if (passive) return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: size, height: size }}>{face}</View>;
+  return (
+    <Pressable
+      accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !enabled }}
+      // Native: no press delay, the timing is read when the finger lands.
+      ref={host} disabled={!enabled} {...({ delayPressIn: 0, unstable_pressDelay: 0 } as object)}
+      onPressIn={web ? undefined : press} onPressOut={web || mode !== 'charge' ? undefined : release}
+      // Keyboard activation on the web (Enter/Space on the focused button) for tap buttons.
+      onPress={web && mode === 'tap' ? press : undefined}
+      style={({ pressed }) => ({ width: size, height: size, opacity: enabled ? 1 : 0.3, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { touchAction: 'none' } : null) } as object)}
+    >
+      {face}
     </Pressable>
   );
 });

@@ -193,13 +193,13 @@ export class Keeper {
     const reachW = smooth(0.04, tc * 0.9, t);
     const chest = this.toK(this.b.Spine.getWorldPosition(V()));
     let target = d.B.clone();
-    let relax = 0;
-    if (t > tc) { // caught: the ball comes in to the chest; missed: the arms stay long past the head
+    let rest = null;
+    if (t > tc) { // caught: the ball comes in to the chest; missed: the arms come to rest as he lands
       const pull = smooth(tc + 0.08, tLand + 0.1, t);
       if (d.catch) target.lerp(chest.clone().addScaledVector(U, 0.22).addScaledVector(F, 0.3), pull);
-      else relax = pull;
+      else rest = { w: pull, lead: s > 0 ? 'Left' : 'Right', lie: smooth(0.5, 1.1, th) };
     }
-    this.armsTo(P(target), 0.11, reachW, W(U), W(F), 0.16 * (1 - smooth(tc, tc + 0.15, t)), W(Dn), relax);
+    this.armsTo(P(target), 0.11, reachW, W(U), W(F), 0.16 * (1 - smooth(tc, tc + 0.15, t)), W(Dn), rest);
 
     // legs: the dive-side foot steps out and pushes off, the far knee drives up; a boot on
     // the turf stays where it was put (a near save steps again rather than sliding)
@@ -261,8 +261,12 @@ export class Keeper {
    * Both hands to a ball at world point `p` (spread by `gap`), weight w. `up` and `fwd` are
    * the body's up (toward the head) and facing in world space. Elbows point out and down
    * the body, never back, so raised arms stay in front of the head.
+   * `rest` ({ w, lead, lie }) blends each hand to where it comes to rest after a dive that did
+   * not hold the ball: lying on his side (lie 1) the ground-side arm stays long on the turf
+   * past the head and the top hand comes down on the turf in front of the chest; on his feet
+   * or knees (lie 0) both arms drop in front of the thighs.
    */
-  armsTo(p, gap, w, up, fwd, extend = 0, spreadDown, relax = 0) {
+  armsTo(p, gap, w, up, fwd, extend = 0, spreadDown, rest = null) {
     if (w <= 0) return;
     const sideW = this.b.LeftArm.getWorldPosition(V()).sub(this.b.RightArm.getWorldPosition(V())).normalize();
     const down = spreadDown || up.clone().negate();
@@ -271,9 +275,16 @@ export class Keeper {
       const sh = this.b[side + 'Arm'].getWorldPosition(V());
       const tgt = p.clone().addScaledVector(sideW, sg * gap * 0.8).addScaledVector(down, gap * 0.4);
       tgt.addScaledVector(sh.clone().sub(tgt).normalize(), 0.07 - extend);
-      // relaxed: each arm lies straight out from its own shoulder past the head, a little
-      // toward the turf (both hands on one point would hook the top arm over the head)
-      if (relax > 0) tgt.lerp(sh.clone().addScaledVector(up.clone().multiplyScalar(0.8).addScaledVector(fwd, 0.5).addScaledVector(down, 0.12).normalize(), this.armLen * 0.99), relax);
+      // at rest each hand has its own place (both hands on one point past the head hooked
+      // the arms into a ring round it)
+      if (rest && rest.w > 0) {
+        const dir = (u, f, dn, sd) => up.clone().multiplyScalar(u).addScaledVector(fwd, f).addScaledVector(down, dn).addScaledVector(sideW, sg * sd).normalize();
+        let lying;
+        if (side === rest.lead) lying = sh.clone().addScaledVector(dir(0.85, 0.45, 0.15, 0), this.armLen * 0.97);
+        else { lying = sh.clone().addScaledVector(fwd, 0.38).addScaledVector(up, 0.08); lying.y = 0.07; }
+        const standing = sh.clone().addScaledVector(dir(-0.8, 0.45, 0, 0.12), this.armLen * 0.9);
+        tgt.lerp(standing.lerp(lying, rest.lie), rest.w);
+      }
       tgt.y = Math.max(0.06, tgt.y);
       // never let the hands go behind the shoulders' plane
       const ahead = tgt.clone().sub(sh).dot(fwd);
@@ -288,6 +299,8 @@ export class Keeper {
         if (lift > 0 && axis.lengthSq() > 1e-4) { rotateWorld(clav, axis.normalize(), lift); sh.copy(this.b[side + 'Arm'].getWorldPosition(V())); }
       }
       const pole = sh.clone().addScaledVector(sideW, sg * 0.55).addScaledVector(up, -0.4).addScaledVector(fwd, 0.12);
+      // the top arm of a keeper on his side folds forward onto the turf (an elbow that points at the sky reads as a raised arm)
+      if (rest && rest.w > 0 && side !== rest.lead) pole.lerp(sh.clone().addScaledVector(fwd, 0.7).addScaledVector(up, -0.25).addScaledVector(sideW, sg * 0.08), rest.w * rest.lie);
       const limb = this.limb[side + 'Arm'];
       const q0 = limb.U.quaternion.clone(), q1 = limb.L.quaternion.clone(), p0 = limb.lastP && limb.lastP.clone(), d0 = limb.lastDir && limb.lastDir.clone();
       limbIK(limb, tgt, pole, w, fwd);

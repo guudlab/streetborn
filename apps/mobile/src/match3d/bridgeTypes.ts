@@ -26,7 +26,7 @@ export type FromWebView =
   | { t: 'ready' }
   | { t: 'error'; message: string }
   /** A callback of `MatchEnv.on` or `MatchEnv.sfx`. */
-  | { t: 'ev'; name: 'phase' | 'aimed' | 'ring' | 'grade' | 'result' | 'skipped' | 'done' | 'sfx'; a: unknown[] }
+  | { t: 'ev'; name: 'phase' | 'aimed' | 'ring' | 'swipe' | 'grade' | 'result' | 'skipped' | 'done' | 'sfx'; a: unknown[] }
   /** What the screen reads synchronously from the scene: the phase, the aim and the ring timing. */
   | { t: 'state'; phase?: string; aim?: { aim: number; lift: number }; timing?: number };
 
