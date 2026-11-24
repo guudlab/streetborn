@@ -16,7 +16,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { rigInfo, retarget, mirror, subclip, rotateWorld, lockYaw, PoseGuard, cleanSkin, GroundClamp, FootLock, rigFor } from './rig.js';
+import { rigInfo, retarget, mirror, subclip, rotateWorld, aimBone, lockYaw, PoseGuard, cleanSkin, GroundClamp, FootLock, rigFor } from './rig.js';
 import { Keeper } from './keeper.js';
 import { buildStands } from './stands.js';
 
@@ -361,16 +361,23 @@ export function createMatch(env) {
 
   class Actor {
     constructor(model, clips) { this.model = model; this.mixer = new THREE.AnimationMixer(model); this.A = {}; for (const k in clips) this.A[k] = this.mixer.clipAction(clips[k]); this.cur = null; }
-    update(dt) { if (!this.guard) this.guard = new PoseGuard(this.model); this.guard.restore(); this.mixer.update(dt); this.guard.capture(); }
-    play(name, { fade = 0.2, loop = true, from = 0, speed = 1 } = {}) {
+    update(dt) {
+      if (!this.guard) this.guard = new PoseGuard(this.model);
+      this.guard.restore(); this.mixer.update(dt); this.guard.capture();
+      // a one-shot clip that has played out hands over (a clamped last frame is a statue)
+      if (this.next && this.cur && this.cur.paused) { const n = this.next; this.play(n.name, n.opts); }
+    }
+    /** `then`: the looping clip to go to once this one-shot clip has played out (and how: thenOpts). */
+    play(name, { fade = 0.2, loop = true, from = 0, speed = 1, then = null, thenOpts = { fade: 0.35 } } = {}) {
       const a = this.A[name];
+      this.next = then && !loop ? { name: then, opts: thenOpts } : null;
       if (loop && this.cur === a && a.isRunning()) { a.timeScale = speed; return a; }   // already playing: a reset would snap the pose
       a.reset(); a.setLoop(loop ? (this.pingpong && this.pingpong.has(name) ? THREE.LoopPingPong : THREE.LoopRepeat) : THREE.LoopOnce, loop ? Infinity : 1); a.clampWhenFinished = !loop;
       a.timeScale = speed; a.time = from; a.setEffectiveWeight(1); a.play();
       if (this.cur && this.cur !== a) this.cur.crossFadeTo(a, fade, false);
       this.cur = a; return a;
     }
-    snap(name, opts) { this.mixer.stopAllAction(); this.cur = null; return this.play(name, opts); }
+    snap(name, opts) { this.mixer.stopAllAction(); this.cur = null; this.next = null; return this.play(name, opts); }
   }
   // where a bone is (model space) at clip time t, e.g. the kicking foot at contact
   function boneAt(model, rig, c, t, bone) {
@@ -394,6 +401,7 @@ export function createMatch(env) {
   hero.A.jockey.timeScale = 0.4;
   hero.pingpong = new Set(['jockey']);   // a held stance, not a cycle: rock back and forth instead of jumping to the start
   const heroFoot = boneAt(heroM, R.street, hero.A.kick.getClip(), KICK_CONTACT, 'RightToeBase');
+  const heroHipsHome = boneAt(heroM, R.street, hero.A.idle.getClip(), 0, 'Hips');   // where the idle holds his hips (model space)
   const heroSlideFoot = { R: boneAt(heroM, R.street, hero.A.slideR.getClip(), SLIDE_CONTACT, 'RightFoot'), L: boneAt(heroM, R.street, hero.A.slideL.getClip(), SLIDE_CONTACT, 'LeftFoot') };
 
   // teammates for pass moments: they stand, take one touch at goal and celebrate
@@ -651,7 +659,7 @@ export function createMatch(env) {
     heroM.position.copy(p); heroM.rotation.y = Math.atan2(tan.x, tan.z);
     if (total - r.s <= strideLen(v) || u >= 1) { // last stride into the ball
       S.stride = Object.assign(lastStride(p, tan.normalize().multiplyScalar(v), shot.R), { y0: heroM.rotation.y, y1: heroM.rotation.y + wrapAngle(shot.yaw - heroM.rotation.y) });
-      hero.play('kick', { fade: 0.08, loop: false, from: KICK_FROM, speed: KICK_STEP }); heroFeet.stepNow(STRIDE_A, 0.08, 'Left');
+      hero.play('kick', { fade: 0.08, loop: false, from: KICK_FROM, speed: KICK_STEP, then: 'idle' }); heroFeet.stepNow(STRIDE_A, 0.08, 'Left');
       setPhase('kick'); S.kickT = 0; S.kickAt = STRIDE_T;
       camTo(shot.B0.clone().addScaledVector(shot.dir, -2.4).addScaledVector(shot.right, -1.4).setY(1.15), shot.B0.clone().addScaledVector(shot.dir, 3).setY(0.75), 3);
     }
@@ -700,17 +708,21 @@ export function createMatch(env) {
         sfx('crowd_cheer'); buzz([30, 40, 60]); shake = reduced ? 0 : 0.18;
         burst(V(ballHolder.position.x, 1.2, GOAL_Z + 0.6), 200, 5); fansCheer('us');
         const star = by === 'mate' ? S.mate : null;
+        // the scorer starts celebrating now, off camera: the cheer clip opens with the arms
+        // down, and a cut to a man standing still for half a second looked like a freeze
+        (star ? star.a : hero).play('cheer', { fade: 0.3 });
         // TV cut to the scorer (a swoop across the pitch showed empty grass for half a second)
         later(0.8, () => cutTo(() => {
           setPhase('celebrate'); S.celebrateAt = simTime;
-          if (star) { S.star = star.m; star.a.play('cheer', { fade: 0.3 }); } else { S.star = heroM; hero.play('cheer', { fade: 0.3 }); }
+          S.star = star ? star.m : heroM;
           celebrateCam(simTime); camPos.copy(camTarget.pos); camLook.copy(camTarget.look);
           burst(V(S.star.position.x, 2.2, S.star.position.z + 0.3), 140, 4);
         }));
       } else {
         sfx('crowd_groan'); buzz(40); fansCheer('them');
+        rival.play('cheer', { fade: 0.3 });
         later(0.8, () => cutTo(() => { // cut to the scorer, not two seconds of an empty net
-          setPhase('celebrate'); S.celebrateAt = simTime; S.star = rivalM; rival.play('cheer', { fade: 0.2 }); celebrateCam(simTime); camPos.copy(camTarget.pos); camLook.copy(camTarget.look);
+          setPhase('celebrate'); S.celebrateAt = simTime; S.star = rivalM; celebrateCam(simTime); camPos.copy(camTarget.pos); camLook.copy(camTarget.look);
         }));
       }
     } else if (kind === 'save') {
@@ -724,6 +736,19 @@ export function createMatch(env) {
       sfx(ours ? 'crowd_groan' : 'crowd_cheer', 0.6);
     }
     later(goal ? 3.4 : 2.6, done);
+  }
+
+  // a loose ball (cleared, overhit, won in a tackle): it drops, a bounce scrubs speed, then it
+  // rolls on and slows a little at a time, turning as fast as it travels
+  function looseBall(v, dt, drag = 1) {
+    const pos = ballHolder.position;
+    v.y -= 9.8 * dt; pos.addScaledVector(v, dt);
+    if (pos.y < BALL_R) {
+      pos.y = BALL_R; const impact = -v.y;
+      if (impact > 0.4) { v.y = impact * 0.42; v.x *= 0.85; v.z *= 0.85; }
+      else { v.y = 0; const f = Math.exp(-drag * dt); v.x *= f; v.z *= f; }
+    }
+    ball.rotation.x += (Math.hypot(v.x, v.z) * dt) / BALL_R;
   }
 
   // -------------------------------------------------------------- pass moment
@@ -749,7 +774,8 @@ export function createMatch(env) {
     heroM.position.copy(shot.R).addScaledVector(shot.dir, -strideLen(STRIDE_V)); heroM.rotation.set(0, 0, 0);
     hero.snap('idle', { from: Math.random() * 3 });
     keeper.reset(0, GOAL_Z - 0.35, B0);
-    Object.assign(P, { active: true, t: 0, open: m.openSide, mates: {} });
+    // everything from the last pass moment goes: a leftover roll kept the next pass from ever leaving the boot
+    Object.assign(P, { active: true, t: 0, open: m.openSide, mates: {}, roll: null, kickIn: undefined, cutIn: undefined, kicked: false, cutKick: false, loose: null, side: null, outcome: null, x: null, to: null });
     // each mate stands so his right boot meets a ball rolled to his spot, facing the goal
     ['left', 'right'].forEach((side, i) => {
       const x = mates[i]; if (!x) return;
@@ -783,13 +809,16 @@ export function createMatch(env) {
     // the ball's end point: the mate's boot, the marker's boot (cut out), or past the mate (overhit)
     const B0 = shot.B0.clone();
     if (outcome === 'assist') P.to = x.spot.clone();
-    else if (!open) P.to = P.marker.clone().addScaledVector(B0.clone().sub(P.marker).setY(0).normalize(), 0.45).setY(BALL_R);
+    else if (!open) { // onto the marker's boot: he faces the ball and clears it first time
+      const foot = rivalFoot.clone().applyAxisAngle(V(0, 1, 0), rivalM.rotation.y); foot.y = 0;
+      P.to = P.marker.clone().add(foot).setY(BALL_R);
+    }
     else P.to = x.spot.clone().addScaledVector(x.spot.clone().sub(B0).setY(0).normalize(), 6).add(V(Math.sign(x.spot.x) * 1.5, 0, -1)).setY(BALL_R);
     const dir = P.to.clone().sub(B0).setY(0).normalize(), yaw = Math.atan2(dir.x, dir.z);
     const off = heroFoot.clone().applyAxisAngle(V(0, 1, 0), yaw); off.y = 0;
     const R = B0.clone().sub(off).setY(0);
     S.stride = Object.assign(lastStride(heroM.position.clone(), dir.clone().multiplyScalar(STRIDE_V), R), { y0: heroM.rotation.y, y1: heroM.rotation.y + wrapAngle(yaw - heroM.rotation.y) });
-    hero.play('kick', { fade: 0.08, loop: false, from: KICK_FROM, speed: KICK_STEP }); heroFeet.stepNow(STRIDE_A, 0.08, 'Left');
+    hero.play('kick', { fade: 0.08, loop: false, from: KICK_FROM, speed: KICK_STEP, then: 'idle' }); heroFeet.stepNow(STRIDE_A, 0.08, 'Left');
     S.kickT = 0; S.kickAt = STRIDE_T; S.passFrom = B0;
     mateRings.forEach((r) => (r.visible = false)); markRing.visible = false;
     camTo(B0.clone().add(V(-dir.x * 3 + 0.6, 2.4, -dir.z * 3 - 1.5)), P.to.clone().lerp(B0, 0.35).setY(0.6), 2.4);
@@ -805,6 +834,7 @@ export function createMatch(env) {
         P.roll = { u: 0, D: clamp(dist / 9.5, 0.55, 1.6), from: S.passFrom.clone() };
         // the mate times his first-time finish so the boot meets the ball as it arrives
         if (P.outcome === 'assist') P.kickIn = P.roll.D - (KICK_CONTACT - KICK_PLANT) / KICK_SPEED;
+        else if (P.side !== P.open) P.cutIn = P.roll.D - (KICK_CONTACT - KICK_PLANT) / KICK_SPEED;
       }
     }
     if (P.roll && !P.roll.end) {
@@ -815,15 +845,15 @@ export function createMatch(env) {
       ball.rotation.x += ballHolder.position.distanceTo(was) / BALL_R;
       if (P.kickIn !== undefined && r.u * r.D >= P.kickIn && !P.kicked) {
         P.kicked = true; S.mate = P.x;
-        P.x.a.play('kick', { fade: 0.08, loop: false, from: KICK_PLANT, speed: KICK_SPEED });
+        P.x.a.play('kick', { fade: 0.08, loop: false, from: KICK_PLANT, speed: KICK_SPEED, then: 'idle' });
+      }
+      if (P.cutIn !== undefined && r.u * r.D >= P.cutIn && !P.cutKick) {
+        P.cutKick = true;
+        rival.play('kick', { fade: 0.08, loop: false, from: KICK_PLANT, speed: KICK_SPEED, then: 'idle' });
       }
       if (r.u >= 1) { r.end = true; passArrived(); }
     }
-    if (P.loose) { // a cleared or overhit ball rolls on and stops
-      const v = P.loose; v.y -= 9.8 * dt; ballHolder.position.addScaledVector(v, dt);
-      if (ballHolder.position.y < BALL_R) { ballHolder.position.y = BALL_R; v.y = Math.abs(v.y) * 0.35; v.x *= 0.9; v.z *= 0.9; }
-      v.multiplyScalar(Math.exp(-1.2 * dt)); ball.rotation.x += v.length() * dt / BALL_R;
-    }
+    if (P.loose) looseBall(P.loose, dt, 1.2);   // a cleared or overhit ball rolls on and stops
   }
   function passArrived() {
     const x = P.x;
@@ -840,12 +870,14 @@ export function createMatch(env) {
     on.result({ kind: 'lost', by: 'us', marked: P.side !== P.open });
     if (P.side !== P.open) { // the marker cuts it out and clears it back up the pitch
       sfx('kick', 0.6); sfx('crowd_cheer', 0.5); fansCheer('them', 0.5);
-      P.loose = V((Math.random() - 0.5) * 3, 2.4, -7);
+      const yaw = rivalM.rotation.y + (Math.random() - 0.5) * 0.3;   // the way he faces: back up the pitch
+      P.loose = V(Math.sin(yaw) * 7.5, 2.6, Math.cos(yaw) * 7.5);
     } else { // overhit: past the mate toward the touchline
       sfx('crowd_groan', 0.6);
       P.loose = P.to.clone().sub(S.passFrom).setY(0).normalize().multiplyScalar(2.5);
     }
-    camTo(x.m.position.clone().add(V(Math.sign(x.m.position.x) * -2, 2.2, -4.5)), x.m.position.clone().setY(0.6), 2);
+    // from outside the mate, looking in (a camera between him and the ball stood on our own player)
+    camTo(x.m.position.clone().add(V(Math.sign(x.m.position.x) * 2.4, 2.0, -3.8)), x.m.position.clone().setY(0.7), 2);
     later(2.4, done);
   }
 
@@ -854,7 +886,7 @@ export function createMatch(env) {
   function setupDefense(m) {
     setPhase('defend-intro');
     const s = m.attackSide === 'left' ? -1 : 1;   // engine attackSide: the forward goes (and drops his shoulder) this way; +1 = screen right (+x)
-    Object.assign(D, { active: true, t: 0, s, lane: (Math.random() - 0.5) * 0.8, speed: RUN_SPEED, z: DEF_Z - ATT_START - 0.9 * RUN_SPEED, x: 0, dip: 0, cut: 0, cutDir: s, tapped: false, side: 0, timing: 0, result: null, after: null, skip: m.skip, phase: 'approach', slideT: -1, past: false, shotQueued: false, touchPhase: 0, contact: false, hurdle: false, yaw: 0, hurdleT: -1, cutT: 0, brake: undefined, free: false, bvel: null, kick: null, shooting: false, slide: null, shot: null, reverse: false, revCam: false, vel: null, ballV: null });
+    Object.assign(D, { active: true, t: 0, s, lane: (Math.random() - 0.5) * 0.8, speed: RUN_SPEED, z: DEF_Z - ATT_START - 0.9 * RUN_SPEED, x: 0, dip: 0, cut: 0, cutDir: s, tapped: false, side: 0, timing: 0, result: null, after: null, skip: m.skip, phase: 'approach', slideT: -1, past: false, shotQueued: false, touchPhase: 0, contact: false, hurdle: false, yaw: 0, hurdleT: -1, cutT: 0, brake: undefined, free: false, bvel: null, kick: null, shooting: false, slide: null, shot: null, vel: null, ballV: null });
     D.x = D.lane;
     heroM.position.set(0, 0, DEF_Z); heroM.rotation.set(0, Math.PI, 0); hero.snap('jockey', { from: 0 });
     useRival(S.defenses++);
@@ -884,7 +916,7 @@ export function createMatch(env) {
     const foot = (side > 0 ? heroSlideFoot.R : heroSlideFoot.L).clone().applyAxisAngle(V(0, 1, 0), yaw); foot.y = 0;
     D.slide = { from: heroM.position.clone(), to: I.clone().sub(foot), yaw0: heroM.rotation.y, yaw: heroM.rotation.y + wrapAngle(yaw - heroM.rotation.y), tc, t: 0, I };
     D.slideT = 0;
-    hero.play(side > 0 ? 'slideR' : 'slideL', { fade: 0.1, loop: false, speed });
+    hero.play(side > 0 ? 'slideR' : 'slideL', { fade: 0.1, loop: false, speed, then: 'idle' });
     if (D.result === 'stopped') { D.stopAt = I.clone(); }
     // the forward reacts: cut away (beaten) or carry on into the tackle
     later(D.result === 'stopped' ? 99 : 0.12, () => { if (D.result === 'beaten') { D.cut = 1; D.cutDir = read ? side : D.s; } });
@@ -948,39 +980,42 @@ export function createMatch(env) {
     } else if (D.slide && D.slideT >= 0) {
       D.slideT += dt; const sl = D.slide; const u = smooth(0, sl.tc * 0.8, D.slideT);
       heroM.position.lerpVectors(sl.from, sl.to, u); heroM.rotation.y = lerp(sl.yaw0, sl.yaw, smooth(0, 0.15, D.slideT));
+      // the slide clip carries him forward on its own hips and the idle stands on the model's
+      // origin: as one fades into the other the model moves up under him, so he gets up where
+      // he came to rest and does not drift back to where the slide began
+      if (hero.cur === hero.A.idle && !sl.rest) {
+        heroM.updateMatrixWorld(true);
+        const home = heroHipsHome.clone().applyAxisAngle(V(0, 1, 0), heroM.rotation.y);
+        sl.rest = bone(heroM, 'Hips').getWorldPosition(V()).sub(heroM.position).sub(home).setY(0);
+      }
+      if (sl.rest) heroM.position.addScaledVector(sl.rest, hero.A.idle.getEffectiveWeight());
       if (D.result === 'stopped' && !D.contact) { // steer the ball onto the boot
         const k = smooth(0, sl.tc, D.slideT); D.free = true;
         ballHolder.position.lerp(V(sl.I.x, BALL_R, sl.I.z), Math.min(1, k * 0.35 + dt * 6));
         if (D.slideT >= sl.tc) {
           D.contact = true; sfx('kick', 0.7); buzz([20, 30]); shake = reduced ? 0 : 0.1;
           D.bvel = V(D.side * 3.5 + (Math.random() - 0.5), 1.6, 2.6);
-          rival.play('hurdle', { fade: 0.12, loop: false, speed: 1.4, from: HURDLE_OFF });
+          rival.play('hurdle', { fade: 0.12, loop: false, speed: 1.4, from: HURDLE_OFF, then: 'idle' });
           defenseStopped();
         }
       }
     }
-    if (D.free && D.bvel) { // loose ball after a tackle
-      D.bvel.y -= 9.8 * dt; ballHolder.position.addScaledVector(D.bvel, dt);
-      if (ballHolder.position.y < BALL_R) { ballHolder.position.y = BALL_R; D.bvel.y = Math.abs(D.bvel.y) * 0.4; D.bvel.x *= 0.8; D.bvel.z *= 0.8; }
-      ball.rotation.x += dt * 10;
-    }
+    if (D.free && D.bvel) looseBall(D.bvel, dt, 2.5);   // loose ball after a tackle
     // beaten: hurdle the slide if it came his way, then run at goal and shoot
-    if (D.result === 'beaten' && !D.past && D.z > hz + 0.8) { D.past = true; D.cut = 0; D.reverse = !D.revCam; D.revCam = true; }
+    if (D.result === 'beaten' && !D.past && D.z > hz + 0.8) { D.past = true; D.cut = 0; }
     if (D.result === 'beaten' && D.side === D.s && !D.hurdle && d < 1.2) { D.hurdle = true; D.hurdleT = 0; rival.play('hurdle', { fade: 0.1, loop: false, speed: 1.5, from: HURDLE_OFF }); later((HURDLE_LAND - HURDLE_OFF) / 1.5, () => rival.play('run', { fade: 0.15, speed: RIVAL_RUN, from: (rivalRun.touchT + D.touchPhase * 2 * rivalRun.dur) % rivalRun.dur }), true); }
     if (D.past && !D.shotQueued && D.z > GOAL_Z - 8.6) { D.shotQueued = true; rivalShot(); }
     // cue ring over the dropping shoulder
     const sh = bone(rivalM, D.s > 0 ? 'LeftArm' : 'RightArm');
     if (sh) { sh.getWorldPosition(cue.position); cue.material.opacity = D.tapped ? 0 : D.dip * 0.9 * (0.75 + 0.25 * Math.sin(D.t * 12)); }
-    // camera: behind the defender, then with the forward
-    // beaten: the moment the forward is about to leave the shot, cut to the reverse angle behind him
-    if (D.result === 'beaten' && !D.revCam) { const p = bone(rivalM, 'Hips').getWorldPosition(camAvoid).project(camera); if (Math.abs(p.x) > 0.75 || p.z > 1) D.revCam = D.reverse = true; }
-    if (D.contact) camTo(V(D.side * 2.6, 2.3, DEF_Z + 3.6), V(heroM.position.x * 0.5, 0.5, DEF_Z - 1.5), 1.8);
-    else if (!D.revCam && !D.shooting) { const cz = Math.max(heroM.position.z, DEF_Z) + 4.0; camTo(V(0.35 + D.x * 0.2, 2.05, cz), V(D.x * 0.5, 0.55, D.z + 1.5), D.tapped ? 3 : 2.2); }
-    else if (D.revCam && !D.shooting) {
-      camTo(V(D.x - D.cutDir * 0.3, 1.75, D.z - 3.2), V(D.x * 0.4, 0.8, GOAL_Z), 3);
-      // reverse angle: a hard cut like TV (swinging round 180° pointed the camera at the grass)
-      if (D.reverse) { D.reverse = false; camPos.copy(camTarget.pos); camLook.copy(camTarget.look); }
-    }
+    // camera: in front of the defender, looking back up the pitch at the forward. Beaten: it
+    // backs away toward our goal ahead of him, so he keeps running at the lens with the
+    // defender left behind him (the old cut to a camera behind the forward stood right behind
+    // our own player, whose back filled the screen); rivalShot() cuts behind him for the strike
+    if (D.contact) { const h = heroBody(), mx = (h.x + D.x) / 2, mz = (h.z + D.z) / 2; camTo(V(mx + D.side * 1.2, 2.1, mz + 4.8), V(mx, 0.75, mz), 1.8); }   // both of them, from the front
+    else if (D.shooting) { /* set by rivalShot */ }
+    else if (D.past) camTo(V(D.x + D.cutDir * 0.5, 1.6, D.z + 4.4), V(D.x, 0.95, D.z), 3.2);
+    else { const cz = Math.max(heroM.position.z, DEF_Z) + 4.0, follow = D.result === 'beaten' ? 0.85 : 0.5; camTo(V(0.35 + D.x * 0.2, 2.05, cz), V(D.x * follow, 0.55, D.z + 1.5), D.tapped ? 3 : 2.2); }
   }
   // the defender's body on the ground plane (follows the slide), and the push that keeps the
   // forward outside it; legs are skipped while he hurdles them
@@ -999,9 +1034,19 @@ export function createMatch(env) {
   }
   // pose layer for the forward: shoulder drop (after the mixer)
   function poseRival() {
-    if (!D.active || !rivalM.visible || D.dip <= 0) return;
+    if (!D.active || !rivalM.visible) return;
     const b = (n) => bone(rivalM, n);
     const fwd = V(0, 0, 1).applyQuaternion(rivalM.quaternion);
+    // the hurdle is cut from the keeper's leap-and-catch, both arms straight up: carry them
+    // like a runner clearing a tackle instead (left arm forward, right arm back)
+    const hw = rival.A.hurdle.isScheduled() ? rival.A.hurdle.getEffectiveWeight() : 0;
+    if (hw > 0) {
+      const left = V(1, 0, 0).applyQuaternion(rivalM.quaternion), up = V(0, 1, 0);
+      const dir = (l, u, f) => V().addScaledVector(left, l).addScaledVector(up, u).addScaledVector(fwd, f);
+      aimBone(b('LeftArm'), b('LeftForeArm'), dir(0.3, -0.8, 0.45), hw); aimBone(b('LeftForeArm'), b('LeftHand'), dir(-0.1, 0.25, 0.9), hw);
+      aimBone(b('RightArm'), b('RightForeArm'), dir(-0.35, -0.75, -0.5), hw); aimBone(b('RightForeArm'), b('RightHand'), dir(-0.15, -0.55, -0.6), hw);
+    }
+    if (D.dip <= 0) return;
     const a = D.dip * 0.32 * D.s;   // + s drops toward +x
     rotateWorld(b('Spine01'), fwd, -a * 0.6); rotateWorld(b('Spine'), fwd, -a * 0.5); rotateWorld(b('neck'), fwd, a * 0.5);
   }
@@ -1026,7 +1071,7 @@ export function createMatch(env) {
     if (bm0.length() > roll * 2.5) bm0.setLength(roll * 2.5);   // never past the boot and back
     D.shot = Object.assign(lastStride(p0, v0, p1), { t: 0, y0: D.yaw, y1: D.yaw + wrapAngle(yaw - D.yaw), b0, b1: from.clone(), bm0, bm1: from.clone().sub(b0).setY(0).normalize().multiplyScalar(0.5 * T) });
     rivalFeet.stepNow(STRIDE_A, 0.08, 'Left');
-    rival.play('kick', { fade: 0.1, loop: false, from: KICK_FROM, speed: KICK_STEP });
+    rival.play('kick', { fade: 0.1, loop: false, from: KICK_FROM, speed: KICK_STEP, then: 'idle' });
     // the engine said whether he scores; a miss is a save or wide, for the look of it
     const tx = -s * (1.2 + Math.random() * 0.9), ty = 0.3 + Math.random() * 1.2;
     let target, outcome;
@@ -1035,7 +1080,9 @@ export function createMatch(env) {
     else { target = V2(-s * (GW / 2 + 0.5 + Math.random() * 0.6), ty + 0.3); outcome = 'miss'; }
     launch({ from, target, power: 0.75, q: 'good', outcome, by: 'them' });
     D.kick = { t: 0, at: T };
+    // behind him for the strike: a hard cut like TV (swinging round 180° pointed the camera at the grass)
     camTo(from.clone().addScaledVector(dir, -3.4).add(V(-s * 0.5, 1.6, 0)), V(from.x * 0.3, 0.9, GOAL_Z), 2.4);
+    camPos.copy(camTarget.pos); camLook.copy(camTarget.look);
   }
 
   // -------------------------------------------------------------- per-frame
@@ -1180,6 +1227,11 @@ export function createMatch(env) {
       if (camPos.y < 2.1 && d < CAM_CLEAR && d > 1e-4) { camPos.x = h.x + (dx * CAM_CLEAR) / d; camPos.z = h.z + (dz * CAM_CLEAR) / d; }
       // chasing the ball past the striker: go over his shoulder, not past his ear
       if (flight.active && !flight.resolved && d < 2.6) camPos.y = Math.max(camPos.y, 1.55 + (1 - Math.max(d, CAM_CLEAR) / 2.6) * 1.2);
+    }
+    // chasing a free kick: over the wall, not through their faces
+    if (S.wall && flight.active && !flight.resolved) for (const x of wall) {
+      const d = Math.hypot(camPos.x - x.m.position.x, camPos.z - x.m.position.z);
+      camPos.y = Math.max(camPos.y, 3.6 - smooth(1.5, 5, d) * 1.9);
     }
     camera.position.copy(camPos); if (shake > 0.001) { camera.position.add(tmp.set((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake, 0)); shake *= Math.pow(0.02, rdt); }
     camera.lookAt(camLook);
