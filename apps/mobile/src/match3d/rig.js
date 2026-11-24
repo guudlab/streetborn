@@ -155,6 +155,23 @@ export function aimBone(bone, child, dir, w = 1) {
 }
 
 /**
+ * Meshy's Idle stands with the arms held well out from the body (20° to 40°, wider on one
+ * side), which reads as a doll that was not posed. Brings each upper arm in toward the body
+ * line: what it has beyond `rest` (radians from straight down the torso) is cut by `w`, so the
+ * sway of the clip stays. `bones`: the character's bones by name.
+ */
+export function tuckArms(bones, w, rest = 0.17) {
+  if (w <= 0) return;
+  const down = bones.Hips.getWorldPosition(new THREE.Vector3()).sub(bones.neck.getWorldPosition(new THREE.Vector3())).normalize();
+  for (const s of ['Left', 'Right']) {
+    const sh = bones[s + 'Arm'].getWorldPosition(new THREE.Vector3());
+    const ua = bones[s + 'ForeArm'].getWorldPosition(new THREE.Vector3()).sub(sh).normalize(), a = ua.angleTo(down);
+    if (a <= rest) continue;
+    rotateWorld(bones[s + 'Arm'], ua.cross(down).normalize(), (a - rest) * Math.min(1, w));
+  }
+}
+
+/**
  * Two-bone IK (upper → lower → end) so `end` reaches `target`; `pole` is a world point the
  * middle joint bends toward. Blend weight w.
  */
@@ -229,6 +246,35 @@ export class PoseGuard {
   }
   restore() { this.bones.forEach((b, i) => { b.quaternion.copy(this.base[i]); b.position.copy(this.pos[i]); }); }
   capture() { this.bones.forEach((b, i) => { this.base[i].copy(b.quaternion); this.pos[i].copy(b.position); }); }
+}
+
+/**
+ * Hands a pose over to a clip without a jump, whatever was done to the bones and to the model
+ * (a procedural dive rolls the whole model; the clip that follows stands it up and moves the
+ * hips instead). capture() takes the pose in world space; apply(from, k) then blends from it
+ * to the pose the rig is in now: k = 0 is the captured pose, 1 leaves the rig untouched.
+ */
+export class PoseBlend {
+  constructor(rig) {
+    this.hips = rig.bones.Hips; this.bones = [];
+    rig.root.traverse((o) => { if (rig.bones[o.name] === o) this.bones.push(o); });   // parents first
+    this.parent = this.bones.map((b) => this.bones.indexOf(b.parent));
+  }
+  capture() {
+    this.hips.parent.updateWorldMatrix(true, true);
+    return { q: this.bones.map((b) => b.getWorldQuaternion(new THREE.Quaternion())), p: this.hips.getWorldPosition(new THREE.Vector3()) };
+  }
+  apply(from, k) {
+    if (k >= 1) return;
+    const now = this.capture(), tq = [];
+    this.bones.forEach((b, i) => {
+      tq[i] = from.q[i].clone().slerp(now.q[i], k);
+      const pq = this.parent[i] >= 0 ? tq[this.parent[i]] : b.parent.getWorldQuaternion(new THREE.Quaternion());
+      b.quaternion.copy(pq.clone().invert().multiply(tq[i]));
+    });
+    this.hips.position.copy(this.hips.parent.worldToLocal(from.p.clone().lerp(now.p, k)));
+    this.hips.updateMatrixWorld(true);
+  }
 }
 
 /**

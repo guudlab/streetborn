@@ -3,9 +3,11 @@
 // Goalkeeper: Meshy rig (kaleci-v2) + procedural dives. The ready stance and the high catch
 // come from Meshy clips; side dives are posed per frame on top of the stance: the body rolls
 // around the hips along a jump arc, both arms reach the ball by IK, the lead knee tucks,
-// the push leg trails, and the head tracks the ball.
+// the push leg trails, and the head tracks the ball. He does not stay down: after a moment on
+// the turf he gets up (the get-up of a Meshy clip, taken over from the landed pose) and goes
+// back to his stance, with the ball in his arms when he held it.
 import * as THREE from 'three';
-import { rigInfo, subclip, rotateWorld, PoseGuard, makeLimb, limbIK, GroundClamp, FootLock } from './rig.js';
+import { rigInfo, subclip, mirror, rotateWorld, PoseGuard, PoseBlend, makeLimb, limbIK, reachIK, GroundClamp, FootLock } from './rig.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const smooth = (a, b, t) => { const u = THREE.MathUtils.clamp((t - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
@@ -22,13 +24,18 @@ const CHEST_CLEAR = 0.17;   // forearm axis to spine axis: chest half-depth + fo
 const HEAD_CLEAR = 0.15;    // forearm axis to the neck-crown axis
 
 export class Keeper {
-  /** model: rigged keeper scene; leap: the Leap_Right_and_Catch clip on the same rig. */
-  constructor(model, leap) {
+  /**
+   * model: rigged keeper scene; leap: the Leap_Right_and_Catch clip on the same rig; getup: a
+   * clip on the same rig that starts lying on the left side and ends standing (optional).
+   */
+  constructor(model, leap, getup = null) {
     this.root = new THREE.Group();            // placed in the world; faces −Z of the world
     this.model = model;
     // rest data in model space: measure before the model is parented and turned
     this.rig = rigInfo(this.model);
     this.b = this.rig.bones;
+    this.blend = new PoseBlend(this.rig);
+    const getupR = getup && mirror(getup, this.rig, 'getupR');   // sampled on the bare model, before it is turned
     this.root.add(this.model);
     this.root.rotation.y = Math.PI;
     // elbows flex forward, knees backward; IK keeps each joint on that hinge
@@ -51,8 +58,9 @@ export class Keeper {
     };
     this.A.ready.setLoop(THREE.LoopPingPong, Infinity); this.A.ready.timeScale = 0.35;
     this.A.leap.setLoop(THREE.LoopOnce, 1); this.A.leap.clampWhenFinished = true;
+    if (getup) for (const [k, c] of [['getupL', getup], ['getupR', getupR]]) { this.A[k] = this.mixer.clipAction(c); this.A[k].setLoop(THREE.LoopOnce, 1); this.A[k].clampWhenFinished = true; }
     this.A.ready.play();
-    this.mode = 'ready';      // ready | dive | leap
+    this.mode = 'ready';      // ready | dive | leap | rise (getting up) | up (back on his feet)
     this.t = 0; this.sway = 0;
     this.d = null;
     // hips → wrist with the arms straight over the head, measured on this rig
@@ -68,7 +76,7 @@ export class Keeper {
   reset(x, z, face) {
     // already standing: keep the stance going (a reset would snap it); after a save, start over
     if (this.mode !== 'ready' || !this.A.ready.isRunning()) { this.mixer.stopAllAction(); this.A.ready.reset().play(); }
-    this.mode = 'ready'; this.d = null; this.t = 0; this.hopT = -1; this.lookW = 0; this.lookP = null;
+    this.mode = 'ready'; this.d = null; this.rise = null; this.t = 0; this.hopT = -1; this.lookW = 0; this.lookP = null;
     for (const k in this.limb) this.limb[k].lastP = null;
     this.feet.reset(); this.lastFeet = null;
     this.model.position.set(0, 0, 0); this.model.quaternion.identity();
@@ -86,6 +94,7 @@ export class Keeper {
   /**
    * Plan a save attempt at world point `target`, reached `tc` seconds after start.
    * kind: 'dive' (side) | 'leap' (high central catch) — chosen from the target.
+   * opts.catch: he holds the ball; opts.beaten: it is a goal (he stays down a little longer).
    */
   start(target, tc, opts = {}) {
     this.root.updateMatrixWorld(true);
@@ -110,8 +119,8 @@ export class Keeper {
     if (hs.y > 1.4) hs.y = 1.4;
     const near = Math.abs(dx) < 0.7 && B.y < 1.25;            // crouch/smother, no real dive
     tc = THREE.MathUtils.clamp(tc, 0.26, 0.62);
-    this.d = { s, B, th: near ? Math.min(th, 0.35) : th, hs, h0: hips0, tc, near, catch: opts.catch, hit: false, fallFrom: null };
-    this.mode = 'dive'; this.t = 0;
+    this.d = { s, B, th: near ? Math.min(th, 0.35) : th, hs, h0: hips0, tc, near, catch: opts.catch, beaten: opts.beaten, hit: false, fallFrom: null };
+    this.mode = 'dive'; this.t = 0; this.rise = null;
   }
 
   update(dt, time, ballWorld) {
@@ -122,16 +131,18 @@ export class Keeper {
       this.guard.restore(); this.mixer.update(dt); this.guard.capture();
       this.model.position.y = -0.015 + Math.sin(time * 2.6) * 0.008;
       if (this.hopT >= 0) { this.hopT += dt; const u = this.hopT / 0.28; this.model.position.y += u < 1 ? Math.sin(Math.PI * u) * 0.07 : 0; if (u >= 1) this.hopT = -1; }
-      this.model.updateMatrixWorld(true); this.feet.apply(dt);
+      this.model.updateMatrixWorld(true); this.stance(1); this.feet.apply(dt);
       this.lastFeet = { Left: this.b.LeftFoot.getWorldPosition(V()), Right: this.b.RightFoot.getWorldPosition(V()) }; // where the boots are drawn
       this.ground.apply();
       return;
     }
     this.guard.restore(); this.mixer.update(dt); this.guard.capture();
+    if (this.mode === 'rise' || this.mode === 'up') { this.getUp(dt, ballWorld); this.ground.apply(); return; }
     if (this.mode === 'leap') {
       this.root.updateMatrixWorld(true);
       // drift toward the ball and pull the hands onto it at the top of the jump
       const d = this.d; const u = smooth(0, d.tc, this.t);
+      this.stance(1 - smooth(0, 0.2, this.t));
       this.model.position.x = THREE.MathUtils.lerp(0, d.B.x * 0.9, easeOut(u)); this.model.position.y = 0;
       this.model.updateMatrixWorld(true);
       const w = smooth(0.1, d.tc, this.t) * (1 - smooth(d.tc + 0.35, d.tc + 0.8, this.t));
@@ -140,23 +151,109 @@ export class Keeper {
       this.ground.apply();
       return;
     }
-    this.pose(dt, ballWorld);
+    const tLand = this.pose(dt, ballWorld);
     this.ground.apply();
+    // down for a moment (longer when he is beaten, long enough to gather a ball he holds), then up
+    if (this.t > tLand + (this.d.near ? 0.3 : this.d.catch ? 0.4 : this.d.beaten ? 0.45 : 0.2)) this.startRise();
+  }
+
+  /**
+   * The set position, on top of the clip's standing pose (which hangs the arms straight down):
+   * he sits into his knees with the boots where they are, leans in, and carries his hands in
+   * front of him, elbows bent, ready to go either way. Weight w.
+   */
+  stance(w) {
+    if (w <= 0) return;
+    const b = this.b, up = V(0, 1, 0), fwd = this.W(V(0, 0, 1)), side = this.W(V(1, 0, 0));
+    const legs = ['Left', 'Right'].map((s) => ({ U: b[s + 'UpLeg'], L: b[s + 'Leg'], E: b[s + 'Foot'], at: b[s + 'Foot'].getWorldPosition(V()), q: b[s + 'Foot'].getWorldQuaternion(new THREE.Quaternion()) }));
+    const hips = b.Hips.getWorldPosition(V()); hips.y -= 0.05 * w; hips.addScaledVector(fwd, -0.02 * w);
+    b.Hips.position.copy(b.Hips.parent.worldToLocal(hips)); b.Hips.updateMatrixWorld(true);
+    for (const l of legs) {
+      reachIK(l.U, l.L, l.E, l.at);
+      l.E.quaternion.copy(l.E.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(l.q)); l.E.updateMatrixWorld(true);
+    }
+    rotateWorld(b.Spine02, side, 0.07 * w); rotateWorld(b.neck, side, -0.05 * w);
+    for (const [s, sg] of [['Left', 1], ['Right', -1]]) {
+      const sh = b[s + 'Arm'].getWorldPosition(V());
+      const hand = sh.clone().addScaledVector(side, sg * 0.2).addScaledVector(fwd, 0.27).addScaledVector(up, -0.24);
+      const pole = sh.clone().addScaledVector(side, sg * 0.6).addScaledVector(up, -0.5).addScaledVector(fwd, -0.1);
+      limbIK(this.limb[s + 'Arm'], hand, pole, w, fwd);
+    }
+  }
+
+  // ------------------------------------------------------------- getting up
+  /** Model-space point of a bone (the model itself may be turned and moved). */
+  inModel(bone) { return this.model.worldToLocal(bone.getWorldPosition(V())); }
+
+  startRise() {
+    const d = this.d, K = (n) => this.toK(this.b[n].getWorldPosition(V()));
+    const from = this.blend.capture();
+    const hips = K('Hips'), axis = K('neck').sub(hips);            // where he lies and which way his head points
+    // from a dive: the get-up clip of that side; from a crouch or a near save he is on his feet already
+    const act = d.near || !this.A.getupL ? this.A.ready : this.A[d.s > 0 ? 'getupL' : 'getupR'];
+    const clip = act !== this.A.ready;
+    this.mixer.stopAllAction(); act.reset().play(); act.timeScale = clip ? 0.92 : this.A.ready.timeScale;
+    this.guard.restore(); this.mixer.update(0); this.guard.capture();
+    this.model.position.set(0, 0, 0); this.model.quaternion.identity(); this.model.updateMatrixWorld(true);
+    const h0 = this.inModel(this.b.Hips).setY(0), a0 = this.inModel(this.b.neck).sub(this.inModel(this.b.Hips));
+    // turn the clip so that it starts lying the way he lies; the turn is taken out again as he gets up
+    const yaw0 = clip ? Math.atan2(axis.x, axis.z) - Math.atan2(a0.x, a0.z) : 0;
+    this.rise = { t: 0, from, act, clip, h0, yaw0, pivot: hips.setY(0), dur: clip ? act.getClip().duration / act.timeScale : 0.5, fade: clip ? 0.32 : 0.5, handT: -1, hE: null };
+    this.mode = 'rise';
+    this.getUp(0, null);
+  }
+
+  getUp(dt, ballWorld) {
+    const r = this.rise; r.t += dt;
+    // the last steps of the clip hand over to the stance; the stance stands on the model's own
+    // spot, so the model moves under him while they cross (he stays where he got up)
+    if (r.clip && r.handT < 0 && r.t >= r.dur - 0.3) { r.handT = r.t; r.hE = this.b.Hips.position.clone(); this.A.ready.reset().play(); r.act.crossFadeTo(this.A.ready, 0.35, false); }
+    const yaw = r.yaw0 * (1 - smooth(r.dur * 0.2, r.dur * 0.75, r.t));
+    this.model.quaternion.setFromAxisAngle(V(0, 1, 0), yaw);
+    this.model.position.set(0, 0, 0); this.model.updateMatrixWorld(true);
+    const off = r.h0.clone();
+    if (r.handT >= 0) {
+      const u = smooth(r.handT, r.handT + 0.35, r.t), hip = this.b.Hips, keep = hip.position.clone();
+      // model-space hips of the clip's end minus those of the stance, taken on as the stance takes over
+      hip.position.copy(r.hE); hip.updateMatrixWorld(true); const e = this.inModel(hip);
+      hip.position.copy(this.rig.hipsRest); hip.updateMatrixWorld(true); const s = this.inModel(hip);
+      hip.position.copy(keep); hip.updateMatrixWorld(true);
+      off.addScaledVector(s.sub(e).setY(0), u);
+    }
+    this.model.position.copy(r.pivot).sub(off.applyQuaternion(this.model.quaternion)).setY(0);
+    this.model.updateMatrixWorld(true);
+    // back in the stance as the clip hands over (a crouch goes straight back to it)
+    if (!this.d.catch) this.stance(r.clip ? (r.handT >= 0 ? smooth(r.handT, r.handT + 0.35, r.t) : 0) : 1);
+    this.blend.apply(r.from, smooth(0, r.fade, r.t));
+    if (this.d.catch) this.hug();
+    this.lookTo(ballWorld, 0, dt);
+    if (this.mode === 'rise' && r.t >= r.dur + 0.1) this.mode = 'up';
+  }
+
+  /** Both arms round a ball held in front of the chest, whatever the body is doing. */
+  hug() {
+    const hips = this.b.Hips.getWorldPosition(V()), up = this.b.neck.getWorldPosition(V()).sub(hips).normalize();
+    const side = this.b.LeftArm.getWorldPosition(V()).sub(this.b.RightArm.getWorldPosition(V())).normalize();
+    const fwd = side.clone().cross(up).normalize();
+    const at = this.b.Spine.getWorldPosition(V()).addScaledVector(up, 0.04).addScaledVector(fwd, 0.3);
+    this.armsTo(at, 0.11, 1, up, fwd);
   }
 
   // ------------------------------------------------------------- side dive
   pose(dt, ballWorld) {
     const d = this.d, t = this.t, s = d.s;
+    this.stance(1 - smooth(0, 0.2, t));                              // out of the set position
     const tc = d.tc, tLand = tc + (d.near ? 0.25 : 0.32 + d.hs.y * 0.18);
     // roll angle around the forward axis
     let th;
-    if (t < tc) th = THREE.MathUtils.lerp(0, d.th, easeOut(smooth(0.05, tc, t) * 1.0) ** 1.2);
+    const even = (u) => THREE.MathUtils.lerp(u, easeOut(u), 0.3);    // a full ease-out is level long before the ball: it hangs in the air
+    if (t < tc) th = THREE.MathUtils.lerp(0, d.th, even(smooth(0.05, tc, t)) ** 1.2);
     else th = THREE.MathUtils.lerp(d.th, d.near ? d.th : Math.max(d.th, 1.42), smooth(tc, tLand, t));
     // hips path: dip to load, jump arc to the stretch point, fall to the ground
     const H = V();
     const load = smooth(0, 0.09, t) * (1 - smooth(0.09, 0.2, t));
     if (t < tc) {
-      const u = smooth(0.06, tc, t), e = easeOut(u);
+      const u = smooth(0.06, tc, t), e = even(u);
       H.x = THREE.MathUtils.lerp(d.h0.x, d.hs.x, e);
       H.z = THREE.MathUtils.lerp(d.h0.z, d.hs.z, e);
       const apex = d.near ? 0 : 0.12 + 0.1 * Math.sin(d.th);
@@ -196,7 +293,7 @@ export class Keeper {
     let rest = null;
     if (t > tc) { // caught: the ball comes in to the chest; missed: the arms come to rest as he lands
       const pull = smooth(tc + 0.08, tLand + 0.1, t);
-      if (d.catch) target.lerp(chest.clone().addScaledVector(U, 0.22).addScaledVector(F, 0.3), pull);
+      if (d.catch) target.lerp(chest.clone().addScaledVector(U, 0.04).addScaledVector(F, 0.3), pull);
       else rest = { w: pull, lead: s > 0 ? 'Left' : 'Right', lie: smooth(0.5, 1.1, th) };
     }
     this.armsTo(P(target), 0.11, reachW, W(U), W(F), 0.16 * (1 - smooth(tc, tc + 0.15, t)), W(Dn), rest);
@@ -252,6 +349,7 @@ export class Keeper {
     limbIK(this.limb[far + 'Leg'], P(footF), kneePole(hipF), wl);
 
     this.lookTo(ballWorld, t < tLand ? 0.75 * wD : 0, dt);
+    return tLand;
   }
 
   /** Keeper-space direction → world direction. */
@@ -280,7 +378,7 @@ export class Keeper {
       if (rest && rest.w > 0) {
         const dir = (u, f, dn, sd) => up.clone().multiplyScalar(u).addScaledVector(fwd, f).addScaledVector(down, dn).addScaledVector(sideW, sg * sd).normalize();
         let lying;
-        if (side === rest.lead) lying = sh.clone().addScaledVector(dir(0.85, 0.45, 0.15, 0), this.armLen * 0.97);
+        if (side === rest.lead) { lying = sh.clone().addScaledVector(dir(0.9, 0.35, 0, 0), this.armLen * 0.95); lying.y = 0.06; }
         else { lying = sh.clone().addScaledVector(fwd, 0.38).addScaledVector(up, 0.08); lying.y = 0.07; }
         const standing = sh.clone().addScaledVector(dir(-0.8, 0.45, 0, 0.12), this.armLen * 0.9);
         tgt.lerp(standing.lerp(lying, rest.lie), rest.w);
@@ -300,6 +398,8 @@ export class Keeper {
       }
       const pole = sh.clone().addScaledVector(sideW, sg * 0.55).addScaledVector(up, -0.4).addScaledVector(fwd, 0.12);
       // the top arm of a keeper on his side folds forward onto the turf (an elbow that points at the sky reads as a raised arm)
+      // the arm he lies on bends a little forward on the turf (an elbow dug into the ground lifts the hand)
+      if (rest && rest.w > 0 && side === rest.lead) pole.lerp(sh.clone().addScaledVector(fwd, 0.6).addScaledVector(up, 0.25), rest.w * rest.lie);
       if (rest && rest.w > 0 && side !== rest.lead) pole.lerp(sh.clone().addScaledVector(fwd, 0.7).addScaledVector(up, -0.25).addScaledVector(sideW, sg * 0.08), rest.w * rest.lie);
       const limb = this.limb[side + 'Arm'];
       const q0 = limb.U.quaternion.clone(), q1 = limb.L.quaternion.clone(), p0 = limb.lastP && limb.lastP.clone(), d0 = limb.lastDir && limb.lastDir.clone();
