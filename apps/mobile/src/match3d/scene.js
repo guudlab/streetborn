@@ -16,7 +16,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { rigInfo, retarget, mirror, subclip, rotateWorld, aimBone, lockYaw, PoseGuard, cleanSkin, GroundClamp, FootLock, rigFor } from './rig.js';
+import { tuckArms, rigInfo, retarget, mirror, subclip, rotateWorld, aimBone, lockYaw, PoseGuard, cleanSkin, GroundClamp, FootLock, rigFor } from './rig.js';
 import { Keeper } from './keeper.js';
 import { buildStands } from './stands.js';
 
@@ -28,6 +28,10 @@ const BALL_R = 0.11;
 const KICK_CONTACT = 0.52, KICK_FROM = 0.16, KICK_SPEED = 1.3;
 const KICK_PLANT = 0.3, KICK_STEP = 0.8;   // the clip's plant foot lands at 0.3; the last stride plays at 0.8
 const SLIDE_CONTACT = 0.45;  // the slide foot reaches the ball here (clip seconds)
+// the part of Victory_Cheer with both arms up, pumping. After it the clip turns away to the
+// crowd, which with the facing locked folds an arm round the head, and then holds a pose
+const CHEER_FROM = 0.3, CHEER_TO = 2.05;
+const GETUP_FROM = 0.9;      // the slide clip lies still on its side here; the rest of it is the get-up
 const DEF_Z = -6.5, ATT_START = 10;   // defender spot, attacker start distance
 const PASS_PERIOD = 1.6;     // seconds for the pass ring 0 → 1 → 0
 // where the shots are taken from (x, z), in turn unless the engine names the lane; free kicks
@@ -365,7 +369,7 @@ export function createMatch(env) {
   const mateRigs = mateMs.map(rigInfo), rivalRigs = rivalMs.map(rigInfo);
   const clip = (f) => G[f].animations[0];
   // idle and cheer turn the body around on the spot; lock their facing so characters stay put
-  const C = { idle: lockYaw(clip('anim-street-idle')), kick: clip('anim-kick'), cheer: lockYaw(clip('anim-cheer')), run: clip('anim-run'), slide: clip('anim-slide'), leap: clip('anim-leap') };
+  const C = { idle: lockYaw(clip('anim-street-idle')), kick: clip('anim-kick'), cheer: subclip(lockYaw(clip('anim-cheer')), CHEER_FROM, CHEER_TO, 'cheer'), run: clip('anim-run'), slide: clip('anim-slide'), leap: clip('anim-leap') };
   const readySrc = subclip(C.leap, 0, 0.25, 'ready');
 
   class Actor {
@@ -373,6 +377,12 @@ export function createMatch(env) {
     update(dt) {
       if (!this.guard) this.guard = new PoseGuard(this.model);
       this.guard.restore(); this.mixer.update(dt); this.guard.capture();
+      // standing around, the arms hang by the body (the clip holds them out like a doll's)
+      const idle = this.A.idle;
+      if (idle && idle.isRunning()) {
+        if (!this.bones) { this.bones = {}; this.model.traverse((o) => { if (o.isBone) this.bones[o.name] = o; }); }
+        tuckArms(this.bones, idle.getEffectiveWeight() * 0.85);
+      }
       // a one-shot clip that has played out hands over (a clamped last frame is a statue)
       if (this.next && this.cur && this.cur.paused) { const n = this.next; this.play(n.name, n.opts); }
     }
@@ -381,7 +391,7 @@ export function createMatch(env) {
       const a = this.A[name];
       this.next = then && !loop ? { name: then, opts: thenOpts } : null;
       if (loop && this.cur === a && a.isRunning()) { a.timeScale = speed; return a; }   // already playing: a reset would snap the pose
-      a.reset(); a.setLoop(loop ? (this.pingpong && this.pingpong.has(name) ? THREE.LoopPingPong : THREE.LoopRepeat) : THREE.LoopOnce, loop ? Infinity : 1); a.clampWhenFinished = !loop;
+      a.reset(); a.setLoop(loop ? (name === 'cheer' || (this.pingpong && this.pingpong.has(name)) ? THREE.LoopPingPong : THREE.LoopRepeat) : THREE.LoopOnce, loop ? Infinity : 1); a.clampWhenFinished = !loop;
       a.timeScale = speed; a.time = from; a.setEffectiveWeight(1); a.play();
       if (this.cur && this.cur !== a) this.cur.crossFadeTo(a, fade, false);
       this.cur = a; return a;
@@ -409,6 +419,7 @@ export function createMatch(env) {
   });
   hero.A.jockey.timeScale = 0.4;
   hero.pingpong = new Set(['jockey']);   // a held stance, not a cycle: rock back and forth instead of jumping to the start
+  // (the cheer is cut the same way on every Actor: it pumps up and down, it does not restart)
   const heroFoot = boneAt(heroM, R.street, hero.A.kick.getClip(), KICK_CONTACT, 'RightToeBase');
   const heroHipsHome = boneAt(heroM, R.street, hero.A.idle.getClip(), 0, 'Hips');   // where the idle holds his hips (model space)
   const heroSlideFoot = { R: boneAt(heroM, R.street, hero.A.slideR.getClip(), SLIDE_CONTACT, 'RightFoot'), L: boneAt(heroM, R.street, hero.A.slideL.getClip(), SLIDE_CONTACT, 'LeftFoot') };
@@ -472,7 +483,10 @@ export function createMatch(env) {
 
   // keeper (Meshy kaleci-v2): procedural dives on its own rig
   prep(keeperM);
-  const keeper = new Keeper(keeperM, retarget(C.leap, R.keeperSrc, rigInfo(keeperM), { name: 'leap' }));
+  // he gets up from a dive with the get-up at the end of the slide clip (it lies on its left side there)
+  const keeperRig = rigInfo(keeperM);
+  const keeper = new Keeper(keeperM, retarget(C.leap, R.keeperSrc, keeperRig, { name: 'leap' }),
+    retarget(subclip(C.slide, GETUP_FROM, C.slide.duration, 'getup'), R.keeperSrc, keeperRig, { name: 'getup' }));
   scene.add(keeper.root);
 
   // free kick wall: three of their players, standing, no two alike (rival2-4 when there are)
@@ -810,7 +824,7 @@ export function createMatch(env) {
   }
   function keeperGo() {
     const k = flight.keeper; const tc = Math.max(0.24, flight.D * 0.93 - k.delay);
-    keeper.start(k.at, tc, { catch: k.catch });
+    keeper.start(k.at, tc, { catch: k.catch, beaten: flight.outcome === 'goal' });
   }
 
   function resolve(kind) {
